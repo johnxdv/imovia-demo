@@ -69,6 +69,7 @@ export function Navbar() {
   }, [open])
 
   // Transparente pendant tout le hero ; pleine une fois le hero passé (ou ailleurs).
+  // Cet état ne concerne QUE la barre — jamais l'overlay du menu (fond opaque fixe).
   const solid = !overHero && scrolled
 
   const linkVariants = {
@@ -77,58 +78,64 @@ export function Navbar() {
   }
 
   return (
-    <header
-      className={[
-        'fixed inset-x-0 top-0 z-50 transition-colors duration-500 ease-plan',
-        solid ? 'bg-ink/95 backdrop-blur-md border-b border-white/10' : 'bg-transparent',
-      ].join(' ')}
-    >
-      <a
-        href="#contenu"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:bg-brass focus:px-4 focus:py-2 focus:font-mono focus:text-xs focus:uppercase focus:text-ink"
+    <>
+      <header
+        className={[
+          'fixed inset-x-0 top-0 z-50 transition-colors duration-500 ease-plan',
+          solid ? 'bg-ink/95 backdrop-blur-md border-b border-white/10' : 'bg-transparent',
+        ].join(' ')}
       >
-        Aller au contenu
-      </a>
-
-      <div className="container-page">
-        <div
-          className={[
-            'relative z-10 flex items-center justify-between transition-all duration-500 ease-plan',
-            solid ? 'py-3.5' : 'py-5',
-          ].join(' ')}
+        <a
+          href="#contenu"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:bg-brass focus:px-4 focus:py-2 focus:font-mono focus:text-xs focus:uppercase focus:text-ink"
         >
-          <Wordmark onClick={() => setOpen(false)} />
+          Aller au contenu
+        </a>
 
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="relative z-10 -m-2.5 inline-flex touch-manipulation items-center gap-2.5 p-2.5 text-stone transition-colors hover:text-brass"
-            aria-expanded={open}
-            aria-controls="menu-principal"
+        <div className="container-page">
+          <div
+            className={[
+              'relative z-10 flex items-center justify-between transition-all duration-500 ease-plan',
+              solid ? 'py-3.5' : 'py-5',
+            ].join(' ')}
           >
-            <span className="font-mono text-[0.72rem] uppercase tracking-[0.12em]">
-              {open ? 'Fermer' : 'Menu'}
-            </span>
-            {open ? (
-              <X className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
-            ) : (
-              <Menu className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
-            )}
-          </button>
-        </div>
-      </div>
+            <Wordmark onClick={() => setOpen(false)} />
 
-      {/* Overlay plein écran — burger sur l'ensemble du site */}
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="relative z-10 -m-2.5 inline-flex touch-manipulation items-center gap-2.5 p-2.5 text-stone transition-colors hover:text-brass"
+              aria-expanded={open}
+              aria-controls="menu-principal"
+            >
+              <span className="font-mono text-[0.72rem] uppercase tracking-[0.12em]">
+                {open ? 'Fermer' : 'Menu'}
+              </span>
+              {open ? (
+                <X className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <Menu className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Overlay plein écran du menu burger.
+          - Frère du header (jamais descendant) : aucun `backdrop-filter`/transform
+            parent ne peut le rogner en tant qu'élément `fixed`.
+          - Fond Ink Navy opaque dès la première frame (pas d'animation d'opacité
+            sur le panneau) : indépendant de l'état de transparence de la navbar. */}
       <AnimatePresence>
         {open ? (
           <motion.div
             id="menu-principal"
             key="overlay"
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
-            className="fixed inset-0 z-0 bg-ink"
+            transition={{ duration: 0.3, ease: EASE }}
+            className="fixed inset-0 z-40 bg-ink"
           >
             <motion.div
               initial="hidden"
@@ -195,6 +202,6 @@ export function Navbar() {
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </header>
+    </>
   )
 }
