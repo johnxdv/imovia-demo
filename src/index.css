@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink text-stone font-sans antialiased;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+
+  /* Chiffres tabulaires par défaut sur les données techniques (mono). */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Focus clavier visible partout — exigence transverse. */
+  :focus-visible {
+    outline: 2px solid theme('colors.brass');
+    outline-offset: 3px;
+    border-radius: 1px;
+  }
+
+  ::selection {
+    background: theme('colors.brass');
+    color: theme('colors.ink');
+  }
+
+  /* Titres display : jamais sur de longs blocs. */
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-content px-5 sm:px-8 lg:px-12;
+  }
+
+  /* Étiquette technique (kicker) — mono, espacée, façon légende de plan. */
+  .eyebrow {
+    @apply font-mono text-[0.7rem] uppercase tracking-micro text-brass;
+  }
+
+  .link-underline {
+    @apply relative inline-flex items-center gap-2 transition-colors;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Voile Ink Navy pour unifier les visuels photographiques. */
+  .veil::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(16, 20, 28, 0.15) 0%,
+      rgba(16, 20, 28, 0.35) 45%,
+      rgba(16, 20, 28, 0.85) 100%
+    );
+    pointer-events: none;
+  }
+}
+
+/* Respect strict de prefers-reduced-motion (filet de sécurité côté CSS ;
+   les animations Framer Motion sont par ailleurs neutralisées via useReducedMotion). */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
