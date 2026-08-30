@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { EASE } from '../../lib/motion'
+import { ChevronDown } from 'lucide-react'
 import { SearchBar } from './SearchBar'
 import { Button } from '../ui/Button'
 
@@ -35,6 +36,8 @@ export function Hero() {
   // Accroche visible au repos, s'efface dès le scroll ; recherche révélée en Phase 2.
   const headlineOpacity = useTransform(scrollYProgress, [0, 0.06], [1, 0])
   const searchOpacity = useTransform(scrollYProgress, [0.8, 0.92], [0, 1])
+  // Indicateur de scroll : présent sur la première frame, s'efface dès le scroll.
+  const cueOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
   // --- Rendu canvas (séquence d'images, pas de scrubbing vidéo) ---
 
@@ -217,6 +220,16 @@ export function Hero() {
             </div>
             <SearchBar />
           </div>
+        </motion.div>
+
+        {/* Indicateur de scroll — très discret, uniquement sur la première frame */}
+        <motion.div
+          style={{ opacity: reduce ? 1 : cueOpacity }}
+          className="pointer-events-none absolute inset-x-0 bottom-6 flex flex-col items-center gap-1 text-stone/40"
+          aria-hidden="true"
+        >
+          <span className="font-mono text-[0.58rem] uppercase tracking-micro">Défiler</span>
+          <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
         </motion.div>
       </div>
     </section>

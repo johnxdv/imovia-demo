@@ -6,28 +6,17 @@ import { primaryNav, secondaryNav } from '../../lib/nav'
 import { agency } from '../../data/agency'
 import { useFavorites } from '../../lib/favorites'
 import { EASE } from '../../lib/motion'
+import logoUrl from '../../assets/logo.png'
 
 function Wordmark({ onClick }) {
   return (
     <Link
       to="/"
       onClick={onClick}
-      className="group relative z-10 inline-flex items-center gap-3"
+      className="group relative z-10 inline-flex items-center"
       aria-label={`${agency.name} — accueil`}
     >
-      <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <g stroke="#B08D57" strokeWidth="1.4" strokeLinecap="square">
-          <path d="M4 8V4h4" />
-          <path d="M20 8V4h-4" />
-          <path d="M4 16v4h4" />
-          <path d="M20 16v4h-4" />
-          <path d="M12 7v10" />
-          <path d="M7 12h10" opacity="0.45" />
-        </g>
-      </svg>
-      <span className="font-display text-xl font-medium tracking-tight text-stone">
-        {agency.name}
-      </span>
+      <img src={logoUrl} alt={agency.name} className="h-7 w-auto shrink-0" />
     </Link>
   )
 }
@@ -113,7 +102,7 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="relative z-10 inline-flex items-center gap-2.5 text-stone transition-colors hover:text-brass"
+            className="relative z-10 -m-2.5 inline-flex touch-manipulation items-center gap-2.5 p-2.5 text-stone transition-colors hover:text-brass"
             aria-expanded={open}
             aria-controls="menu-principal"
           >

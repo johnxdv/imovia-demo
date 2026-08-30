@@ -23,4 +23,8 @@ export const fadeIn = {
 }
 
 // Réglage commun du déclenchement au scroll.
-export const viewportOnce = { once: true, amount: 0.25, margin: '0px 0px -8% 0px' }
+// `amount: 'some'` (et non une fraction) : un seuil fractionnaire (ex. 0.25)
+// devient inatteignable pour les grilles plus hautes que 4× l'écran (mobile,
+// une colonne) → la révélation ne se déclenchait jamais. « some » se déclenche
+// dès qu'une partie entre dans le cadre, quelle que soit la hauteur.
+export const viewportOnce = { once: true, amount: 'some', margin: '0px 0px -8% 0px' }
