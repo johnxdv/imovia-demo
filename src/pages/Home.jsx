@@ -1,37 +1,50 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Scale, ListChecks, ShieldCheck, Compass, ArrowRight } from 'lucide-react'
+import {
+  ShieldCheck,
+  ArrowRight,
+  MapPin,
+  Award,
+  Lightbulb,
+  ChevronLeft,
+  ChevronRight,
+  UserRound,
+} from 'lucide-react'
 import { Hero } from '../components/home/Hero'
 import { Section } from '../components/ui/Section'
 import { Reveal, RevealGroup, RevealChild } from '../components/ui/Reveal'
 import { PlanFrame } from '../components/ui/PlanFrame'
-import { PropertyGrid } from '../components/ui/PropertyGrid'
+import { PropertyCard } from '../components/ui/PropertyCard'
 import { ArrowLink } from '../components/ui/ArrowLink'
 import { Button } from '../components/ui/Button'
 import { photoUrl, photoSrcSet } from '../lib/format'
 import { latestAvailable } from '../lib/properties'
-import { team } from '../data/team'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 const valeurs = [
   {
-    icon: Scale,
-    titre: 'Estimation juste',
-    texte: 'Nous fondons chaque prix sur des références concrètes et récentes, jamais sur une promesse.',
-  },
-  {
-    icon: ListChecks,
-    titre: 'Mandats choisis',
-    texte: 'Nous limitons le nombre de biens suivis pour rester disponibles et réellement réactifs.',
+    icon: MapPin,
+    titre: 'Proximité',
+    texte:
+      'En étant entièrement disponibles pour vous, en connaissant chaque quartier, chaque rue et les réalités de notre secteur pour vous apporter des conseils pertinents.',
   },
   {
     icon: ShieldCheck,
-    titre: 'Discrétion',
-    texte: 'Nous protégeons la confidentialité des vendeurs comme des acquéreurs, à chaque étape.',
+    titre: 'Confiance',
+    texte:
+      'En construisant une relation basée sur la transparence, la sincérité et le respect de nos engagements.',
   },
   {
-    icon: Compass,
-    titre: 'Suivi de bout en bout',
-    texte: 'Un interlocuteur unique vous accompagne, de la première visite jusqu’à la signature.',
+    icon: Award,
+    titre: 'Exigence',
+    texte:
+      'En valorisant chaque bien grâce à une présentation soignée, des photos professionnelles, une communication de qualité et une sélection rigoureuse des acquéreurs.',
+  },
+  {
+    icon: Lightbulb,
+    titre: 'Innovation',
+    texte:
+      'En associant les méthodes traditionnelles qui ont fait leurs preuves aux outils numériques les plus performants pour offrir une visibilité maximale à votre bien.',
   },
 ]
 
@@ -62,19 +75,24 @@ function About() {
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
         <div className="lg:col-span-6">
           <Reveal>
-            <h2 className="text-display-md text-stone">
-              Une agence indépendante, ancrée dans sa région.
-            </h2>
+            <h2 className="text-display-md text-stone">À propos d’IMMOVIA</h2>
           </Reveal>
           <Reveal delay={0.05}>
             <div className="mt-8 space-y-5 text-base leading-relaxed text-stone/75">
               <p>
-                Nous connaissons Bordeaux et le Bassin d’Arcachon rue par rue. Cette connaissance du
-                terrain guide chacune de nos estimations et chacun de nos conseils.
+                Chez IMMOVIA, nous sommes convaincus que l’immobilier est avant tout une histoire de
+                confiance, de proximité et d’engagement.
               </p>
               <p>
-                Nous travaillons un nombre limité de mandats à la fois. C’est notre manière de donner
-                à chaque bien — et à chaque client — l’attention qu’il mérite.
+                Implantée au cœur du village de Diebling, idéalement situé entre Sarreguemines,
+                Saint-Avold et Forbach, notre agence accompagne chaque client, qu’il soit
+                propriétaire, acquéreur, vendeur, bailleur, investisseur ou locataire, avec une
+                approche humaine, transparente et exigeante.
+              </p>
+              <p>
+                Parce que chaque projet est unique, nous prenons le temps de vous écouter, de
+                comprendre vos attentes et de vous proposer un accompagnement entièrement
+                personnalisé.
               </p>
             </div>
           </Reveal>
@@ -108,11 +126,9 @@ function About() {
 
 function Valeurs() {
   return (
-    <Section tone="stone" divider dividerLabel="Nos valeurs">
+    <Section tone="stone" divider>
       <Reveal>
-        <h2 className="max-w-3xl text-display-md text-ink">
-          Quatre principes qui guident notre travail.
-        </h2>
+        <h2 className="max-w-3xl text-display-md text-ink">Nos valeurs</h2>
       </Reveal>
       <RevealGroup className="mt-14 grid grid-cols-1 gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
         {valeurs.map(({ icon: Icon, titre, texte }) => (
@@ -172,6 +188,33 @@ function Orientation() {
 
 function DerniersBiens() {
   const biens = latestAvailable(6)
+  const [perView, setPerView] = useState(3)
+  const [index, setIndex] = useState(0)
+
+  // Biens visibles simultanément : 1 (téléphone), 2 (tablette), 3 (ordinateur).
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth
+      setPerView(w < 640 ? 1 : w < 1024 ? 2 : 3)
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    return () => window.removeEventListener('resize', compute)
+  }, [])
+
+  const maxIndex = Math.max(0, biens.length - perView)
+
+  // Recale l'index si perView change (redimensionnement).
+  useEffect(() => {
+    setIndex((i) => Math.min(i, Math.max(0, biens.length - perView)))
+  }, [perView, biens.length])
+
+  const prev = () => setIndex((i) => Math.max(0, i - 1))
+  const next = () => setIndex((i) => Math.min(maxIndex, i + 1))
+
+  const arrowClass =
+    'inline-flex h-11 w-11 items-center justify-center border border-ink/25 text-ink transition-colors hover:border-brass hover:text-brass disabled:pointer-events-none disabled:opacity-30 touch-manipulation'
+
   return (
     <Section tone="stone" divider dividerLabel="Sélection">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -179,13 +222,54 @@ function DerniersBiens() {
           <h2 className="max-w-2xl text-display-md text-ink">Découvrez nos derniers biens.</h2>
         </Reveal>
         <Reveal delay={0.05}>
-          <ArrowLink to="/acheter" className="!text-ink hover:!text-brass">
-            Voir tous nos biens
-          </ArrowLink>
+          <div className="flex items-center gap-6">
+            <ArrowLink to="/acheter" className="!text-ink hover:!text-brass">
+              Voir tous nos biens
+            </ArrowLink>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={prev}
+                disabled={index === 0}
+                aria-label="Voir le bien précédent"
+                className={arrowClass}
+              >
+                <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                disabled={index >= maxIndex}
+                aria-label="Voir le bien suivant"
+                className={arrowClass}
+              >
+                <ChevronRight className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </Reveal>
       </div>
-      <div className="mt-14">
-        <PropertyGrid properties={biens} />
+
+      <div
+        className="mt-14 -mx-3 overflow-hidden"
+        role="region"
+        aria-roledescription="carrousel"
+        aria-label="Nos derniers biens"
+      >
+        <div
+          className="flex transition-transform duration-500 ease-plan"
+          style={{ transform: `translateX(-${index * (100 / perView)}%)` }}
+        >
+          {biens.map((p) => (
+            <div
+              key={p.reference}
+              className="shrink-0 grow-0 px-3"
+              style={{ flexBasis: `${100 / perView}%` }}
+            >
+              <PropertyCard property={p} />
+            </div>
+          ))}
+        </div>
       </div>
     </Section>
   )
@@ -254,8 +338,15 @@ function ContactTeaser() {
   )
 }
 
+// Photos et noms réels non encore fournis : libellés de rôle uniquement + une
+// case « Vous ? » invitant à candidater.
+const conseillers = [
+  { role: "Directeur d'agence" },
+  { role: 'Conseillère immobilier' },
+  { role: 'Vous ?', to: '/recrutement', invite: true },
+]
+
 function EquipeTeaser() {
-  const apercu = team.slice(0, 5)
   return (
     <Section tone="ink" divider dividerLabel="L'équipe">
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center">
@@ -276,23 +367,40 @@ function EquipeTeaser() {
         </div>
 
         <div className="lg:col-span-7">
-          <RevealGroup className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            {apercu.map((m) => (
-              <RevealChild key={m.email}>
-                <div className="group relative aspect-[3/4] overflow-hidden">
-                  <img
-                    src={photoUrl(m.photo, { w: 400 })}
-                    alt={m.nom}
-                    loading="lazy"
-                    className="h-full w-full object-cover grayscale transition-all duration-500 ease-plan group-hover:grayscale-0"
+          <RevealGroup className="grid grid-cols-3 gap-4">
+            {conseillers.map((m) => {
+              const card = (
+                <div className="group relative flex aspect-[3/4] items-center justify-center overflow-hidden border border-white/10 bg-ink">
+                  <UserRound
+                    className={`h-14 w-14 transition-colors ${
+                      m.invite ? 'text-brass/60 group-hover:text-brass' : 'text-stone/25'
+                    }`}
+                    strokeWidth={1}
+                    aria-hidden="true"
                   />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/70 to-transparent" />
-                  <span className="absolute inset-x-2 bottom-2 font-mono text-[0.6rem] uppercase tracking-micro text-stone">
-                    {m.nom.split(' ')[0]}
+                  <span className="absolute inset-x-3 bottom-3 font-mono text-[0.62rem] uppercase tracking-micro text-stone">
+                    {m.role}
                   </span>
+                  {m.invite ? <PlanFrame /> : null}
                 </div>
-              </RevealChild>
-            ))}
+              )
+              return (
+                <RevealChild key={m.role}>
+                  {m.to ? (
+                    <Link
+                      to={m.to}
+                      aria-label="Nous rejoindre — page recrutement"
+                      className="block focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brass"
+                    >
+                      {card}
+                    </Link>
+                  ) : (
+                    card
+                  )}
+                </RevealChild>
+              )
+            })}
           </RevealGroup>
         </div>
       </div>
