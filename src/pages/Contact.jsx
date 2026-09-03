@@ -4,6 +4,7 @@ import { Phone, Mail, MapPin, Clock, Check } from 'lucide-react'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Section } from '../components/ui/Section'
 import { PlanFrame } from '../components/ui/PlanFrame'
+import { ConsentNotice } from '../components/ui/ConsentNotice'
 import { agency } from '../data/agency'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -102,7 +103,11 @@ export default function Contact() {
                   </div>
                 </div>
 
-                <div className="mt-8 flex items-center gap-6">
+                <div className="mt-8">
+                  <ConsentNotice id="contact-consent" textClassName="text-stone/80" />
+                </div>
+
+                <div className="mt-6 flex items-center gap-6">
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center gap-2.5 bg-brass px-8 py-4 font-mono text-[0.72rem] uppercase tracking-micro text-ink transition-colors duration-300 ease-plan hover:bg-brass/90"
@@ -173,7 +178,7 @@ export default function Contact() {
                 {agency.address.line1}
               </span>
               <iframe
-                title="Localisation de l'agence Imovia à Bordeaux"
+                title={`Localisation de l'agence ${agency.name} à Diebling`}
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${agency.mapBbox}&layer=mapnik&marker=${agency.mapMarker}`}
                 className="relative h-full w-full grayscale-[0.35] contrast-95"
                 loading="lazy"

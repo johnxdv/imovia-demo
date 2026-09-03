@@ -5,31 +5,27 @@ import { Button } from '../components/ui/Button'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 // Parcours vendeur — véritable séquence chronologique : la numérotation
-// 01→06 est ici justifiée.
+// 01→05 est ici justifiée.
 const etapes = [
   {
     titre: 'Estimation',
-    texte: 'Nous évaluons votre bien à partir de ventes comparables et d’une visite sur place. Un prix argumenté, pas une fourchette de complaisance.',
+    texte: 'Nous évaluons votre bien lors d’une visite sur place, afin d’établir un avis de valeur précis et cohérent avec le marché local.',
   },
   {
-    titre: 'Préparation',
-    texte: 'Nous constituons le dossier : diagnostics, reportage photo, descriptif. Le bien est présenté sous son meilleur jour, sans artifice.',
+    titre: 'Stratégie',
+    texte: 'Nous constituons votre dossier, puis nous mettons en place une stratégie étudiée et adaptée aux spécificités de votre bien.',
   },
   {
     titre: 'Diffusion',
-    texte: 'Nous activons notre fichier d’acquéreurs qualifiés, puis diffusons sur les canaux pertinents. La confidentialité reste possible sur demande.',
+    texte: 'Nous valorisons votre bien, activons notre fichier d’acquéreurs et assurons sa multidiffusion sur l’ensemble de nos supports.',
   },
   {
-    titre: 'Visites',
-    texte: 'Nous organisons et menons les visites nous-mêmes, puis vous transmettons un retour précis après chacune d’elles.',
-  },
-  {
-    titre: 'Négociation',
-    texte: 'Nous portons la négociation et vérifions la solidité de chaque offre — financement compris — avant de vous la présenter.',
+    titre: 'Sélection',
+    texte: 'Nous qualifions les acquéreurs, vérifions leur capacité de financement et organisons les visites avant d’étudier chaque offre.',
   },
   {
     titre: 'Signature',
-    texte: 'Nous vous accompagnons du compromis à l’acte authentique chez le notaire, et restons votre interlocuteur jusqu’au bout.',
+    texte: 'Nous qualifions les acquéreurs, organisons les visites et vérifions la solidité de leur financement avant de présenter l’offre.',
   },
 ]
 
@@ -43,23 +39,30 @@ export default function Vendre() {
     <>
       <PageHeader
         eyebrow="Vendre"
-        title="Vendre avec méthode, du premier avis à la signature."
-        intro="Notre accompagnement vendeur suit un fil clair. Vous savez à chaque instant où vous en êtes, et ce qui vient ensuite."
+        eyebrowClassName="!text-sm sm:!text-base"
+        title={
+          <>
+            Une stratégie étudiée, structurée,
+            <br />
+            et sur mesure
+          </>
+        }
+        intro="De l’estimation à la signature définitive, nous vous accompagnons à chaque étape de votre projet de vente."
       />
 
-      <Section tone="ink" py="pb-24 pt-16 sm:pb-28">
+      <Section tone="white" py="pb-24 pt-16 sm:pb-28">
         <RevealGroup className="grid grid-cols-1 gap-0">
           {etapes.map((e, i) => (
             <RevealChild key={e.titre}>
-              <div className="grid grid-cols-1 gap-4 border-t border-white/10 py-8 sm:grid-cols-12 sm:gap-8 sm:py-10">
+              <div className="grid grid-cols-1 gap-4 border-t border-ink/10 py-8 sm:grid-cols-12 sm:gap-8 sm:py-10">
                 <div className="sm:col-span-2">
-                  <span className="font-mono text-3xl text-brass sm:text-4xl">{num(i)}</span>
+                  <span className="font-mono text-3xl text-ink/70 sm:text-4xl">{num(i)}</span>
                 </div>
                 <div className="sm:col-span-4">
-                  <h2 className="text-display-md text-stone">{e.titre}</h2>
+                  <h2 className="text-display-md text-ink">{e.titre}</h2>
                 </div>
                 <div className="sm:col-span-6">
-                  <p className="max-w-xl text-base leading-relaxed text-stone/75">{e.texte}</p>
+                  <p className="max-w-xl text-base leading-relaxed text-ink/70">{e.texte}</p>
                 </div>
               </div>
             </RevealChild>
@@ -67,19 +70,19 @@ export default function Vendre() {
         </RevealGroup>
       </Section>
 
-      <Section tone="stone" py="py-20 sm:py-24">
+      <Section tone="ink" py="py-20 sm:py-24">
         <div className="flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:justify-between">
           <Reveal>
-            <h2 className="max-w-xl text-display-md text-ink">
+            <h2 className="max-w-xl text-display-md text-stone">
               Commençons par une estimation juste.
             </h2>
           </Reveal>
           <Reveal delay={0.05}>
             <div className="flex flex-col gap-4 sm:flex-row">
-              <Button to="/estimer" variant="solidDark" size="lg">
+              <Button to="/estimer" variant="primary" size="lg">
                 Estimer mon bien
               </Button>
-              <Button to="/contact" variant="outline" size="lg" className="text-ink">
+              <Button to="/contact" variant="outline" size="lg" className="text-stone">
                 Nous contacter
               </Button>
             </div>

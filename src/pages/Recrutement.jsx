@@ -3,6 +3,7 @@ import { Check } from 'lucide-react'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Section } from '../components/ui/Section'
 import { Reveal } from '../components/ui/Reveal'
+import { ConsentNotice } from '../components/ui/ConsentNotice'
 import { agency } from '../data/agency'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -130,7 +131,11 @@ export default function Recrutement() {
                   </div>
                 </div>
 
-                <div className="mt-8 flex items-center gap-6">
+                <div className="mt-8">
+                  <ConsentNotice id="recrutement-consent" />
+                </div>
+
+                <div className="mt-6 flex items-center gap-6">
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center gap-2.5 bg-ink px-8 py-4 font-mono text-[0.72rem] uppercase tracking-micro text-stone transition-colors duration-300 ease-plan hover:bg-ink/90"

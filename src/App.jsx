@@ -6,7 +6,6 @@ import { ScrollToTop } from './components/layout/ScrollToTop'
 import Home from './pages/Home'
 import Estimer from './pages/Estimer'
 import Vendre from './pages/Vendre'
-import BiensVendus from './pages/BiensVendus'
 import Acheter from './pages/Acheter'
 import Louer from './pages/Louer'
 import PropertyDetail from './pages/PropertyDetail'
@@ -30,7 +29,6 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/estimer" element={<Estimer />} />
           <Route path="/vendre" element={<Vendre />} />
-          <Route path="/biens-vendus" element={<BiensVendus />} />
           <Route path="/acheter" element={<Acheter />} />
           <Route path="/louer" element={<Louer />} />
           <Route path="/bien/:reference" element={<PropertyDetail />} />

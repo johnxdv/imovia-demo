@@ -3,6 +3,7 @@ import { PlanDivider } from './PlanDivider'
 const tones = {
   ink: 'bg-ink text-stone',
   stone: 'bg-stone text-ink',
+  white: 'bg-white text-ink',
 }
 
 /**

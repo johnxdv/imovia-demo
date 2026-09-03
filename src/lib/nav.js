@@ -3,7 +3,6 @@ export const primaryNav = [
   { to: '/', label: 'Accueil', end: true },
   { to: '/estimer', label: 'Estimer' },
   { to: '/vendre', label: 'Vendre' },
-  { to: '/biens-vendus', label: 'Nos biens vendus' },
   { to: '/acheter', label: 'Acheter' },
   { to: '/louer', label: 'Louer' },
   { to: '/equipe', label: 'Équipe' },

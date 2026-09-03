@@ -8,11 +8,13 @@ export default function Louer() {
   return (
     <>
       <PageHeader
+        tone="white"
         eyebrow="Louer"
+        eyebrowClassName="!text-sm sm:!text-base !text-bottle"
         title="Nos biens à la location"
-        intro="Des locations vérifiées, meublées ou nues, à Bordeaux et sur le Bassin d’Arcachon. Affinez votre recherche, puis écrivez-nous pour visiter."
+        intro="Découvrez les biens actuellement disponibles. Affinez selon vos critères, puis contactez-nous pour organiser une visite."
       />
-      <Section tone="ink" py="pb-24 pt-4 sm:pb-28">
+      <Section tone="white" py="pb-24 pt-4 sm:pb-28">
         <PropertyListing transaction="location" />
       </Section>
     </>

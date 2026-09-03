@@ -31,6 +31,11 @@ export function Navbar() {
 
   const heroThresholdRef = useRef(0)
   const isHome = pathname === '/'
+  // Pages à fond clair sous la navbar (PageHeader tone="white", fiche bien) :
+  // la navbar transparente n'y est jamais lisible, elle reste donc pleine en
+  // permanence.
+  const lightHeader =
+    pathname === '/acheter' || pathname === '/louer' || pathname.startsWith('/bien/')
 
   // Mesure la hauteur « immersive » du hero (mise en cache, recalculée au resize).
   useEffect(() => {
@@ -70,7 +75,7 @@ export function Navbar() {
 
   // Transparente pendant tout le hero ; pleine une fois le hero passé (ou ailleurs).
   // Cet état ne concerne QUE la barre — jamais l'overlay du menu (fond opaque fixe).
-  const solid = !overHero && scrolled
+  const solid = lightHeader || (!overHero && scrolled)
 
   const linkVariants = {
     hidden: reduce ? { opacity: 0 } : { opacity: 0, y: 16 },

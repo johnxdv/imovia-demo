@@ -1,60 +1,21 @@
-// Membres de l'agence. Les portraits sont des identifiants Unsplash,
-// résolus par photoUrl() (voir src/lib/format.js).
+// Conseillers joignables individuellement depuis la page Équipe.
+// Volontairement SANS adresse e-mail : elle ne doit jamais transiter par le
+// bundle front. La fonction serverless (api/contact-conseiller.js) la résout
+// côté serveur à partir de l'identifiant `id`, via des variables
+// d'environnement Vercel.
 export const team = [
   {
-    nom: 'Camille Berthelot',
-    role: 'Directrice associée',
-    email: 'c.berthelot@imovia.fr',
-    phone: '05 56 00 00 01',
-    photo: '1573497019940-1c28c88b4f3e',
-  },
-  {
-    nom: 'Julien Marchand',
-    role: 'Directeur associé',
-    email: 'j.marchand@imovia.fr',
-    phone: '05 56 00 00 02',
+    id: 'lucas',
+    nom: 'Lucas BELLA',
+    role: "Directeur d'agence",
+    phone: '+33 6 71 01 68 64',
     photo: '1519085360753-af0119f7cbe7',
   },
   {
-    nom: 'Sarah Nguyen',
-    role: 'Conseillère — Bordeaux centre',
-    email: 's.nguyen@imovia.fr',
-    phone: '05 56 00 00 03',
+    id: 'emilie',
+    nom: 'Émilie ANDRASCHKE',
+    role: 'Conseillère immobilière',
+    phone: '+33 7 59 66 24 66',
     photo: '1580489944761-15a19d654956',
-  },
-  {
-    nom: 'Thomas Delaunay',
-    role: 'Conseiller — Bassin d’Arcachon',
-    email: 't.delaunay@imovia.fr',
-    phone: '05 56 00 00 04',
-    photo: '1633332755192-727a05c4013d',
-  },
-  {
-    nom: 'Léa Fontaine',
-    role: "Responsable de l'estimation",
-    email: 'l.fontaine@imovia.fr',
-    phone: '05 56 00 00 05',
-    photo: '1544005313-94ddf0286df2',
-  },
-  {
-    nom: 'Antoine Rey',
-    role: 'Conseiller — Propriétés & viticole',
-    email: 'a.rey@imovia.fr',
-    phone: '05 56 00 00 06',
-    photo: '1607990281513-2c110a25bd8c',
-  },
-  {
-    nom: 'Manon Lefèvre',
-    role: 'Chargée de la location',
-    email: 'm.lefevre@imovia.fr',
-    phone: '05 56 00 00 07',
-    photo: '1556157382-97eda2d62296',
-  },
-  {
-    nom: 'Pierre Vasseur',
-    role: 'Chargé de la relation clients',
-    email: 'p.vasseur@imovia.fr',
-    phone: '05 56 00 00 08',
-    photo: '1500648767791-00dcc994a43e',
   },
 ]

@@ -22,10 +22,18 @@ export function soldProperties() {
 }
 
 /**
- * Derniers biens disponibles (vente + location), pour la page d'accueil.
+ * Derniers biens disponibles (vente + location, tous types confondus), triés
+ * par date de publication décroissante — jamais par ordre du tableau. Utilisé
+ * pour la page d'accueil et la colonne « Biens récents » du footer ; se
+ * branchera tel quel sur le flux Modelo une fois `datePublication` alimenté
+ * par la synchro réelle.
  */
 export function latestAvailable(limit = 6) {
-  return allProperties.filter((p) => p.statut === 'disponible').slice(0, limit)
+  return allProperties
+    .filter((p) => p.statut === 'disponible')
+    .slice()
+    .sort((a, b) => new Date(b.datePublication) - new Date(a.datePublication))
+    .slice(0, limit)
 }
 
 /**

@@ -34,18 +34,19 @@ npm run preview   # prévisualise le build
 
 ## Déploiement sur Vercel
 
-Le projet est prêt pour Vercel (aucune configuration serveur nécessaire).
-
 1. Poussez le dépôt sur GitHub/GitLab.
 2. Sur Vercel : **New Project** → importez le dépôt.
 3. Framework détecté : **Vite**. Réglages par défaut :
    - Build command : `npm run build`
    - Output directory : `dist`
-4. Déployez.
+4. Renseignez les [variables d'environnement](#variables-denvironnement) ci-dessous.
+5. Déployez.
 
 Le fichier [`vercel.json`](vercel.json) réécrit toutes les routes vers
 `index.html` pour que le routing côté client fonctionne (rafraîchissement d'une
-page profonde, liens directs).
+page profonde, liens directs). Les requêtes vers `/api/*` sont résolues en
+priorité par les fonctions serverless (voir ci-dessous) : cette réécriture ne
+les intercepte pas.
 
 Déploiement en ligne de commande :
 
@@ -54,19 +55,53 @@ npm i -g vercel
 vercel
 ```
 
+### Variables d'environnement
+
+La page Équipe permet d'écrire directement à un conseiller (Lucas ou Émilie)
+via une fenêtre de contact. L'envoi est traité côté serveur par
+[`api/contact-conseiller.js`](api/contact-conseiller.js) (fonction serverless
+Vercel, service [Resend](https://resend.com)) — **aucune adresse e-mail ne
+transite par le code front**. À renseigner dans Vercel (Project Settings →
+Environment Variables) :
+
+| Variable                | Rôle                                                              |
+| ------------------------ | ------------------------------------------------------------------ |
+| `RESEND_API_KEY`         | Clé API Resend utilisée pour l'envoi.                              |
+| `CONTACT_EMAIL_LUCAS`    | Adresse pro de Lucas BELLA (destinataire).                         |
+| `CONTACT_EMAIL_EMILIE`   | Adresse pro d'Émilie ANDRASCHKE (destinataire).                    |
+| `CONTACT_EMAIL_AGENCY`   | Adresse générale de l'agence, mise en copie (facultatif).          |
+| `CONTACT_FROM_EMAIL`     | Adresse d'expédition (`Nom <adresse@domaine-verifie.fr>`), sur un domaine vérifié dans Resend. |
+
+Sans `RESEND_API_KEY` ni l'adresse du conseiller ciblé, la fonction répond une
+erreur générique côté client et journalise la cause précise côté serveur
+(`vercel logs`) — jamais dans la réponse HTTP.
+
+Pour utiliser un autre prestataire d'envoi (SendGrid, Postmark, SMTP…), seul
+l'appel réseau dans `api/contact-conseiller.js` est à adapter ; le contrat
+front (`POST /api/contact-conseiller`, réponse `{ ok, error? , errors? }`) peut
+rester identique.
+
+**Hors périmètre, volontairement** : la création automatique du prospect dans
+Modelo (dépend de l'API Modelo).
+
 ## Structure
 
 ```
+api/
+└── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
+
 src/
 ├── components/
 │   ├── layout/      Navbar, Footer, ScrollToTop
 │   ├── ui/          Éléments réutilisables (PlanDivider, PlanFrame,
 │   │                PropertyCard, PropertyGrid, Button, DpeScale…)
 │   ├── home/        Hero + barre de recherche
-│   └── property/    PropertyListing (Acheter / Louer, avec filtres)
+│   ├── property/    PropertyListing (Acheter / Louer, avec filtres)
+│   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
 │   ├── properties.json   15 biens fictifs
-│   ├── team.js           Membres de l'agence
+│   ├── team.js           Conseillers joignables individuellement (page Équipe)
+│   ├── projets.js        Natures de projet du formulaire conseiller
 │   └── agency.js         Coordonnées, réseaux, carte
 ├── lib/
 │   ├── properties.js     Accès + filtrage des biens
@@ -140,7 +175,9 @@ pose les repères d'angle façon plan sur les cartes et les visuels.
   `@fontsource/ibm-plex-mono`).
 - **Formulaires** (Contact, Recrutement) : sans back-end à ce stade. Contact
   affiche une confirmation côté client ; Recrutement compose un e-mail
-  (`mailto:`). À brancher sur un service d'envoi le moment venu.
+  (`mailto:`). À brancher sur un service d'envoi le moment venu. Le formulaire
+  de contact individuel de la page Équipe fait exception : il passe déjà par
+  un vrai back-end (voir [Variables d'environnement](#variables-denvironnement)).
 - **Carte** : intégration OpenStreetMap (sans cookie, sans clé).
 - **Espace vendeur** : écran de connexion visuel, sans authentification.
 ```

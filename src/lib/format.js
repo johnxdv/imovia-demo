@@ -28,6 +28,24 @@ export function formatNumber(n) {
 }
 
 /**
+ * Montant en euros, ou `null` si absent/invalide — jamais « 0 € » ni « NaN € ».
+ * Au consommateur de masquer le champ concerné quand `null` est renvoyé.
+ */
+export function formatEuros(amount) {
+  if (amount == null || Number.isNaN(Number(amount)) || Number(amount) <= 0) return null
+  return eur.format(amount)
+}
+
+/**
+ * Liste d'années à la française : « 2021 », « 2021 et 2022 », « 2021, 2022 et 2023 ».
+ */
+export function formatAnnees(annees) {
+  if (!Array.isArray(annees) || annees.length === 0) return null
+  if (annees.length === 1) return String(annees[0])
+  return `${annees.slice(0, -1).join(', ')} et ${annees[annees.length - 1]}`
+}
+
+/**
  * Résout une photo en URL.
  * - Si la valeur est déjà une URL absolue (futur flux XML réel), on la renvoie telle quelle.
  * - Sinon on la traite comme un identifiant Unsplash et on compose une URL optimisée
