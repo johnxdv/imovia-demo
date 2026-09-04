@@ -10,11 +10,12 @@ const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tab
 
 /**
  * Écran de remerciement final — même fenêtre modale que
- * [BuildingConfirmModal](./BuildingConfirmModal.jsx) et
- * [EstimationChatStep](./EstimationChatStep.jsx) : fond assombri et flouté,
- * carte centrée au liseré doré. Rien à saisir ici, donc — à la différence de
- * la conversation qui précède — un clic sur le fond ferme la fenêtre au même
- * titre que la croix.
+ * [BuildingConfirmModal](./BuildingConfirmModal.jsx) : fond assombri et
+ * flouté, carte centrée au liseré doré. La conversation qui précède
+ * ([EstimationChatPanel](./EstimationChatPanel.jsx)) est, elle, un panneau
+ * intégré à l'écran résultat plutôt qu'une fenêtre modale — rien à saisir ici
+ * en revanche, donc un clic sur le fond ferme cette fenêtre au même titre
+ * que la croix.
  *
  * Purement une confirmation d'interface : aucune donnée n'a été envoyée
  * nulle part, `contact` ne vit que dans le state de la page (voir

@@ -22,7 +22,7 @@ import { detectPropertyType } from '../../lib/typeBien'
  * `onEstimate` remonte donc la sélection enrichie du type retenu, sans que
  * l'utilisateur ait eu à s'en préoccuper.
  */
-export function EstimationBuildingStep({ address, onBack, onEstimate }) {
+export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
   const [selection, setSelection] = useState(null)
   const [detectedType, setDetectedType] = useState(null)
 
@@ -30,6 +30,13 @@ export function EstimationBuildingStep({ address, onBack, onEstimate }) {
   useEffect(() => {
     setSelection(null)
   }, [address.id, address.lat, address.lon])
+
+  // Avancement local remonté à la barre globale : la moitié dès qu'un
+  // bâtiment est sélectionné (fenêtre « Bien confirmé » ouverte), le reste
+  // n'arrive qu'au passage à l'étape suivante.
+  useEffect(() => {
+    onProgress?.(selection ? 0.5 : 0)
+  }, [selection, onProgress])
 
   // Détection du type : relancée à chaque nouvelle sélection, annulée si
   // l'utilisateur en choisit une autre avant la réponse. Rien n'en transparaît

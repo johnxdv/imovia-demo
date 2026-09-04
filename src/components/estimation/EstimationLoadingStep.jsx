@@ -13,10 +13,17 @@ const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
  * n'ont qu'une fonction d'habillage, en attendant le vrai enchaînement DVF.
  * Le composant se contente d'égrener les étapes puis d'appeler `onDone`.
  */
-export function EstimationLoadingStep({ onDone }) {
+export function EstimationLoadingStep({ onDone, onProgress }) {
   const [completed, setCompleted] = useState(0)
   const [barFilled, setBarFilled] = useState(false)
   const reduce = useReducedMotion()
+
+  // Avancement local remonté à la barre globale : les 3 étapes de l'analyse
+  // sont son seul repère fiable — la grande barre ci-dessous se remplit en
+  // continu par transition CSS, sans état React intermédiaire à observer.
+  useEffect(() => {
+    onProgress?.(completed / ANALYSIS_STEPS.length)
+  }, [completed, onProgress])
 
   // Un fait tiré une fois pour toutes : le renouveler en cours d'attente
   // donnerait un encart qui clignote.
