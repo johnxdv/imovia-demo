@@ -3,7 +3,7 @@ import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform 
 import { EASE } from '../../lib/motion'
 import { ChevronDown } from 'lucide-react'
 import { SearchBar } from './SearchBar'
-import { Button } from '../ui/Button'
+import { EstimationCta } from './EstimationCta'
 
 const LOOP_SRC = '/videos/hero-loop.mp4'
 const FRAME_COUNT = 240
@@ -214,9 +214,7 @@ export function Hero() {
                   L'immobilier avec la précision d'un plan.
                 </p>
               )}
-              <Button to="/estimer" variant="primary" size="lg" className="shrink-0">
-                Estimer mon bien
-              </Button>
+              <EstimationCta />
             </div>
             <SearchBar />
           </div>

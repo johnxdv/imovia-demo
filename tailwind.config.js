@@ -36,9 +36,43 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // Respiration du halo derrière le CTA d'estimation — opacité seule.
+        'cta-breath': {
+          '0%, 100%': { opacity: '0.25' },
+          '50%': { opacity: '0.65' },
+        },
+        // Scintillement de l'étincelle, désynchronisé du halo.
+        'sparkle-shimmer': {
+          '0%, 100%': { opacity: '0.72' },
+          '50%': { opacity: '1' },
+        },
+        // Liseré Brass qui tourne autour du CTA (arc conique en rotation).
+        'border-spin': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+        // Reflet diagonal : un seul passage, puis pause sur le reste du cycle.
+        shine: {
+          '0%, 62%': { transform: 'translateX(-160%) skewX(-14deg)' },
+          '100%': { transform: 'translateX(360%) skewX(-14deg)' },
+        },
+        // Arrivée du CTA final : léger rebond, joué une seule fois.
+        'cta-pop': {
+          '0%': { opacity: '0', transform: 'scale(0.94)' },
+          '60%': { opacity: '1', transform: 'scale(1.02)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'cta-breath': 'cta-breath 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'sparkle-shimmer': 'sparkle-shimmer 2.8s cubic-bezier(0.4, 0, 0.6, 1) 0.7s infinite',
+        'border-spin': 'border-spin 4s linear infinite',
+        shine: 'shine 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+        // Tour plus lent pour les grands cadres (carte) : à surface égale, une
+        // même vitesse angulaire y paraîtrait bien plus agitée que sur un bouton.
+        'border-spin-slow': 'border-spin 6s linear infinite',
+        'cta-pop': 'cta-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both',
       },
     },
   },
