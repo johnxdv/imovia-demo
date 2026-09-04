@@ -1,14 +1,35 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
 import { AddressAutocomplete } from './AddressAutocomplete'
 
 /**
- * Étape 2 — saisie de l'adresse du bien.
- * Le parcours s'arrête volontairement à l'adresse confirmée : la sélection du
- * bâtiment sur carte et le calcul d'estimation feront l'objet d'un lot suivant.
+ * Délai entre le choix dans la liste et le passage à la carte. Assez court pour
+ * rester ressenti comme immédiat, assez long pour que la pastille « Adresse
+ * confirmée » soit vue : sans elle, l'écran changerait sans que l'utilisateur
+ * sache ce qui a été retenu.
  */
-export function EstimationAddressStep({ onBack }) {
+const HANDOFF_DELAY_MS = 550
+
+/**
+ * Étape 2 — saisie de l'adresse du bien.
+ *
+ * Choisir une proposition suffit : aucune validation supplémentaire n'est
+ * demandée, `onConfirm` enchaîne sur l'étape carte. Une adresse sans
+ * coordonnées ne peut pas être cartographiée — cas théorique avec la BAN, mais
+ * l'écran reste alors sur la confirmation plutôt que d'ouvrir une carte vide.
+ */
+export function EstimationAddressStep({ onBack, onConfirm }) {
   const [address, setAddress] = useState(null)
+
+  const mappable =
+    address !== null && Number.isFinite(address.lat) && Number.isFinite(address.lon)
+
+  useEffect(() => {
+    if (!mappable) return undefined
+
+    const timer = setTimeout(() => onConfirm?.(address), HANDOFF_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [address, mappable, onConfirm])
 
   return (
     <div className="w-full max-w-xl">
@@ -53,6 +74,12 @@ export function EstimationAddressStep({ onBack }) {
             <span className="mt-1.5 block text-sm leading-relaxed text-ink/75">{address.label}</span>
           </span>
         </div>
+      ) : null}
+
+      {address && !mappable ? (
+        <p role="status" className="mt-4 text-center text-sm text-ink/45">
+          Cette adresse n’est pas localisable sur la carte. Essayez une adresse voisine.
+        </p>
       ) : null}
     </div>
   )

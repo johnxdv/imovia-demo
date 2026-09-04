@@ -1,0 +1,173 @@
+// Fonds de carte et données bâtiment de la Géoplateforme IGN — service public,
+// licence ouverte Etalab, sans clé ni quota déclaré.
+// https://geoservices.ign.fr/services-geoplateforme-diffusion
+
+/**
+ * Orthophotographie IGN en WMTS. Le jeu de tuiles « PM » est la pyramide
+ * Web Mercator standard : les indices WMTS se confondent avec ceux d'un fond
+ * XYZ classique, ce qui permet de l'utiliser tel quel dans Leaflet.
+ */
+export const ORTHO_TILE_URL =
+  'https://data.geopf.fr/wmts' +
+  '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+  '&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg' +
+  '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
+
+/**
+ * Dernier niveau réellement photographié (~20 cm/pixel). Au-delà, Leaflet
+ * agrandit la tuile du niveau 19 au lieu de demander une dalle inexistante,
+ * qui reviendrait en 404.
+ */
+export const ORTHO_MAX_NATIVE_ZOOM = 19
+
+/** Mention d'attribution imposée par la licence ouverte. */
+export const IGN_ATTRIBUTION = '© IGN — Géoplateforme'
+
+// --- Emprises bâties -------------------------------------------------------
+
+const WFS_ENDPOINT = 'https://data.geopf.fr/wfs/ows'
+
+/**
+ * Couche bâtiment de la BD TOPO®. Deux raisons de la préférer au parcellaire
+ * cadastral : elle est levée par photogrammétrie sur ces mêmes orthophotos —
+ * donc calée dessus, sans décalage visible — et elle porte déjà les attributs
+ * (usage, nombre d'étages, hauteur) dont l'étape d'estimation aura besoin.
+ */
+const BUILDING_LAYER = 'BDTOPO_V3:batiment'
+
+/**
+ * Seuls attributs demandés : la fiche BD TOPO® complète triplerait le poids.
+ * `usage_1` et `nombre_de_logements` servent de repli à la détection du type
+ * de bien quand la BDNB ne connaît pas le bâtiment.
+ */
+const BUILDING_FIELDS = [
+  'cleabs',
+  'nature',
+  'usage_1',
+  'nombre_de_logements',
+  'nombre_d_etages',
+  'construction_legere',
+  'geometrie',
+]
+
+/**
+ * Demi-côté de la zone interrogée, en mètres. Couvre largement la carte au
+ * zoom d'ouverture tout en laissant de la marge pour un déplacement — le tout
+ * en une seule requête, sans rechargement au panoramique.
+ */
+export const BUILDINGS_RADIUS_M = 150
+
+/** Garde-fou : au-delà, la réponse pèserait plus qu'elle n'aiderait. */
+const MAX_BUILDINGS = 400
+
+const METERS_PER_DEGREE_LAT = 111320
+
+/**
+ * Emprise carrée (en degrés) centrée sur un point. L'écart en longitude est
+ * corrigé de la latitude, sans quoi la zone serait très aplatie sous nos
+ * latitudes.
+ */
+export function boundingBox(lat, lon, radiusM = BUILDINGS_RADIUS_M) {
+  const deltaLat = radiusM / METERS_PER_DEGREE_LAT
+  // Plancher sur le cosinus : purement défensif, la France n'en approche jamais.
+  const cos = Math.max(Math.cos((lat * Math.PI) / 180), 0.01)
+  const deltaLon = radiusM / (METERS_PER_DEGREE_LAT * cos)
+
+  return {
+    south: lat - deltaLat,
+    west: lon - deltaLon,
+    north: lat + deltaLat,
+    east: lon + deltaLon,
+  }
+}
+
+/**
+ * Emprises des bâtiments autour d'un point, en GeoJSON prêt pour Leaflet
+ * (`FeatureCollection` de polygones en WGS 84).
+ *
+ * `signal` annule la requête si l'utilisateur quitte l'étape avant la réponse.
+ * Lève une erreur en cas de panne réseau, de réponse non 2xx, ou de rapport
+ * d'exception WFS — que le serveur renvoie en 200 avec du XML, d'où la
+ * vérification du contenu et pas seulement du statut.
+ */
+export async function fetchBuildings(lat, lon, { signal } = {}) {
+  const { south, west, north, east } = boundingBox(lat, lon)
+
+  const params = new URLSearchParams({
+    SERVICE: 'WFS',
+    VERSION: '2.0.0',
+    REQUEST: 'GetFeature',
+    TYPENAMES: BUILDING_LAYER,
+    OUTPUTFORMAT: 'application/json',
+    // Avec `EPSG:4326` en forme courte, le service raisonne en longitude/latitude
+    // — l'ordre du GeoJSON. La forme URN inverserait les axes.
+    SRSNAME: 'EPSG:4326',
+    BBOX: `${west},${south},${east},${north},EPSG:4326`,
+    PROPERTYNAME: BUILDING_FIELDS.join(','),
+    COUNT: String(MAX_BUILDINGS),
+  })
+
+  const response = await fetch(`${WFS_ENDPOINT}?${params}`, { signal })
+
+  if (!response.ok) {
+    throw new Error(`WFS Géoplateforme — réponse ${response.status}`)
+  }
+
+  const data = await response.json().catch(() => null)
+
+  if (data?.type !== 'FeatureCollection') {
+    throw new Error('WFS Géoplateforme — réponse inattendue')
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: (data.features ?? [])
+      .filter((feature) => Boolean(feature?.geometry))
+      // `id` d'un bâtiment BD TOPO® : `cleabs` est l'identifiant stable, l'id
+      // de la réponse WFS ne l'est pas d'une édition à l'autre.
+      .map((feature) => ({ ...feature, id: feature.properties?.cleabs ?? feature.id })),
+  }
+}
+
+// --- Parcelles cadastrales -------------------------------------------------
+
+const APICARTO_PARCELLE = 'https://apicarto.ign.fr/api/cadastre/parcelle'
+
+/**
+ * Parcelle cadastrale contenant un point. Sert à deux choses : rattacher le
+ * bâtiment cliqué à un identifiant que la BDNB comprend (`idu`), et distinguer
+ * un terrain nu — une parcelle sans aucune emprise bâtie — d'un simple clic
+ * hors sujet.
+ *
+ * Renvoie `null` si aucune parcelle ne couvre le point (hors cadastre vecteur,
+ * domaine public…) plutôt que de lever : l'absence de parcelle est une réponse,
+ * pas une panne.
+ */
+export async function fetchParcelle(lat, lon, { signal } = {}) {
+  const geom = JSON.stringify({ type: 'Point', coordinates: [lon, lat] })
+  const response = await fetch(`${APICARTO_PARCELLE}?geom=${encodeURIComponent(geom)}`, { signal })
+
+  if (!response.ok) {
+    throw new Error(`API Carto cadastre — réponse ${response.status}`)
+  }
+
+  const data = await response.json().catch(() => null)
+  const properties = data?.features?.[0]?.properties
+
+  if (!properties?.idu) return null
+
+  return {
+    // Identifiant unique de parcelle, au format attendu par `l_parcelle_id`
+    // côté BDNB (ex. « 57176000140471 »).
+    idu: properties.idu,
+    // Les cinq premiers caractères de l'IDU portent le code commune, et c'est
+    // celui-là qu'il faut retenir : à Paris, Lyon et Marseille, `code_insee`
+    // désigne la ville (75056) là où le cadastre et la BDNB raisonnent par
+    // arrondissement (75104). S'aligner sur `code_insee` y ferait échouer tout
+    // rapprochement.
+    codeInsee: properties.idu.slice(0, 5) || properties.code_insee,
+    commune: properties.nom_com,
+    // Contenance cadastrale en m² — utile à l'estimation d'un terrain.
+    contenance: properties.contenance ?? null,
+  }
+}

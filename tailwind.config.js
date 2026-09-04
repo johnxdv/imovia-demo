@@ -56,6 +56,18 @@ export default {
           '0%, 62%': { transform: 'translateX(-160%) skewX(-14deg)' },
           '100%': { transform: 'translateX(360%) skewX(-14deg)' },
         },
+        // Chiffre en cours de formation : les blocs floutés respirent en opacité
+        // et s'étirent à peine. `scaleX` plutôt qu'une largeur animée — composite
+        // GPU, aucun recalcul de mise en page à chaque image.
+        'figure-forming': {
+          '0%, 100%': { opacity: '0.5', transform: 'scaleX(0.97)' },
+          '50%': { opacity: '0.92', transform: 'scaleX(1.03)' },
+        },
+        // Étincelles qui s'allument autour du chiffre, une à une.
+        'spark-twinkle': {
+          '0%, 100%': { opacity: '0', transform: 'scale(0.55)' },
+          '50%': { opacity: '1', transform: 'scale(1)' },
+        },
         // Arrivée du CTA final : léger rebond, joué une seule fois.
         'cta-pop': {
           '0%': { opacity: '0', transform: 'scale(0.94)' },
@@ -73,6 +85,11 @@ export default {
         // même vitesse angulaire y paraîtrait bien plus agitée que sur un bouton.
         'border-spin-slow': 'border-spin 6s linear infinite',
         'cta-pop': 'cta-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both',
+        // Décor d'anticipation de la fenêtre de confirmation. Les durées sont
+        // premières entre elles : les blocs et les étincelles ne retombent
+        // jamais en phase, le motif ne se laisse pas mémoriser.
+        'figure-forming': 'figure-forming 2.3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'spark-twinkle': 'spark-twinkle 3.1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

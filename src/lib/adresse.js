@@ -10,7 +10,11 @@ export const SEARCH_DEBOUNCE_MS = 300
 
 /**
  * Recherche d'adresses. Renvoie au plus `limit` propositions normalisées
- * (`{ id, label }`). `signal` permet d'annuler la requête précédente lorsque
+ * (`{ id, label, lat, lon }`). Les coordonnées viennent de la géométrie
+ * GeoJSON déjà présente dans la réponse : l'étape carte s'en sert pour se
+ * centrer, sans jamais avoir à re-géocoder.
+ *
+ * `signal` permet d'annuler la requête précédente lorsque
  * l'utilisateur continue de taper — sans quoi une réponse lente pourrait
  * écraser une réponse plus récente.
  *
@@ -29,6 +33,17 @@ export async function searchAddresses(query, { limit = 5, signal } = {}) {
   const data = await response.json()
 
   return (data?.features ?? [])
-    .map((feature) => ({ id: feature?.properties?.id, label: feature?.properties?.label }))
+    .map((feature) => {
+      // GeoJSON : [longitude, latitude] — l'ordre inverse de celui attendu par
+      // les cartes, d'où la déstructuration explicite.
+      const [lon, lat] = feature?.geometry?.coordinates ?? []
+
+      return {
+        id: feature?.properties?.id,
+        label: feature?.properties?.label,
+        lat: Number.isFinite(lat) ? lat : null,
+        lon: Number.isFinite(lon) ? lon : null,
+      }
+    })
     .filter((suggestion) => Boolean(suggestion.label))
 }

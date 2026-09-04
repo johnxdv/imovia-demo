@@ -87,6 +87,51 @@
   }
 }
 
+/* Carte Leaflet — hors de tout `@layer`, à dessein.
+   Tailwind élague les règles d'un layer dont les classes n'apparaissent pas
+   dans les fichiers scannés ; or `.leaflet-*` est posé par la librairie à
+   l'exécution, jamais dans le JSX. En CSS de premier niveau, ces règles sont
+   émises telles quelles.
+   La classe racine est doublée pour la même raison de charge : `leaflet.css`
+   arrive avec le module carte, donc après cette feuille, et l'emporterait à
+   spécificité égale. */
+
+/* Le fond compte plus qu'il n'y paraît : les dalles se joignent sur des
+   positions sous-pixel et laissent filtrer un liseré. Sombre, il se fond dans
+   la photo aérienne ; le gris clair d'origine y dessinait une grille. */
+.leaflet-container.leaflet-container {
+  @apply bg-ink font-sans;
+}
+
+/* Contrôles de zoom ramenés dans la charte, plutôt qu'un bouton « par défaut »
+   au milieu d'une page dessinée. */
+.leaflet-container.leaflet-container .leaflet-control-zoom {
+  @apply overflow-hidden rounded-lg border-none shadow-lg shadow-ink/30;
+}
+
+.leaflet-container.leaflet-container .leaflet-control-zoom a {
+  @apply border-none bg-ink/85 font-sans text-lg text-stone/80 backdrop-blur-sm transition-colors;
+  width: 1.9rem;
+  height: 1.9rem;
+  line-height: 1.9rem;
+}
+
+.leaflet-container.leaflet-container .leaflet-control-zoom a:hover {
+  @apply bg-ink text-brass;
+}
+
+.leaflet-container.leaflet-container .leaflet-control-zoom a.leaflet-disabled {
+  @apply bg-ink/60 text-stone/25;
+}
+
+/* Les emprises bâties sont des `<path>` rendus focusables : l'anneau doré
+   global s'y applique mal, un halo qui épouse le tracé se lit mieux sur une
+   photo aérienne. */
+.leaflet-container.leaflet-container path.leaflet-interactive:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 3px theme('colors.brass'));
+}
+
 /* Respect strict de prefers-reduced-motion (filet de sécurité côté CSS ;
    les animations Framer Motion sont par ailleurs neutralisées via useReducedMotion). */
 @media (prefers-reduced-motion: reduce) {
