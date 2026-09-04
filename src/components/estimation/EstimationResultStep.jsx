@@ -4,6 +4,7 @@ import { ArrowLeft, Check, MapPin } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel } from './EstimationChatPanel'
+import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { formatEuros } from '../../lib/format'
 import { EASE } from '../../lib/motion'
 
@@ -11,33 +12,48 @@ import { EASE } from '../../lib/motion'
  * Écran 5 — l'estimation est prête, mais le montant reste flouté tant que les
  * coordonnées n'ont pas été renseignées.
  *
- * Deux temps sur le même écran, sans navigation entre les deux :
+ * Trois temps sur le même écran, sans navigation entre eux :
  * 1. **Repos** — carte centrée, prix flouté (déjà avec son premier chiffre
  *    net), CTA « Voir mon estimation ».
  * 2. **Conversation** — au clic sur ce CTA, l'écran bascule en deux colonnes :
  *    le prix à gauche (toujours visible, qui se déflégère très légèrement à
  *    mesure des réponses), la conversation de capture à droite, agrandie.
+ * 3. **Confirmation** — une fois les 4 informations recueillies, le prix se
+ *    déflégère intégralement en colonne gauche pendant que la conversation,
+ *    en colonne droite, cède la place à l'écran de remerciement — toujours
+ *    sur ce même écran, jamais de redirection.
  *
  * Le floutage est ici purement visuel : le montant affiché est une valeur de
  * démonstration, et le vrai calcul n'est pas branché. Le jour où il le sera,
  * le montant ne devra plus descendre dans la page avant la capture des
  * coordonnées — un flou CSS se contourne en trois clics dans un inspecteur.
  *
- * `onProgress` remonte l'avancement local (0 avant le clic sur le CTA, puis
- * la fraction de conversation complétée) à la barre de progression globale
- * du parcours, portée par `Estimer.jsx`.
+ * `onProgress` remonte l'avancement local (0 avant le clic sur le CTA, la
+ * fraction de conversation complétée, puis 1 une fois la confirmation
+ * affichée) à la barre de progression globale du parcours, portée par
+ * `Estimer.jsx`. `onDone` signale cette même bascule finale au parent — sans
+ * quitter cet écran, voir `finishChat` dans `Estimer.jsx`.
  */
-export function EstimationResultStep({ address, price, onBack, onDone, onProgress }) {
+export function EstimationResultStep({ address, price, onBack, onDone, onProgress, onClose }) {
   const reduce = useReducedMotion()
   const [started, setStarted] = useState(false)
   // Nombre de questions déjà répondues dans la conversation (0 à 4) — pilote
   // le déflouttage progressif du prix, voir `PriceReveal`.
   const [revealStage, setRevealStage] = useState(0)
+  // Les 4 informations recueillies : la conversation cède alors la place à
+  // l'écran de confirmation, et le prix se déflégère intégralement.
+  const [contact, setContact] = useState(null)
   const formatted = formatEuros(price)
+  const finished = contact !== null
 
   useEffect(() => {
-    onProgress?.(started ? revealStage / 4 : 0)
-  }, [started, revealStage, onProgress])
+    onProgress?.(finished ? 1 : started ? revealStage / 4 : 0)
+  }, [started, revealStage, finished, onProgress])
+
+  const handleChatDone = (collected) => {
+    setContact(collected)
+    onDone?.(collected)
+  }
 
   if (!started) {
     return (
@@ -160,7 +176,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
               <div className="mt-4 flex items-center justify-center">
                 <PriceReveal
                   formatted={formatted ?? '— €'}
-                  revealStage={revealStage}
+                  revealStage={finished ? 5 : revealStage}
                   className="whitespace-nowrap font-display text-[clamp(2.5rem,13vw,3.5rem)] font-semibold leading-none text-ink md:text-[3.25rem]"
                 />
               </div>
@@ -174,7 +190,11 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
         </div>
 
         <div className="md:col-span-7">
-          <EstimationChatPanel onDone={onDone} onProgress={setRevealStage} />
+          {finished ? (
+            <EstimationResultConfirmation contact={contact} onClose={onClose} />
+          ) : (
+            <EstimationChatPanel onDone={handleChatDone} onProgress={setRevealStage} />
+          )}
         </div>
       </div>
     </div>

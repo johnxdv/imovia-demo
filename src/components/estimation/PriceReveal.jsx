@@ -1,14 +1,20 @@
 /**
- * Flou de base (px) appliqué aux chiffres non révélés, par gabarit d'écran.
- * Reprend les valeurs déjà validées visuellement pour l'écran résultat.
+ * Rampe de flou (px) appliquée aux chiffres non révélés, par position (0 =
+ * premier chiffre) et par gabarit d'écran — dégradé progressif plutôt qu'un
+ * contraste net/flou brutal : le 2e chiffre n'est qu'à peine flouté, puis
+ * l'intensité augmente jusqu'à plafonner à l'intensité de base au 5e chiffre.
  */
-const BASE_BLUR = { mobile: 13, desktop: 21 }
+const BLUR_RAMP = {
+  mobile: [0, 2, 5, 9, 12, 13],
+  desktop: [0, 3, 8, 14, 19, 21],
+}
 
 /**
- * Flou une fois la question e-mail répondue : réduction légère et uniforme,
- * « à peine perceptible » — sur tous les chiffres non encore mis en avant.
+ * Facteur appliqué à la rampe une fois la question e-mail répondue :
+ * réduction légère et uniforme, « à peine perceptible » — sur tous les
+ * chiffres non encore mis en avant.
  */
-const AFTER_EMAIL_BLUR = { mobile: 11, desktop: 18 }
+const AFTER_EMAIL_FACTOR = { mobile: 11 / 13, desktop: 18 / 21 }
 
 /**
  * Flou du deuxième chiffre une fois la question téléphone répondue :
@@ -17,30 +23,45 @@ const AFTER_EMAIL_BLUR = { mobile: 11, desktop: 18 }
  */
 const SECOND_DIGIT_BLUR = { mobile: 5, desktop: 8 }
 
+function rampBlur(digitIndex) {
+  const idx = Math.min(digitIndex, BLUR_RAMP.mobile.length - 1)
+  return { mobile: BLUR_RAMP.mobile[idx], desktop: BLUR_RAMP.desktop[idx] }
+}
+
 /**
  * Flou (mobile, desktop) d'un chiffre donné, selon sa position (0 = premier
  * chiffre) et l'avancement de la conversation (`revealStage`, 0 à 4 :
- * questions déjà répondues — prénom, e-mail, téléphone, créneau) :
+ * questions déjà répondues — prénom, e-mail, téléphone, créneau ; 5 : les
+ * quatre informations recueillies, prix entièrement déflouté) :
  * - Premier chiffre : net dès l'écran résultat, avant toute conversation.
- * - 0/1 question répondue : le reste reste au flou de base.
- * - 2 (e-mail) : léger mieux-être général du flou.
+ * - 0/1 question répondue : dégradé de base (`BLUR_RAMP`).
+ * - 2 (e-mail) : léger mieux-être général du flou, dégradé conservé.
  * - 3/4 (téléphone puis créneau) : en plus, le deuxième chiffre se dégage
- *   nettement plus — reste flouté, jamais net. Le déflouttage complet
- *   appartient au vrai déblocage, hors-scope ici — le stade 4 n'ajoute donc
- *   rien de plus que le stade 3.
+ *   nettement plus — reste flouté, jamais net avant le stade 5.
+ * - 5 : déblocage complet, tous les chiffres à blur 0.
  */
 function blurFor(digitIndex, revealStage) {
+  if (revealStage >= 5) return { mobile: 0, desktop: 0 }
   if (digitIndex === 0) return { mobile: 0, desktop: 0 }
   if (digitIndex === 1 && revealStage >= 3) return SECOND_DIGIT_BLUR
-  if (revealStage >= 2) return AFTER_EMAIL_BLUR
-  return BASE_BLUR
+
+  const base = rampBlur(digitIndex)
+  if (revealStage >= 2) {
+    return {
+      mobile: Math.round(base.mobile * AFTER_EMAIL_FACTOR.mobile),
+      desktop: Math.round(base.desktop * AFTER_EMAIL_FACTOR.desktop),
+    }
+  }
+  return base
 }
 
 /**
  * Prix affiché chiffre par chiffre, chacun flouté indépendamment et de façon
  * responsive : deux intensités (mobile/desktop) coexistent par caractère via
  * des variables CSS, commutées par la classe `sm:` — pas de doublon de
- * balisage, une seule bascule Tailwind par chiffre.
+ * balisage, une seule bascule Tailwind par chiffre. Le flou lui-même transite
+ * en douceur (`transition-[filter]`) à chaque changement de `revealStage`,
+ * plutôt que de sauter instantanément d'une intensité à l'autre.
  *
  * Seuls les CHIFFRES sont comptés pour repérer « le premier », « le
  * deuxième » — les séparateurs (espaces fines insécables) et le symbole €
@@ -69,7 +90,7 @@ export function PriceReveal({ formatted, revealStage = 0, className = '' }) {
         return (
           <span
             key={i}
-            className="inline-block select-none [filter:blur(var(--blur-m))] sm:[filter:blur(var(--blur-d))]"
+            className="inline-block select-none [filter:blur(var(--blur-m))] transition-[filter] duration-500 ease-plan sm:[filter:blur(var(--blur-d))]"
             style={{ '--blur-m': `${mobile}px`, '--blur-d': `${desktop}px` }}
           >
             {char}

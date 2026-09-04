@@ -6,7 +6,6 @@ import { EstimationAddressStep } from '../components/estimation/EstimationAddres
 import { EstimationBuildingStep } from '../components/estimation/EstimationBuildingStep'
 import { EstimationLoadingStep } from '../components/estimation/EstimationLoadingStep'
 import { EstimationResultStep } from '../components/estimation/EstimationResultStep'
-import { EstimationThankYouStep } from '../components/estimation/EstimationThankYouStep'
 import { placeholderEstimate } from '../data/estimation'
 import { EASE } from '../lib/motion'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
@@ -14,17 +13,19 @@ import { useDocumentTitle } from '../lib/useDocumentTitle'
 /**
  * Étapes majeures du parcours, dans l'ordre — sert de base à la barre de
  * progression globale (voir plus bas). L'écran résultat couvre à la fois le
- * repos et la conversation de capture : les deux se jouent sur le même écran,
- * ce n'est pas une étape à part.
+ * repos, la conversation de capture et la confirmation finale : les trois se
+ * jouent sur le même écran, sans navigation — ce n'est jamais une étape à
+ * part (voir `EstimationResultStep`).
  */
-const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat', 'merci']
+const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
 
 /**
  * Outil d'estimation — parcours en écrans successifs dans une même page
  * (aucune navigation d'URL entre les étapes).
  * Accueil de l'outil, saisie de l'adresse, repérage du bâtiment sur photo
  * aérienne, analyse, résultat flouté avec conversation de capture intégrée
- * (split-screen), puis remerciement.
+ * (split-screen) qui se conclut, sur ce même écran, par la confirmation
+ * finale et le déblocage complet du prix.
  *
  * Le montant affiché reste une valeur de démonstration : le calcul réel
  * (base DVF) reste à brancher. La capture de coordonnées, elle, est
@@ -41,10 +42,18 @@ export default function Estimer() {
   // ici pour qu'elle n'ait pas à être redemandée à l'écran du résultat.
   const [selection, setSelection] = useState(null)
   const [price, setPrice] = useState(null)
-  // Coordonnées saisies dans la conversation finale — state de session
-  // uniquement, voir `EstimationChatPanel`.
-  const [contact, setContact] = useState(null)
   const reduce = useReducedMotion()
+
+  // Hauteur mesurée de la navbar : la barre de progression globale se loge
+  // juste en dessous, quelle que soit la taille d'écran — plus fiable qu'un
+  // décalage fixé en dur, la navbar changeant de hauteur selon le gabarit.
+  const [navHeight, setNavHeight] = useState(0)
+  useEffect(() => {
+    const measure = () => setNavHeight(document.querySelector('header')?.offsetHeight ?? 0)
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
 
   // Avancement à l'intérieur de l'étape courante (0 à 1) — les sous-écrans
   // qui en ont un le remontent via `onProgress`. Combiné à la position de
@@ -79,14 +88,11 @@ export default function Estimer() {
 
   const showResult = useCallback(() => goToStep('resultat'), [goToStep])
 
-  // Coordonnées collectées dans la conversation : mémorisées pour l'écran de
-  // remerciement, qui a besoin du prénom et du créneau choisi. Avancement
-  // fixé à 1 : l'étape résultat (conversation comprise) est intégralement
-  // franchie au moment de cette bascule.
-  const finishChat = useCallback((collected) => {
-    setContact(collected)
-    goToStep('merci', 1)
-  }, [goToStep])
+  // La conversation vient de se conclure : `EstimationResultStep` bascule en
+  // interne vers son écran de confirmation, sans quitter cette étape.
+  // Avancement fixé à 1 : l'étape résultat (confirmation comprise) est
+  // intégralement franchie au moment de cette bascule.
+  const finishChat = useCallback(() => setStageProgress(1), [])
 
   const goHome = useCallback(() => navigate('/'), [navigate])
 
@@ -101,7 +107,7 @@ export default function Estimer() {
 
   // Pourcentage global : position de l'étape courante dans `STAGES`, plus sa
   // fraction d'avancement local — jamais de retour à 0 entre deux étapes,
-  // seulement une progression continue jusqu'à 100 % au remerciement.
+  // seulement une progression continue jusqu'à 100 % à la confirmation finale.
   const stageIndex = STAGES.indexOf(step)
   const globalPct = Math.round(((stageIndex + stageProgress) / STAGES.length) * 100)
 
@@ -115,17 +121,19 @@ export default function Estimer() {
 
   return (
     <>
-      {/* Barre de progression globale — persistante du tout premier écran au
-          remerciement, au-dessus même de la navigation (z-[70]) : les fenêtres
-          modales du parcours (confirmation de bâtiment, remerciement) montent
-          jusqu'à z-[60], celle-ci doit rester visible par-dessus. */}
+      {/* Barre de progression globale — persistante du tout premier écran à la
+          confirmation finale, logée juste sous la navbar (dont la hauteur est
+          mesurée dans `navHeight`) plutôt que noyée dans le contenu. Reste
+          au-dessus des fenêtres modales du parcours (confirmation de
+          bâtiment, qui montent jusqu'à z-[60]) : z-[70]. */}
       <div
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={globalPct}
         aria-label="Progression du parcours d’estimation"
-        className="fixed inset-x-0 top-0 z-[70] h-[3px] bg-ink/10"
+        className="fixed inset-x-0 z-[70] h-2 bg-ink/10"
+        style={{ top: navHeight }}
       >
         <div
           className="h-full bg-gradient-to-r from-ink via-ink/80 to-brass transition-[width] duration-500 ease-plan"
@@ -170,10 +178,9 @@ export default function Estimer() {
                 onBack={() => goToStep('batiment')}
                 onDone={finishChat}
                 onProgress={setStageProgress}
+                onClose={goHome}
               />
             ) : null}
-
-            {step === 'merci' ? <EstimationThankYouStep contact={contact} onClose={goHome} /> : null}
           </motion.div>
         </AnimatePresence>
       </section>
