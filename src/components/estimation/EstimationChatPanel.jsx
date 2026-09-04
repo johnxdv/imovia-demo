@@ -32,23 +32,13 @@ const QUESTIONS = [
     validate: (value) => (value.trim().length >= 2 ? null : 'Merci d’indiquer votre prénom.'),
   },
   {
-    key: 'email',
-    type: 'email',
-    ariaLabel: 'Votre adresse email',
-    placeholder: 'vous@exemple.fr',
-    autoComplete: 'email',
-    prompt: (a) =>
-      `Enchanté ${a.prenom} ! Quelle est votre adresse email pour recevoir votre étude personnalisée ?`,
-    validate: (value) =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) ? null : 'Cette adresse e-mail semble invalide.',
-  },
-  {
     key: 'telephone',
     type: 'tel',
     ariaLabel: 'Votre numéro de téléphone',
     placeholder: '06 12 34 56 78',
     autoComplete: 'tel',
-    prompt: () => 'Parfait ! À quel numéro pouvons-nous vous joindre pour discuter de votre projet ?',
+    prompt: (a) =>
+      `Enchanté ${a.prenom} ! À quel numéro pouvons-nous vous joindre pour discuter de votre projet ?`,
     validate: (value) => {
       const digits = value.replace(/\D/g, '')
       return digits.length >= 6 && digits.length <= 15
@@ -63,6 +53,9 @@ const QUESTIONS = [
     options: CALLBACK_SLOTS,
   },
 ]
+
+/** Nombre de questions de la séquence — reporté à l'écran résultat pour calculer sa fraction d'avancement. */
+export const QUESTION_COUNT = QUESTIONS.length
 
 let messageSeq = 0
 const nextId = () => `msg-${(messageSeq += 1)}`
@@ -136,13 +129,13 @@ function TypingBubble() {
  * saisies (state React le temps de la session), rien n'est envoyé ni
  * sauvegardé ici. Le vrai envoi (e-mail, CRM…) fera l'objet d'un lot séparé.
  *
- * `onProgress` remonte le nombre de questions déjà répondues (0 à 4), pour
- * piloter le déflouttage progressif du prix affiché dans la colonne de
- * gauche ([PriceReveal](./PriceReveal.jsx)).
+ * `onProgress` remonte le nombre de questions déjà répondues (0 à
+ * `QUESTION_COUNT`), pour piloter le déflouttage progressif du prix affiché
+ * dans la colonne de gauche ([PriceReveal](./PriceReveal.jsx)).
  */
 export function EstimationChatPanel({ onDone, onProgress }) {
   const reduce = useReducedMotion()
-  const [answers, setAnswers] = useState({ prenom: '', email: '', telephone: '', creneau: null })
+  const [answers, setAnswers] = useState({ prenom: '', telephone: '', creneau: null })
   const [messages, setMessages] = useState(() => [
     { id: nextId(), role: 'system', text: QUESTIONS[0].prompt({}) },
   ])
@@ -173,7 +166,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
   }, [messages, typing])
 
   useEffect(() => {
-    if (currentQuestion?.type === 'text' || currentQuestion?.type === 'email' || currentQuestion?.type === 'tel') {
+    if (currentQuestion?.type === 'text' || currentQuestion?.type === 'tel') {
       inputRef.current?.focus()
     }
   }, [currentQuestion])

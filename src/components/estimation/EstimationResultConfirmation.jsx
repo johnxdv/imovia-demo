@@ -7,7 +7,7 @@ import { EASE } from '../../lib/motion'
 /**
  * Écran de confirmation final — remplace la conversation
  * ([EstimationChatPanel](./EstimationChatPanel.jsx)) dans la colonne droite
- * du split-screen une fois les 4 informations recueillies. Contrairement à
+ * du split-screen une fois les informations recueillies. Contrairement à
  * l'ancienne fenêtre modale, ce n'est qu'un panneau de plus sur le même
  * écran : pas de fond assombri, pas de piège à focus, pas de navigation — le
  * prix reste visible et se déflégère à côté, en colonne gauche

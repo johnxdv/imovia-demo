@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Check, MapPin } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { PriceReveal } from './PriceReveal'
-import { EstimationChatPanel } from './EstimationChatPanel'
+import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { formatEuros } from '../../lib/format'
 import { EASE } from '../../lib/motion'
@@ -18,7 +18,7 @@ import { EASE } from '../../lib/motion'
  * 2. **Conversation** — au clic sur ce CTA, l'écran bascule en deux colonnes :
  *    le prix à gauche (toujours visible, qui se déflégère très légèrement à
  *    mesure des réponses), la conversation de capture à droite, agrandie.
- * 3. **Confirmation** — une fois les 4 informations recueillies, le prix se
+ * 3. **Confirmation** — une fois les informations recueillies, le prix se
  *    déflégère intégralement en colonne gauche pendant que la conversation,
  *    en colonne droite, cède la place à l'écran de remerciement — toujours
  *    sur ce même écran, jamais de redirection.
@@ -37,17 +37,18 @@ import { EASE } from '../../lib/motion'
 export function EstimationResultStep({ address, price, onBack, onDone, onProgress, onClose }) {
   const reduce = useReducedMotion()
   const [started, setStarted] = useState(false)
-  // Nombre de questions déjà répondues dans la conversation (0 à 4) — pilote
+  // Nombre de questions déjà répondues dans la conversation (0 à
+  // `QUESTION_COUNT`) — pilote
   // le déflouttage progressif du prix, voir `PriceReveal`.
   const [revealStage, setRevealStage] = useState(0)
-  // Les 4 informations recueillies : la conversation cède alors la place à
+  // Les informations recueillies : la conversation cède alors la place à
   // l'écran de confirmation, et le prix se déflégère intégralement.
   const [contact, setContact] = useState(null)
   const formatted = formatEuros(price)
   const finished = contact !== null
 
   useEffect(() => {
-    onProgress?.(finished ? 1 : started ? revealStage / 4 : 0)
+    onProgress?.(finished ? 1 : started ? revealStage / QUESTION_COUNT : 0)
   }, [started, revealStage, finished, onProgress])
 
   const handleChatDone = (collected) => {
