@@ -5,7 +5,7 @@ import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
-import { formatEuros } from '../../lib/format'
+import { formatEuros, priceRange } from '../../lib/format'
 import { EASE } from '../../lib/motion'
 
 /**
@@ -46,6 +46,11 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
   const [contact, setContact] = useState(null)
   const formatted = formatEuros(price)
   const finished = contact !== null
+  // La fourchette (± 5 % autour de l'estimation) n'existe qu'à la révélation
+  // finale : elle s'affiche dans une carte à part, sous le montant, jamais
+  // avant que celui-ci ne soit intégralement net.
+  const range = finished ? priceRange(price) : null
+  const showRange = range != null
 
   useEffect(() => {
     onProgress?.(finished ? 1 : started ? revealStage / QUESTION_COUNT : 0)
@@ -182,12 +187,55 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 />
               </div>
 
-              <p className="mx-auto mt-5 max-w-xs text-[0.85rem] leading-relaxed text-ink/55">
-                Un expert va finaliser votre étude et vous présenter les meilleures options
-                pour votre projet.
-              </p>
+              {!finished && (
+                <p className="mx-auto mt-5 max-w-xs text-[0.85rem] leading-relaxed text-ink/55">
+                  Un expert va finaliser votre étude et vous présenter les meilleures options
+                  pour votre projet.
+                </p>
+              )}
             </div>
           </div>
+
+          {/* Carte distincte, sous le montant : elle n'apparaît qu'une fois
+              l'estimation intégralement défloutée, en fondu montant accordé au
+              reste des transitions de l'écran. */}
+          {showRange && (
+            <motion.div
+              initial={{ opacity: 0, y: reduce ? 0 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE }}
+              className="mt-4"
+            >
+              <div className="rounded-2xl border border-ink/10 bg-white px-4 py-5 shadow-[0_14px_36px_-20px_rgba(16,20,28,0.28)] sm:px-6">
+                {/* Les deux bornes restent côte à côte jusqu'aux plus petits
+                    écrans : les montants passent à une taille légèrement
+                    réduite en dessous de 640 px plutôt que de s'empiler. */}
+                <div className="grid grid-cols-2 divide-x divide-ink/10">
+                  <div className="px-2 text-center">
+                    <p className="font-mono text-[0.58rem] uppercase tracking-micro text-ink/40">
+                      Estimation basse
+                    </p>
+                    <p className="mt-2 whitespace-nowrap font-display text-[1.25rem] font-semibold leading-none text-ink sm:text-[1.55rem]">
+                      {formatEuros(range.low)}
+                    </p>
+                  </div>
+
+                  <div className="px-2 text-center">
+                    <p className="font-mono text-[0.58rem] uppercase tracking-micro text-ink/40">
+                      Estimation haute
+                    </p>
+                    <p className="mt-2 whitespace-nowrap font-display text-[1.25rem] font-semibold leading-none text-ink sm:text-[1.55rem]">
+                      {formatEuros(range.high)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mx-auto mt-3 max-w-xs text-center text-[0.7rem] leading-relaxed text-ink/40">
+                Prix soumis à expertise, hors estimation du terrain
+              </p>
+            </motion.div>
+          )}
         </div>
 
         <div className="md:col-span-7">

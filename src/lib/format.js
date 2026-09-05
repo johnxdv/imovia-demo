@@ -66,3 +66,21 @@ export function photoSrcSet(photo, widths = [480, 768, 1200, 1800]) {
 }
 
 export const DPE_SCALE = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+
+/**
+ * Fourchette affichée à la révélation finale du prix : ± 5 % autour du montant
+ * estimé, chaque borne arrondie proprement (au millier au-delà de 100 000 €, à
+ * la centaine en deçà) pour ne jamais exhiber un chiffre faussement précis.
+ * Renvoie `null` quand le montant est absent ou invalide.
+ */
+export function priceRange(amount, pct = 0.05) {
+  const n = Number(amount)
+  if (amount == null || !Number.isFinite(n) || n <= 0) return null
+
+  const round = (value) => {
+    const step = value >= 100000 ? 1000 : 100
+    return Math.round(value / step) * step
+  }
+
+  return { low: round(n * (1 - pct)), high: round(n * (1 + pct)) }
+}
