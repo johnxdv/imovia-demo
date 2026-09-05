@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, Check, Sparkles } from 'lucide-react'
+import { ArrowLeft, Check } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
+import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 import { EASE } from '../../lib/motion'
 
 /** Éléments focusables du panneau, pour le maintien du focus à l'intérieur. */
@@ -197,18 +198,9 @@ function FormingFigure() {
 
       {/* Étincelles décalées autour du chiffre. Les retards sont négatifs :
           l'animation démarre déjà entamée, sans temps mort à l'ouverture. */}
-      <Sparkles
-        className="absolute left-1 top-0 h-4 w-4 animate-spark-twinkle text-brass will-change-transform"
-        strokeWidth={1.75}
-      />
-      <Sparkles
-        className="absolute right-2 top-1.5 h-3 w-3 animate-spark-twinkle text-brass/80 will-change-transform [animation-delay:-1.1s] [animation-duration:2.6s]"
-        strokeWidth={1.75}
-      />
-      <Sparkles
-        className="absolute bottom-0 left-1/3 h-3.5 w-3.5 animate-spark-twinkle text-brass/70 will-change-transform [animation-delay:-2.2s] [animation-duration:3.7s]"
-        strokeWidth={1.75}
-      />
+      <GrowthArrowIcon className="absolute left-1 top-0 h-4 w-4 animate-spark-twinkle text-brass will-change-transform" />
+      <GrowthArrowIcon className="absolute right-2 top-1.5 h-3 w-3 animate-spark-twinkle text-brass/80 will-change-transform [animation-delay:-1.1s] [animation-duration:2.6s]" />
+      <GrowthArrowIcon className="absolute bottom-0 left-1/3 h-3.5 w-3.5 animate-spark-twinkle text-brass/70 will-change-transform [animation-delay:-2.2s] [animation-duration:3.7s]" />
     </div>
   )
 }

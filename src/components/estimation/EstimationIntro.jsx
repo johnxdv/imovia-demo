@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
-import { HouseTrendIcon } from '../ui/HouseTrendIcon'
+import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 
 const stats = [
   { value: '30 sec', label: 'pour analyser' },
@@ -38,7 +38,7 @@ export function EstimationIntro({ onStart }) {
         </span>
 
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-ink via-ink to-ink/70 shadow-lg shadow-ink/20">
-          <HouseTrendIcon className="h-8 w-8 animate-sparkle-shimmer text-brass" strokeWidth={1.5} />
+          <GrowthArrowIcon className="h-8 w-8 animate-sparkle-shimmer text-brass" />
         </div>
 
         <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem]">

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { HouseTrendIcon } from '../ui/HouseTrendIcon'
+import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 
 /**
@@ -41,7 +41,7 @@ export function EstimationCta({ className = '' }) {
 
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-ink via-ink to-ink/75 sm:h-12 sm:w-12">
           {/* 4 — scintillement */}
-          <HouseTrendIcon className="h-5 w-5 animate-sparkle-shimmer text-brass sm:h-6 sm:w-6" />
+          <GrowthArrowIcon className="h-5 w-5 animate-sparkle-shimmer text-brass sm:h-6 sm:w-6" />
         </span>
 
         <span className="relative flex flex-col items-start gap-1">

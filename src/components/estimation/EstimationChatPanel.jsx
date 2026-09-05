@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { CALLBACK_SLOTS } from '../../data/estimation'
 import { GoldFrame } from '../ui/GoldFrame'
+import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 import { EASE } from '../../lib/motion'
 
 /**
@@ -64,7 +65,7 @@ const nextId = () => `msg-${(messageSeq += 1)}`
 function AssistantAvatar() {
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ink via-ink to-ink/70 shadow-sm shadow-ink/25">
-      <Sparkles className="h-3.5 w-3.5 text-brass" strokeWidth={2} aria-hidden="true" />
+      <GrowthArrowIcon className="h-3.5 w-3.5 text-brass" />
     </span>
   )
 }
