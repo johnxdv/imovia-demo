@@ -94,6 +94,12 @@ export default {
           '20%': { opacity: '1', transform: 'scale(1)' },
           '25%': { opacity: '0', transform: 'scale(0.85)' },
         },
+        // Clignotement du bâtiment armé sur la carte, en attente du second
+        // geste de confirmation — opacité seule, appliquée au `<path>` SVG.
+        'building-blink': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.4' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
@@ -112,6 +118,7 @@ export default {
         'spark-twinkle': 'spark-twinkle 3.1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'grow-from-ground': 'grow-from-ground 4.8s cubic-bezier(0.4, 0, 0.2, 1) infinite',
         'icon-rotate': 'icon-rotate 8s linear infinite',
+        'building-blink': 'building-blink 0.9s ease-in-out infinite',
       },
     },
   },

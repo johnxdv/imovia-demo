@@ -231,7 +231,10 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
           },
           click: (event) => {
             setHasInteracted(true)
-            if (canHoverRef.current || armedIdRef.current === feature.id) {
+            // Premier clic : armement avec animation de clignotement. Second clic
+            // sur le même bâtiment (souris ou tactile) : confirmation. Le survol
+            // seul ne suffit jamais à valider.
+            if (armedIdRef.current === feature.id) {
               commit(feature, featureLayer, event.latlng)
               return
             }
@@ -304,6 +307,23 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
     })
   }, [highlightedId, buildings])
 
+  // --- Clignotement du bâtiment armé, en attente de confirmation ----------
+  // Tant que la sélection n'est pas commitée, le bâtiment tout juste cliqué
+  // clignote pour signaler qu'un second geste est attendu. Le clignotement
+  // s'arrête dès que la sélection est actée (la fenêtre de confirmation prend
+  // alors le relais) ou désarmée.
+  useEffect(() => {
+    const layer = buildingsLayerRef.current
+    if (!layer) return
+
+    layer.eachLayer((featureLayer) => {
+      const path = featureLayer.getElement?.()
+      if (!path) return
+      const isArmed = selection === null && featureIdOf(featureLayer) === armedId
+      path.classList.toggle('animate-building-blink', isArmed)
+    })
+  }, [armedId, selection, buildings])
+
   // Annulation côté parent : la présélection tactile doit retomber avec elle.
   useEffect(() => {
     if (selection === null) setArmedId(null)
@@ -331,7 +351,9 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
     return undefined
   }, [selection])
 
-  const showTouchHint = !canHover && armedId !== null && selection === null
+  // Affiché dès qu'un bâtiment est armé (clic ou appui), quel que soit
+  // l'appareil : le second geste attendu est désormais le même pour tous.
+  const showArmedHint = armedId !== null && selection === null
   // Infobulle centrale : seulement tant que rien n'a été touché ni sélectionné,
   // et une fois la carte réellement utilisable (fond chargé, emprises prêtes
   // ou repli activé) — inutile de promettre un geste que rien ne permet encore.
@@ -399,14 +421,19 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
         </div>
       ) : null}
 
-      {/* Présélection tactile : rappel du second appui attendu. */}
-      {showTouchHint ? (
-        <p
-          role="status"
-          className="pointer-events-none absolute inset-x-0 bottom-0 bg-ink/80 px-4 py-2.5 text-center font-mono text-[0.6rem] uppercase tracking-micro text-brass backdrop-blur-sm"
-        >
-          Appuyez à nouveau pour confirmer
-        </p>
+      {/* Bâtiment armé : rappel du second geste attendu. Pastille centrée
+          plutôt qu'un bandeau plein largeur — celui-ci recouvrait autrefois
+          l'attribution posée en bas à droite, les deux textes se
+          superposant. */}
+      {showArmedHint ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4">
+          <p
+            role="status"
+            className="inline-flex items-center gap-2 rounded-full bg-ink/80 px-4 py-2 text-center font-mono text-[0.6rem] uppercase tracking-micro text-brass shadow-lg shadow-ink/30 backdrop-blur-sm"
+          >
+            Appuyez à nouveau pour confirmer
+          </p>
+        </div>
       ) : null}
 
       {/* Attribution — obligation de la licence ouverte Etalab. */}

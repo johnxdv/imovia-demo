@@ -61,7 +61,7 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
         </button>
       ) : null}
 
-      <GrowingIcons icons={GROWING_ICONS} className="mb-6 h-12 text-brass" iconClassName="h-9 w-9" />
+      <GrowingIcons icons={GROWING_ICONS} className="mb-6 h-16 text-brass" iconClassName="h-14 w-14" />
 
       <h1 className="text-center font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]">
         Où se situe votre bien&nbsp;?

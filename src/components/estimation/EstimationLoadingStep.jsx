@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Building2, Check, Home, LandPlot, Lightbulb, Loader2, TreeDeciduous } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
 import { EASE } from '../../lib/motion'
 import { GrowingIcons } from '../ui/GrowingIcons'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
+
+/** Intervalle de rotation de l'encart « Le saviez-vous ? ». */
+const FACT_ROTATE_MS = 4000
 
 /**
  * Icônes qui se succèdent dans la pastille centrale — un bien vu sous quatre
@@ -45,9 +48,20 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
     onProgress?.(completed / ANALYSIS_STEPS.length)
   }, [completed, onProgress])
 
-  // Un fait tiré une fois pour toutes : le renouveler en cours d'attente
-  // donnerait un encart qui clignote.
-  const fact = useMemo(() => DID_YOU_KNOW[Math.floor(Math.random() * DID_YOU_KNOW.length)], [])
+  // Les faits tournent en boucle toutes les 4 s, avec un fondu enchaîné
+  // (voir plus bas) plutôt qu'un remplacement sec qui donnerait un encart qui
+  // clignote.
+  const [factIndex, setFactIndex] = useState(() => Math.floor(Math.random() * DID_YOU_KNOW.length))
+
+  useEffect(() => {
+    if (reduce) return undefined
+    const interval = setInterval(() => {
+      setFactIndex((index) => (index + 1) % DID_YOU_KNOW.length)
+    }, FACT_ROTATE_MS)
+    return () => clearInterval(interval)
+  }, [reduce])
+
+  const fact = DID_YOU_KNOW[factIndex]
 
   useEffect(() => {
     // Minuteurs en cascade plutôt qu'un intervalle : chaque étape a sa propre
@@ -201,7 +215,18 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
           <span className="block font-mono text-[0.66rem] uppercase tracking-micro text-ink/45">
             Le saviez-vous&nbsp;?
           </span>
-          <span className="mt-1.5 block text-[0.95rem] leading-relaxed text-ink/65">{fact}</span>
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={factIndex}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduce ? 0.15 : 0.35, ease: EASE }}
+              className="mt-1.5 block text-[0.95rem] leading-relaxed text-ink/65"
+            >
+              {fact}
+            </motion.span>
+          </AnimatePresence>
         </span>
       </motion.aside>
     </div>

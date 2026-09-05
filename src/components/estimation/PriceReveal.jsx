@@ -1,33 +1,38 @@
 /**
- * Flou binaire, pas de dégradé : un chiffre est soit le premier (net), soit
- * l'un des autres (même intensité forte pour tous, quelle que soit sa
- * position) — un dégradé laissait les chiffres proches du premier trop
- * lisibles. `STAGE_BLUR[n]` est l'intensité appliquée à ces chiffres une fois
- * `n` questions répondues ; l'écart d'un stade à l'autre est volontairement
- * léger (le prix doit se percevoir « il existe, il a cette taille », jamais
- * se lire), et le dernier stade avant la fin complète du parcours reste assez
- * flou pour qu'aucun chiffre ne soit identifiable même en y regardant de
- * près. Chaque tableau est indexé par gabarit d'écran ; l'index est plafonné
- * (voir `blurFor`), donc un nombre de questions plus grand que le tableau
- * réutilise simplement le dernier palier.
+ * Flou binaire, pas de dégradé : un chiffre est soit net, soit flouté d'une
+ * intensité fixe (même valeur forte pour tous les chiffres encore cachés,
+ * quelle que soit leur position) — un dégradé laisserait deviner les
+ * chiffres presque révélés.
  */
-const STAGE_BLUR = {
-  mobile: [13, 12, 11, 10],
-  desktop: [21, 19, 17, 15],
-}
+const HIDDEN_BLUR = { mobile: 14, desktop: 22 }
+const CLEAR = { mobile: 0, desktop: 0 }
 
 /**
- * Flou (mobile, desktop) d'un chiffre donné, selon sa position (0 = premier
- * chiffre, toujours net) et l'avancement de la conversation (`revealStage` :
- * nombre de questions déjà répondues — prénom, téléphone, créneau — ou 5 une
- * fois les informations recueillies, pour le déblocage complet).
+ * Nombre maximal de chiffres défloutés depuis la droite avant la fin de la
+ * conversation — au-delà, même avec plus de questions répondues, le montant
+ * doit rester à deviner.
  */
-function blurFor(digitIndex, revealStage) {
-  if (revealStage >= 5) return { mobile: 0, desktop: 0 }
-  if (digitIndex === 0) return { mobile: 0, desktop: 0 }
+const MAX_RIGHT_REVEAL = 2
 
-  const idx = Math.min(revealStage, STAGE_BLUR.mobile.length - 1)
-  return { mobile: STAGE_BLUR.mobile[idx], desktop: STAGE_BLUR.desktop[idx] }
+/**
+ * Flou (mobile, desktop) d'un chiffre donné.
+ *
+ * Le premier chiffre (`digitIndex === 0`) est toujours net, dès l'écran de
+ * repos. Ensuite, chaque question répondue (`revealStage`, de 0 à
+ * `QUESTION_COUNT`) défloute un chiffre de plus en partant de la droite —
+ * jusqu'à `MAX_RIGHT_REVEAL` chiffres, jamais plus tant que la conversation
+ * n'est pas terminée. `revealStage` vaut 5 une fois les informations
+ * recueillies : tout se défloute alors d'un coup.
+ */
+function blurFor(digitIndex, totalDigits, revealStage) {
+  if (revealStage >= 5) return CLEAR
+  if (digitIndex === 0) return CLEAR
+
+  const distanceFromRight = totalDigits - 1 - digitIndex
+  const revealedFromRight = Math.min(revealStage, MAX_RIGHT_REVEAL)
+  if (distanceFromRight < revealedFromRight) return CLEAR
+
+  return HIDDEN_BLUR
 }
 
 /**
@@ -46,11 +51,13 @@ function blurFor(digitIndex, revealStage) {
  * conversation) : équivaut à 0, seul le premier chiffre est net.
  */
 export function PriceReveal({ formatted, revealStage = 0, className = '' }) {
+  const chars = [...formatted]
+  const totalDigits = chars.filter((char) => /\d/.test(char)).length
   let digitIndex = -1
 
   return (
     <span aria-hidden="true" className={className}>
-      {[...formatted].map((char, i) => {
+      {chars.map((char, i) => {
         if (!/\d/.test(char)) {
           return (
             <span key={i} className="inline-block select-none">
@@ -60,7 +67,7 @@ export function PriceReveal({ formatted, revealStage = 0, className = '' }) {
         }
 
         digitIndex += 1
-        const { mobile, desktop } = blurFor(digitIndex, revealStage)
+        const { mobile, desktop } = blurFor(digitIndex, totalDigits, revealStage)
 
         return (
           <span
