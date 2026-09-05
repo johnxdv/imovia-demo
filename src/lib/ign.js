@@ -31,7 +31,7 @@ const WFS_ENDPOINT = 'https://data.geopf.fr/wfs/ows'
  * Couche bâtiment de la BD TOPO®. Deux raisons de la préférer au parcellaire
  * cadastral : elle est levée par photogrammétrie sur ces mêmes orthophotos —
  * donc calée dessus, sans décalage visible — et elle porte déjà les attributs
- * (usage, nombre d'étages, hauteur) dont l'étape d'estimation aura besoin.
+ * (usage, nombre d'étages, hauteur) dont l'étape d'estimation se sert.
  */
 const BUILDING_LAYER = 'BDTOPO_V3:batiment'
 

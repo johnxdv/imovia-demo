@@ -26,6 +26,13 @@ npm run dev
 
 Le site est servi sur `http://localhost:5173`.
 
+Les fonctions du dossier `api/` y sont servies elles aussi : un greffon Vite
+réservé au développement (`apiDevServer`, dans
+[`vite.config.js`](vite.config.js)) les monte sur `/api/*` avec le strict
+nécessaire du contrat Vercel. L'outil d'estimation fonctionne donc en local
+sans `vercel dev`, et une modification d'une fonction est prise en compte sans
+redémarrage.
+
 Autres commandes :
 
 ```bash
@@ -77,6 +84,14 @@ Sans `RESEND_API_KEY` ni l'adresse du conseiller ciblé, la fonction répond une
 erreur générique côté client et journalise la cause précise côté serveur
 (`vercel logs`) — jamais dans la réponse HTTP.
 
+L'outil d'estimation, lui, n'a besoin d'aucune clé : toutes ses sources sont
+des services publics ouverts. Deux variables restent facultatives :
+
+| Variable              | Rôle                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `ESTIMATION_PRIX_M2`  | Prix de référence au m², en JSON, par code commune INSEE ou par département — utilisés là où DVF n'a aucune donnée (voir « DVF ne couvre pas la Moselle »). Ex. `{"57176":{"maison":1650,"appartement":1400},"57":{"maison":1850}}`. |
+| `ESTIMATION_DEBUG`    | À `1`, la réponse joint le détail du calcul (surface retenue, prix au m², nombre de comparables, rayon). À laisser vide en production. |
+
 Pour utiliser un autre prestataire d'envoi (SendGrid, Postmark, SMTP…), seul
 l'appel réseau dans `api/contact-conseiller.js` est à adapter ; le contrat
 front (`POST /api/contact-conseiller`, réponse `{ ok, error? , errors? }`) peut
@@ -89,7 +104,14 @@ Modelo (dépend de l'API Modelo).
 
 ```
 api/
-└── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
+├── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
+├── estimation.js           Fonction serverless — moteur d'estimation (DVF)
+└── _lib/                   Briques du moteur (préfixe `_` : jamais des routes)
+    ├── bien.js             Étape A — surface et année du bien (BDNB, cadastre)
+    ├── comparables.js      Étapes B et C — ventes comparables, médiane au m²
+    ├── dvf.js              Téléchargement, analyse et cache des fichiers DVF
+    ├── geo.js              Distances, code département, sondage du pourtour
+    └── reference.js        Repli hors couverture DVF (Alsace-Moselle, Mayotte)
 
 src/
 ├── components/
@@ -104,7 +126,7 @@ src/
 │   ├── properties.json   15 biens fictifs
 │   ├── team.js           Conseillers joignables individuellement (page Équipe)
 │   ├── projets.js        Natures de projet du formulaire conseiller
-│   ├── estimation.js     Étapes d'analyse, encarts d'attente, prix fictif
+│   ├── estimation.js     Étapes d'analyse, encarts d'attente, créneaux de rappel
 │   └── agency.js         Coordonnées, réseaux, carte
 ├── lib/
 │   ├── properties.js     Accès + filtrage des biens
@@ -116,6 +138,7 @@ src/
 │   ├── bdnb.js           Base nationale des bâtiments — vocation, logements
 │   ├── typeBien.js       Déduction du type de bien + correction manuelle
 │   ├── geo.js            Emprise au sol d'une géométrie GeoJSON
+│   ├── estimation.js     Appel du moteur d'estimation (POST /api/estimation)
 │   └── nav.js            Architecture de navigation
 └── pages/           Une page par route
 ```
@@ -163,23 +186,80 @@ sans navigation d'URL entre les étapes :
    bâtiment ouvre une **fenêtre modale** « Bien confirmé », par-dessus la page
    assombrie et floutée.
 4. **Analyse** — enchaînement de trois étapes, barre de progression, encart
-   d'attente.
+   d'attente. Le calcul réel démarre au lancement de cet écran et tourne
+   derrière l'animation (voir « Moteur d'estimation » plus bas).
 5. **Résultat** — montant flouté, adresse rappelée, invitation à laisser ses
    coordonnées.
 
 ### Ce qui reste à brancher
 
-L'écran 4 ne calcule rien : les durées viennent de `ANALYSIS_STEPS`
-([`src/data/estimation.js`](src/data/estimation.js)) et n'ont qu'une fonction
-d'habillage. Le montant affiché à l'écran 5 est tiré au hasard entre 200 000 €
-et 450 000 € par `placeholderEstimate()`, en attendant le calcul réel sur la
-base DVF. Le bouton « Voir mon estimation » et la capture des coordonnées ne
-sont pas encore reliés.
+La capture des coordonnées à l'écran 5 fonctionne côté interface mais n'envoie
+ni ne sauvegarde rien : ni e-mail, ni création de prospect dans Modelo.
 
-> **À la mise en service du vrai calcul** : le montant ne doit plus descendre
-> dans la page avant que les coordonnées aient été saisies. Le floutage est un
-> `filter: blur()`, contourné en trois clics dans un inspecteur — il masque un
-> chiffre de démonstration, il ne protégera pas une vraie estimation.
+Les durées de l'écran 4 restent purement visuelles (`ANALYSIS_STEPS`,
+[`src/data/estimation.js`](src/data/estimation.js)) : le calcul répond en
+quelques secondes, l'animation garde ses douze secondes. Elle n'est ni
+raccourcie quand la réponse arrive tôt, ni interrompue si elle tarde.
+
+> **Le montant descend aujourd'hui dans la page avant la capture des
+> coordonnées.** Le floutage est un `filter: blur()` : il se contourne en trois
+> clics dans un inspecteur. Tant que le prix n'est pas retenu côté serveur
+> jusqu'à la saisie du contact, le déblocage progressif est un habillage, pas
+> une contrepartie.
+
+### Moteur d'estimation
+
+Tout le calcul vit dans [`api/estimation.js`](api/estimation.js) et ses briques
+`api/_lib/` — jamais côté client, qui n'envoie que sa sélection et ne reçoit
+qu'un montant en euros. Il démarre au clic sur « Obtenir une estimation
+instantanée » et répond en 1 à 6 s selon le secteur, très en deçà des 12 s de
+l'animation d'analyse.
+
+| Étape | Objet | Source |
+| ----- | ----- | ------ |
+| **A** | Surface et année du bien | BDNB (surface habitable d'un DPE ; à défaut emprise × niveaux), cadastre pour un terrain |
+| **B** | Ventes comparables | [DVF / Etalab](https://files.data.gouv.fr/geo-dvf/) — 1 km, 3 derniers millésimes |
+| **C** | Prix médian au m² × surface | — |
+
+**Médiane, jamais moyenne** : sur quelques ventes, une seule transaction hors
+norme déplacerait une moyenne de plusieurs dizaines de pour cent.
+
+**Élargissement automatique** — en deçà de cinq ventes comparables, la
+recherche s'élargit d'elle-même : 2 km/4 ans, 5 km/5 ans, puis 15 km. Rien n'en
+transparaît à l'écran : le parcours est identique qu'il s'agisse d'un
+centre-ville couvert par un millier de ventes ou d'un hameau qu'il a fallu
+chercher à quinze kilomètres. Les fichiers sont pris **par département** et
+gardés en mémoire : élargir le rayon ne coûte alors plus aucune requête.
+
+Trois pièges de la base DVF, tous traités dans
+[`api/_lib/dvf.js`](api/_lib/dvf.js) — chacun fausserait le prix au m² d'un
+facteur dix :
+
+- **Une vente occupe plusieurs lignes** (une par lot et par parcelle), toutes
+  portant le même prix. Diviser un prix par la surface d'une seule ligne est
+  l'erreur classique : les lignes sont regroupées par `id_mutation`.
+- **Les ventes groupées n'ont pas de prix au m² interprétable** (immeuble de
+  rapport, maison + commerce) : seules les mutations portant un seul logement,
+  sans local professionnel, sont retenues.
+- **Un terrain agricole n'est pas un terrain à bâtir** : dans la Meuse, les
+  terres se vendent autour d'1 €/m² contre 15 €/m² pour du sol constructible.
+  Seules les natures de culture `S` (sols) et `AB` sont comparables.
+
+#### DVF ne couvre pas la Moselle
+
+**La Moselle (57), le Bas-Rhin (67) et le Haut-Rhin (68) sont absents de DVF**,
+à tous les millésimes, ainsi que Mayotte (976) : ces départements relèvent du
+livre foncier et non du fichier immobilier de la DGFiP, et leurs mutations ne
+sont publiées nulle part en open data. Aucun élargissement du rayon n'y trouvera
+quoi que ce soit.
+
+**Le secteur de l'agence est entièrement dans cette zone.** Les estimations y
+reposent donc sur les prix de référence de
+[`api/_lib/reference.js`](api/_lib/reference.js), qui n'ont d'autre prétention
+que l'ordre de grandeur départemental. Ils sont à remplacer par les références
+de l'agence via la variable d'environnement `ESTIMATION_PRIX_M2` (voir plus
+haut) — c'est la seule façon d'obtenir des chiffres réellement locaux en
+Alsace-Moselle.
 
 ### Sources cartographiques
 
@@ -195,7 +275,7 @@ L'API Carto « cadastre » ne publie pas d'emprises bâties (`/api/cadastre/bati
 répond 404) ; c'est la BD TOPO® qui les porte. Elle est de surcroît levée par
 photogrammétrie sur ces mêmes orthophotos — donc calée dessus — et expose déjà
 les attributs (usage, étages, hauteur, nombre de logements) dont le calcul
-d'estimation aura besoin.
+d'estimation se sert.
 
 La mention **« © IGN — Géoplateforme »** affichée en bas de la carte est une
 obligation de la licence : ne pas la retirer.
@@ -205,8 +285,10 @@ obligation de la licence : ne pas la retirer.
 Enchaînée dans [`src/lib/typeBien.js`](src/lib/typeBien.js) au moment où
 l'utilisateur sélectionne un bâtiment, pendant que la fenêtre s'ouvre.
 
-**Elle ne s'affiche nulle part** : le type déduit ne sert qu'au futur calcul
-d'estimation, et voyage avec la sélection jusqu'aux écrans suivants. Le
+**Elle ne s'affiche nulle part** : le type déduit ne sert qu'au calcul
+d'estimation, et voyage avec la sélection jusqu'aux écrans suivants — avec la
+parcelle et la fiche BDNB obtenues au passage, que le moteur n'a alors plus à
+rechercher. Le
 correcteur manuel a donc été retiré de l'interface ; `MANUAL_TYPE_IDS` et
 `typeDetecte()` restent en place pour le jour où il refera surface.
 

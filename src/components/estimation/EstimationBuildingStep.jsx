@@ -24,7 +24,10 @@ import { detectPropertyType } from '../../lib/typeBien'
  */
 export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
   const [selection, setSelection] = useState(null)
-  const [detectedType, setDetectedType] = useState(null)
+  // Résultat complet de la détection, et pas seulement le type : la parcelle
+  // cadastrale et la fiche BDNB obtenues au passage évitent au moteur
+  // d'estimation de refaire la même chaîne d'appels quelques secondes plus tard.
+  const [detection, setDetection] = useState(null)
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {
@@ -44,28 +47,34 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // reste utilisable, quoi qu'il advienne du réseau.
   useEffect(() => {
     if (!selection) {
-      setDetectedType(null)
+      setDetection(null)
       return undefined
     }
 
     const controller = new AbortController()
 
     detectPropertyType(selection, { signal: controller.signal })
-      .then((result) => setDetectedType(result.type))
+      .then(setDetection)
       .catch((error) => {
         if (error.name === 'AbortError') return
         // La chaîne ne lève qu'en cas d'annulation ; ce repli couvre l'imprévu.
-        setDetectedType(null)
+        setDetection(null)
       })
 
     return () => controller.abort()
   }, [selection])
 
-  // `type` peut être `null` si l'utilisateur valide avant la fin de la détection
-  // — invraisemblable en pratique (moins d'une seconde, contre le temps de lire
-  // la fenêtre), mais l'écran suivant ne doit pas prendre un type pour acquis.
+  // La détection peut n'avoir pas abouti si l'utilisateur valide très vite —
+  // invraisemblable en pratique (moins d'une seconde, contre le temps de lire
+  // la fenêtre), mais l'écran suivant ne doit rien prendre pour acquis : le
+  // moteur d'estimation sait retrouver lui-même ce qui lui manque.
   const startEstimate = () => {
-    onEstimate?.({ ...selection, type: detectedType })
+    onEstimate?.({
+      ...selection,
+      type: detection?.type ?? null,
+      parcelle: detection?.parcelle ?? null,
+      fiche: detection?.fiche ?? null,
+    })
   }
 
   return (

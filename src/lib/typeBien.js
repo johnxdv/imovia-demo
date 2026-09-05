@@ -1,5 +1,5 @@
-import { fetchBuildingsOnParcel } from './bdnb'
-import { fetchParcelle } from './ign'
+import { fetchBuildingsOnParcel } from './bdnb.js'
+import { fetchParcelle } from './ign.js'
 
 /**
  * Types de bien reconnus par le parcours. `manuel` liste ceux proposés à la

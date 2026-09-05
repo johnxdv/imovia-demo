@@ -1,7 +1,9 @@
 /**
- * Étapes affichées pendant l'analyse. Les durées sont purement visuelles : il
- * n'y a encore aucun calcul en arrière-plan, le vrai enchaînement les
- * remplacera. Total = 12 s, réparties à parts égales entre les trois étapes.
+ * Étapes affichées pendant l'analyse. Les durées sont fixes et purement
+ * visuelles : le calcul réel tourne bien en arrière-plan (voir
+ * `src/lib/estimation.js`) mais répond en quelques secondes, sans rapport avec
+ * ce déroulé. L'animation garde donc son rythme propre — elle n'est ni
+ * raccourcie ni allongée par le moteur. Total = 12 s, à parts égales.
  */
 export const ANALYSIS_STEPS = [
   { id: 'batiment', label: 'Expertise du bien…', done: 'Bien expertisé', durationMs: 4000 },
@@ -34,17 +36,3 @@ export const CALLBACK_SLOTS = [
   { id: 'demain-apres-midi', label: 'Demain après-midi', phrase: 'demain après-midi' },
   { id: 'semaine', label: 'Dans la semaine', phrase: 'dans la semaine' },
 ]
-
-/**
- * Fourchette du prix de démonstration. Le calcul réel (base DVF) n'est pas
- * encore branché : cette valeur n'a qu'une fonction d'habillage, et le montant
- * affiché à l'écran final est de toute façon flouté.
- */
-const PLACEHOLDER_MIN = 200000
-const PLACEHOLDER_MAX = 450000
-
-/** Montant fictif, arrondi au millier — un prix « rond » sonnerait faux. */
-export function placeholderEstimate() {
-  const raw = PLACEHOLDER_MIN + Math.random() * (PLACEHOLDER_MAX - PLACEHOLDER_MIN)
-  return Math.round(raw / 1000) * 1000
-}

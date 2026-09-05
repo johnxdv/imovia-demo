@@ -8,7 +8,8 @@ const ENDPOINT = 'https://api.bdnb.io/v1/bdnb/donnees/batiment_groupe_complet'
  * Champs demandés. `usage_principal_bdnb_open` porte la vocation du bâtiment,
  * `nb_log` distingue une maison d'un collectif, `s_geom_groupe` (emprise au
  * sol, m²) sert à retrouver le bon bâtiment quand la parcelle en porte
- * plusieurs, et l'année de construction préparera l'estimation.
+ * plusieurs, et l'année de construction complète la fiche remise au moteur
+ * d'estimation.
  */
 const FIELDS = [
   'batiment_groupe_id',

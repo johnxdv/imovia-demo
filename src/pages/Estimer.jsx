@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { EstimationIntro } from '../components/estimation/EstimationIntro'
@@ -6,7 +6,7 @@ import { EstimationAddressStep } from '../components/estimation/EstimationAddres
 import { EstimationBuildingStep } from '../components/estimation/EstimationBuildingStep'
 import { EstimationLoadingStep } from '../components/estimation/EstimationLoadingStep'
 import { EstimationResultStep } from '../components/estimation/EstimationResultStep'
-import { placeholderEstimate } from '../data/estimation'
+import { requestEstimation } from '../lib/estimation'
 import { EASE } from '../lib/motion'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -27,8 +27,10 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  * (split-screen) qui se conclut, sur ce même écran, par la confirmation
  * finale et le déblocage complet du prix.
  *
- * Le montant affiché reste une valeur de démonstration : le calcul réel
- * (base DVF) reste à brancher. La capture de coordonnées, elle, est
+ * Le montant affiché est calculé pour de bon : le clic sur « Obtenir une
+ * estimation instantanée » lance la requête au moteur (`api/estimation.js`,
+ * base DVF) en même temps que l'animation d'analyse, et le résultat est
+ * appliqué à la fin de celle-ci. La capture de coordonnées, elle, est
  * fonctionnelle côté interface — mais n'envoie ni ne sauvegarde encore rien
  * (voir `EstimationChatPanel`).
  */
@@ -37,11 +39,16 @@ export default function Estimer() {
   const navigate = useNavigate()
   const [step, setStep] = useState('intro')
   const [address, setAddress] = useState(null)
-  // Sélection confirmée : bâtiment, coordonnées, emprise au sol et type détecté.
-  // Rien n'en est affiché — c'est la charge utile du futur calcul DVF, conservée
-  // ici pour qu'elle n'ait pas à être redemandée à l'écran du résultat.
+  // Sélection confirmée : bâtiment, coordonnées, emprise au sol, type détecté,
+  // parcelle et fiche BDNB. Rien n'en est affiché — c'est la charge utile du
+  // calcul, conservée ici pour n'avoir pas à être redemandée.
   const [selection, setSelection] = useState(null)
   const [price, setPrice] = useState(null)
+  // Calcul en cours, conservé sous forme de promesse : il démarre avec
+  // l'animation d'analyse et n'est lu qu'à la fin de celle-ci. Une référence
+  // plutôt qu'un état — sa mutation ne doit provoquer aucun rendu, et
+  // `showResult` doit garder une identité stable (voir plus bas).
+  const pendingEstimate = useRef(null)
   const reduce = useReducedMotion()
 
   // Hauteur mesurée de la navbar : la barre de progression globale se loge
@@ -78,15 +85,24 @@ export default function Estimer() {
     goToStep('batiment')
   }, [goToStep])
 
-  // Le montant est tiré une seule fois, au lancement de l'analyse : le
-  // regénérer au rendu du résultat le ferait changer à chaque re-rendu.
+  // Le calcul est lancé une seule fois, au démarrage de l'écran d'analyse, et
+  // court en arrière-plan de l'animation — laquelle garde son déroulé complet
+  // quoi qu'il arrive : elle n'est ni raccourcie si la réponse arrive tôt, ni
+  // interrompue si elle tarde.
   const startAnalysis = useCallback((confirmedSelection) => {
     setSelection(confirmedSelection)
-    setPrice(placeholderEstimate())
+    setPrice(null)
+    pendingEstimate.current = requestEstimation(confirmedSelection)
     goToStep('analyse')
   }, [goToStep])
 
-  const showResult = useCallback(() => goToStep('resultat'), [goToStep])
+  // Fin de l'animation : le montant est très largement calculé à ce stade
+  // (quelques secondes contre douze), l'attente ci-dessous ne couvre que le
+  // cas d'un serveur à la traîne. `requestEstimation` ne rejette jamais.
+  const showResult = useCallback(async () => {
+    setPrice(await pendingEstimate.current)
+    goToStep('resultat')
+  }, [goToStep])
 
   // La conversation vient de se conclure : `EstimationResultStep` bascule en
   // interne vers son écran de confirmation, sans quitter cette étape.
