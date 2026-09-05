@@ -40,6 +40,26 @@ const DVF_BUDGET_MS = 7000
  */
 const SURFACE_PAR_DEFAUT = { maison: 100, appartement: 65, terrain: 600 }
 
+/**
+ * Bornes de la surface déclarée au curseur, alignées sur celles de la fenêtre
+ * qui la recueille (`BuildingConfirmModal`). Le curseur ne peut rien produire
+ * en dehors — la vérification vise une requête forgée, pas l'utilisateur.
+ */
+const SURFACE_DECLAREE_RANGE = [10, 800]
+
+/**
+ * Surface saisie par l'utilisateur, ou `null` si le champ est absent ou
+ * aberrant. Elle vaut mieux que toute reconstitution : celui qui fait estimer
+ * son bien en connaît la surface, là où le moteur la déduit d'une emprise au
+ * sol et d'un nombre de niveaux présumé.
+ */
+function surfaceDeclaree(value) {
+  const surface = Number(value)
+  const [min, max] = SURFACE_DECLAREE_RANGE
+
+  return Number.isFinite(surface) && surface >= min && surface <= max ? surface : null
+}
+
 /** Bornes du montant renvoyé — au-delà, le calcul relève de la donnée aberrante. */
 const PRICE_RANGE = [15000, 20000000]
 
@@ -148,6 +168,7 @@ export default async function handler(req, res) {
       lon,
       type,
       areaM2: Number(body.areaM2) || null,
+      surfaceM2: surfaceDeclaree(body.surfaceM2),
       properties: record(body.properties),
       parcelle: record(body.parcelle),
       // Fiche BDNB du bâtiment : sa présence dispense de refaire la chaîne
@@ -179,7 +200,12 @@ export default async function handler(req, res) {
       resolvePricePerM2({ lat, lon, type, departement, codeInsee }, { signal }),
     ])
 
-    const surfaceM2 = bien.surfaceM2 ?? SURFACE_PAR_DEFAUT[type] ?? SURFACE_PAR_DEFAUT.maison
+    // La surface déclarée passe avant celle qu'ont reconstituée les bases : elle
+    // est la seule à avoir été vue de l'intérieur. Le calcul de `describeBien`
+    // n'est pas pour autant inutile — il tourne en parallèle de la recherche
+    // DVF, sans coût de temps propre, et renseigne le journal.
+    const surfaceM2 =
+      selection.surfaceM2 ?? bien.surfaceM2 ?? SURFACE_PAR_DEFAUT[type] ?? SURFACE_PAR_DEFAUT.maison
 
     const raw = prix.pricePerM2 * surfaceM2
     const price = Math.min(Math.max(round(raw), PRICE_RANGE[0]), PRICE_RANGE[1])
@@ -187,7 +213,10 @@ export default async function handler(req, res) {
     const meta = {
       type,
       surfaceM2,
-      surfaceSource: bien.surfaceSource,
+      surfaceSource: selection.surfaceM2 ? 'declaree' : bien.surfaceSource,
+      // Conservée à côté de la surface retenue : c'est l'écart entre les deux
+      // qui dira si la reconstitution géométrique vise juste.
+      surfaceEstimee: bien.surfaceM2,
       anneeConstruction: bien.anneeConstruction,
       codeInsee,
       departement,

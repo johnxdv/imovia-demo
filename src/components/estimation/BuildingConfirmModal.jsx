@@ -1,15 +1,43 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Check } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
-import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
+import { HouseIllustration } from './HouseIllustration'
+import { PriceReveal } from './PriceReveal'
+import { formatEuros } from '../../lib/format'
+import { fetchPrixM2 } from '../../lib/prixSecteur'
 import { EASE } from '../../lib/motion'
 
 /** Éléments focusables du panneau, pour le maintien du focus à l'intérieur. */
 const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
 
 /**
- * Fenêtre de confirmation du bâtiment sélectionné.
+ * Bornes du curseur. Le pas de 5 m² tient l'échelle entière en 159 crans :
+ * assez fin pour qu'on tombe sur sa surface, assez large pour que la valeur
+ * ne tremble pas sous le doigt.
+ *
+ * La borne haute est un plafond d'affichage, pas une limite du parc : au-delà,
+ * le curseur reste en butée et la valeur s'écrit « 800+ ».
+ */
+const SURFACE_MIN = 10
+const SURFACE_MAX = 800
+const SURFACE_STEP = 5
+
+/**
+ * Valeur d'ouverture. Volontairement médiane : ouvrir à 10 m² obligerait tout
+ * le monde à traverser l'échelle, et laisserait croire que le parcours part du
+ * plus petit. 100 m² est l'ordre de grandeur d'une maison française.
+ */
+const SURFACE_DEFAULT = 100
+
+/**
+ * Le montant d'aperçu est arrondi au millier, comme celui du moteur : un ordre
+ * de grandeur affiché à l'euro près afficherait une précision qu'il n'a pas.
+ */
+const roundPrice = (value) => Math.round(value / 1000) * 1000
+
+/**
+ * Fenêtre de saisie de la surface habitable.
  *
  * Vraie fenêtre modale, et non un calque posé sur la carte : le fond assombri
  * et flouté couvre toute la page, le panneau s'ouvre au centre de l'écran.
@@ -19,13 +47,37 @@ const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tab
  * l'écran suivant, l'étape reprend un `transform` et la fenêtre glisse alors
  * avec la page — exactement l'enchaînement recherché.
  *
+ * Elle n'est ouverte que pour un bâtiment : un terrain n'a pas de surface
+ * habitable à déclarer, sa contenance cadastrale est déjà connue et l'étape
+ * suivante s'enchaîne sans rien demander (voir `EstimationBuildingStep`).
+ *
  * Le type de bien détecté n'est volontairement pas affiché : la détection tourne
  * en arrière-plan pour le futur calcul d'estimation, elle n'a rien à dire à
  * l'utilisateur à ce stade.
  */
-export function BuildingConfirmModal({ onClose, onEstimate }) {
+export function BuildingConfirmModal({ selection, onClose, onEstimate }) {
   const panelRef = useRef(null)
   const reduce = useReducedMotion()
+
+  const [surface, setSurface] = useState(SURFACE_DEFAULT)
+
+  // Prix indicatif au m² du secteur, demandé une seule fois à l'ouverture.
+  // Tout le reste — le montant qui suit le curseur — se calcule ici même, sans
+  // repasser par le réseau : un appel par mouvement de doigt saturerait la
+  // liaison pour un chiffre qui n'est de toute façon qu'un aperçu.
+  const [pricePerM2, setPricePerM2] = useState(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    fetchPrixM2(selection, { signal: controller.signal })
+      .then(setPricePerM2)
+      .catch(() => {
+        // Annulation à la fermeture : il n'y a plus rien à afficher.
+      })
+
+    return () => controller.abort()
+  }, [selection])
 
   // Fermeture au clavier + maintien du focus dans la fenêtre, sans quoi la
   // tabulation repartirait dans la navigation, derrière le fond assombri.
@@ -80,6 +132,14 @@ export function BuildingConfirmModal({ onClose, onEstimate }) {
     }
   }, [])
 
+  const atMax = surface >= SURFACE_MAX
+  const surfaceLabel = `${atMax ? `${SURFACE_MAX}+` : surface} m²`
+  const formatted = pricePerM2 ? formatEuros(roundPrice(pricePerM2 * surface)) : null
+
+  // Part remplie de la piste, passée au CSS : un `input[type=range]` ne colore
+  // pas son parcours de lui-même sur les moteurs WebKit.
+  const fill = ((surface - SURFACE_MIN) / (SURFACE_MAX - SURFACE_MIN)) * 100
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -101,40 +161,63 @@ export function BuildingConfirmModal({ onClose, onEstimate }) {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirmation-batiment-titre"
+        aria-labelledby="surface-habitable-titre"
         tabIndex={-1}
         initial={{ opacity: 0, y: reduce ? 0 : 16, scale: reduce ? 1 : 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: reduce ? 0 : 8, scale: reduce ? 1 : 0.98 }}
         transition={{ duration: reduce ? 0.15 : 0.34, ease: EASE }}
-        className="relative w-full max-w-sm outline-none"
+        className="relative my-auto w-full max-w-sm outline-none"
       >
         <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
 
-        <div className="relative rounded-2xl border border-ink/10 bg-white px-6 py-9 text-center shadow-[0_28px_64px_-18px_rgba(16,20,28,0.55)] sm:px-8">
+        <div className="relative rounded-2xl border border-ink/10 bg-white px-6 py-8 text-center shadow-[0_28px_64px_-18px_rgba(16,20,28,0.55)] sm:px-8">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-bottle shadow-lg shadow-bottle/25">
             <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
           </span>
 
           <h2
-            id="confirmation-batiment-titre"
-            className="mt-6 font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]"
+            id="surface-habitable-titre"
+            className="mt-5 font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]"
           >
-            Bien confirmé
+            Votre surface habitable
           </h2>
 
-          <p className="mx-auto mt-3 max-w-xs text-[0.9rem] leading-relaxed text-ink/55">
-            Nous allons réaliser une analyse instantanée afin de vous donner une estimation.
+          <PricePreview formatted={formatted} surface={surface} />
+
+          {/* Valeur en cours, au-dessus du curseur : elle suit le doigt sans
+              attendre le relâchement. `tabular-nums` fige la largeur des
+              chiffres — sans quoi le nombre danserait pendant le glissement. */}
+          <p className="mt-1 font-display text-[2rem] font-semibold leading-none text-ink tabular-nums sm:text-[2.25rem]">
+            {surfaceLabel}
           </p>
 
-          <FormingFigure />
+          <div className="mt-3">
+            <input
+              type="range"
+              min={SURFACE_MIN}
+              max={SURFACE_MAX}
+              step={SURFACE_STEP}
+              value={surface}
+              onChange={(event) => setSurface(Number(event.target.value))}
+              aria-label="Surface habitable, en mètres carrés"
+              aria-valuetext={surfaceLabel}
+              style={{ '--fill': `${fill}%` }}
+              className="surface-slider"
+            />
 
-          <div className="relative mx-auto mt-7 max-w-[19rem]">
+            <div className="flex justify-between font-mono text-[0.62rem] uppercase tracking-micro text-ink/35">
+              <span>{SURFACE_MIN} m²</span>
+              <span>{SURFACE_MAX}+ m²</span>
+            </div>
+          </div>
+
+          <div className="relative mx-auto mt-6 max-w-[19rem]">
             <GoldFrame className="-inset-[2px] rounded-[0.87rem]" />
 
             <button
               type="button"
-              onClick={onEstimate}
+              onClick={() => onEstimate(surface)}
               className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-5 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
             >
               <Shine width="w-1/5" tint="via-brass/40" />
@@ -151,7 +234,7 @@ export function BuildingConfirmModal({ onClose, onEstimate }) {
           <button
             type="button"
             onClick={onClose}
-            className="group mt-5 inline-flex touch-manipulation items-center gap-1.5 text-[0.8rem] text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
+            className="group mt-4 inline-flex touch-manipulation items-center gap-1.5 text-[0.8rem] text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
           >
             <ArrowLeft
               className="h-3.5 w-3.5 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
@@ -167,40 +250,53 @@ export function BuildingConfirmModal({ onClose, onEstimate }) {
 }
 
 /**
- * Décor d'anticipation : un montant en train de se former, jamais lisible.
+ * Aperçu du montant, au-dessus de la maison et sous le même halo.
  *
- * Purement ornemental — rien n'est calculé à ce stade, et le vrai montant ne
- * sera de toute façon pas connu avant l'écran de résultat. Les blocs reprennent
- * le découpage d'un prix (« XXX XXX € ») pour que l'œil y lise un chiffre
- * plutôt qu'une barre de chargement.
+ * Ce n'est pas l'estimation : seulement le prix moyen au m² du secteur
+ * multiplié par la surface au curseur, recalculé dans le navigateur à chaque
+ * mouvement. Il est flouté selon la règle du parcours — premier chiffre net,
+ * le reste sous un flou d'intensité fixe (voir `PriceReveal`) — et le montant
+ * réel le remplacera à l'écran de résultat.
  *
- * Tout est animé en CSS, sur `opacity` et `transform` uniquement : ces deux
- * propriétés se composent sur le GPU, sans recalcul de mise en page à chaque
- * image. Les durées choisies dans la configuration Tailwind ne sont pas
- * multiples entre elles, si bien que blocs et étincelles ne se resynchronisent
- * jamais visiblement.
+ * Montant et silhouette sont empilés dans un même bloc, sous un même halo, et
+ * se chevauchent de quelques pixels : le toit monte juste derrière le chiffre,
+ * assez pour que les deux se lisent comme une seule image, pas assez pour que
+ * la maison passe sur les chiffres — un montant à moitié couvert par un
+ * pignon n'aurait plus rien d'un aperçu.
  *
- * `aria-hidden` : il n'y a rien à annoncer, et la phrase qui précède dit déjà
- * ce qui se prépare.
+ * Les hauteurs sont fixes et se somment exactement à celle du bloc : ni
+ * l'arrivée du prix, ni le changement de palier, ni le passage de trois à sept
+ * chiffres ne déplacent le curseur qui suit.
  */
-function FormingFigure() {
+function PricePreview({ formatted, surface }) {
   return (
-    <div aria-hidden="true" className="relative mx-auto mt-7 h-14 w-full max-w-[15rem]">
-      {/* Halo diffus : détache le chiffre du blanc de la carte. */}
-      <span className="pointer-events-none absolute inset-x-6 inset-y-2 animate-cta-breath rounded-full bg-brass/25 blur-2xl" />
+    <div className="relative mx-auto mt-4 flex h-[11.5rem] w-full max-w-[17rem] flex-col">
+      {/* Halo diffus : détache le montant du blanc de la carte. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-6 top-2 h-12 animate-cta-breath rounded-full bg-brass/30 blur-2xl"
+      />
 
-      {/* Les trois groupes d'un montant : centaines de milliers, unités, devise. */}
-      <div className="absolute inset-0 flex items-center justify-center gap-2.5">
-        <span className="h-7 w-[3.75rem] animate-figure-forming rounded-lg bg-ink/75 blur-[9px] will-change-transform" />
-        <span className="h-7 w-[4.25rem] animate-figure-forming rounded-lg bg-ink/75 blur-[9px] will-change-transform [animation-delay:-0.8s]" />
-        <span className="h-7 w-5 animate-figure-forming rounded-lg bg-brass/80 blur-[9px] will-change-transform [animation-delay:-1.5s]" />
+      <div className="relative flex h-16 shrink-0 items-center justify-center">
+        {formatted ? (
+          <PriceReveal
+            formatted={formatted}
+            className="font-display text-[1.9rem] font-semibold leading-none text-ink tabular-nums sm:text-[2.1rem]"
+          />
+        ) : (
+          // Attente de l'aperçu : trois blocs neutres au découpage d'un
+          // montant, pour que la place soit tenue sans rien laisser deviner.
+          <span aria-hidden="true" className="flex animate-pulse items-center gap-2">
+            <span className="h-6 w-14 rounded-md bg-ink/10" />
+            <span className="h-6 w-16 rounded-md bg-ink/10" />
+            <span className="h-6 w-5 rounded-md bg-brass/25" />
+          </span>
+        )}
       </div>
 
-      {/* Étincelles décalées autour du chiffre. Les retards sont négatifs :
-          l'animation démarre déjà entamée, sans temps mort à l'ouverture. */}
-      <GrowthArrowIcon className="absolute left-1 top-0 h-4 w-4 animate-spark-twinkle text-brass will-change-transform" />
-      <GrowthArrowIcon className="absolute right-2 top-1.5 h-3 w-3 animate-spark-twinkle text-brass/80 will-change-transform [animation-delay:-1.1s] [animation-duration:2.6s]" />
-      <GrowthArrowIcon className="absolute bottom-0 left-1/3 h-3.5 w-3.5 animate-spark-twinkle text-brass/70 will-change-transform [animation-delay:-2.2s] [animation-duration:3.7s]" />
+      {/* La marge négative fait remonter le faîtage derrière le montant.
+          64 + 128 − 8 = 184 px, soit exactement la hauteur du bloc. */}
+      <HouseIllustration surfaceM2={surface} className="-mt-2 h-32 shrink-0" />
     </div>
   )
 }

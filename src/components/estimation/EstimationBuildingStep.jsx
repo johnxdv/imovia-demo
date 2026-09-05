@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2, MapPin } from 'lucide-react'
 // Leaflet et la carte ne servent qu'ici : les charger à la demande évite
@@ -12,15 +12,31 @@ import { BuildingConfirmModal } from './BuildingConfirmModal'
 import { detectPropertyType } from '../../lib/typeBien'
 
 /**
+ * Délai au-delà duquel un repérage libre part sans attendre le cadastre.
+ *
+ * La contenance de la parcelle est une commodité, pas une condition : le
+ * moteur d'estimation sait retrouver la parcelle lui-même, et rien ne justifie
+ * d'immobiliser le parcours sur une réponse qui tarde. En pratique, le
+ * cadastre répond en quelques centaines de millisecondes et ce minuteur ne
+ * sert jamais.
+ */
+const ATTENTE_CADASTRE_MS = 2500
+
+/**
  * Étape 3 — repérage du bien sur la photo aérienne.
  *
- * Sélectionner un bâtiment ouvre la fenêtre de confirmation et lance en même
- * temps, en arrière-plan, la détection de son type (cadastre puis BDNB) :
+ * Sélectionner un bâtiment ouvre la fenêtre de saisie de la surface et lance en
+ * même temps, en arrière-plan, la détection de son type (cadastre puis BDNB) :
  * l'attente réseau se joue derrière l'animation plutôt qu'après elle.
  *
+ * Un repérage libre — un clic hors de toute emprise bâtie — ne l'ouvre pas :
+ * c'est un terrain, il n'a pas de surface habitable à déclarer et sa contenance
+ * cadastrale est déjà connue. L'écran d'analyse s'enchaîne alors directement,
+ * dès que le cadastre a répondu.
+ *
  * Ce type n'est plus affiché — il ne servira qu'au calcul de l'estimation.
- * `onEstimate` remonte donc la sélection enrichie du type retenu, sans que
- * l'utilisateur ait eu à s'en préoccuper.
+ * `onEstimate` remonte donc la sélection enrichie du type retenu et de la
+ * surface retenue, sans que l'utilisateur ait eu à s'en préoccuper.
  */
 export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
   const [selection, setSelection] = useState(null)
@@ -29,14 +45,20 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // d'estimation de refaire la même chaîne d'appels quelques secondes plus tard.
   const [detection, setDetection] = useState(null)
 
+  // Un bâtiment se voit demander sa surface habitable ; un repérage libre vaut
+  // terrain — c'est déjà la règle que suit `detectPropertyType`, on ne fait ici
+  // que la lire sans attendre sa réponse, pour savoir s'il faut ouvrir la
+  // fenêtre ou passer outre.
+  const isBuilding = selection?.kind === 'batiment'
+
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {
     setSelection(null)
   }, [address.id, address.lat, address.lon])
 
-  // Avancement local remonté à la barre globale : la moitié dès qu'un
-  // bâtiment est sélectionné (fenêtre « Bien confirmé » ouverte), le reste
-  // n'arrive qu'au passage à l'étape suivante.
+  // Avancement local remonté à la barre globale : la moitié dès qu'un bien est
+  // sélectionné (fenêtre de surface ouverte, ou terrain en route vers
+  // l'analyse), le reste n'arrive qu'au passage à l'étape suivante.
   useEffect(() => {
     onProgress?.(selection ? 0.5 : 0)
   }, [selection, onProgress])
@@ -46,10 +68,11 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // à l'écran — ni attente, ni résultat : la fenêtre s'ouvre immédiatement et
   // reste utilisable, quoi qu'il advienne du réseau.
   useEffect(() => {
-    if (!selection) {
-      setDetection(null)
-      return undefined
-    }
+    // Remise à zéro à chaque changement de sélection : sans elle, la détection
+    // du bâtiment précédent resterait valide le temps que la nouvelle
+    // aboutisse, et pourrait partir au calcul à la place de la bonne.
+    setDetection(null)
+    if (!selection) return undefined
 
     const controller = new AbortController()
 
@@ -68,14 +91,38 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // invraisemblable en pratique (moins d'une seconde, contre le temps de lire
   // la fenêtre), mais l'écran suivant ne doit rien prendre pour acquis : le
   // moteur d'estimation sait retrouver lui-même ce qui lui manque.
-  const startEstimate = () => {
-    onEstimate?.({
-      ...selection,
-      type: detection?.type ?? null,
-      parcelle: detection?.parcelle ?? null,
-      fiche: detection?.fiche ?? null,
-    })
-  }
+  //
+  // `surfaceM2` est la seule chose que l'utilisateur ait déclarée de tout le
+  // parcours : elle l'emporte donc, côté moteur, sur toute surface reconstituée.
+  const startEstimate = useCallback(
+    (surfaceM2) => {
+      onEstimate?.({
+        ...selection,
+        surfaceM2,
+        type: detection?.type ?? null,
+        parcelle: detection?.parcelle ?? null,
+        fiche: detection?.fiche ?? null,
+      })
+    },
+    [onEstimate, selection, detection],
+  )
+
+  // Terrain : aucune fenêtre, aucune question. Rien n'est déclaré — c'est la
+  // contenance de la parcelle qui fait la surface, et elle voyage déjà dans
+  // `parcelle`, que le moteur lit de lui-même. On attend seulement que le
+  // cadastre ait répondu pour la lui transmettre, ce qui lui épargne d'aller
+  // la chercher ; passé le délai, on part sans, et il s'en charge.
+  useEffect(() => {
+    if (!selection || isBuilding) return undefined
+
+    if (detection) {
+      startEstimate(null)
+      return undefined
+    }
+
+    const timer = setTimeout(() => startEstimate(null), ATTENTE_CADASTRE_MS)
+    return () => clearTimeout(timer)
+  }, [selection, isBuilding, detection, startEstimate])
 
   return (
     <div className="w-full max-w-3xl">
@@ -122,9 +169,10 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
       {/* La fenêtre est rendue hors du conteneur de la carte : elle couvre la
           page entière, pas seulement la vue aérienne. */}
       <AnimatePresence>
-        {selection ? (
+        {isBuilding ? (
           <BuildingConfirmModal
-            key="confirmation"
+            key="surface"
+            selection={selection}
             onEstimate={startEstimate}
             onClose={() => setSelection(null)}
           />

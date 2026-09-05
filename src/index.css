@@ -65,6 +65,68 @@
   .link-underline {
     @apply relative inline-flex items-center gap-2 transition-colors;
   }
+
+  /* Curseur de surface de la fenêtre d'estimation.
+     L'apparence d'un `input[type=range]` ne se pilote qu'en pseudo-éléments,
+     hors de portée des utilitaires Tailwind — d'où ces règles écrites à la
+     main. Le composant natif est conservé plutôt que réécrit en JavaScript :
+     lui seul apporte le suivi tactile du système, le clavier et le rôle ARIA
+     sans une ligne de code, et sans le décrochage au doigt d'un glissement
+     reconstitué à la main.
+     `--fill`, posé en style inline par le composant, marque la part parcourue :
+     WebKit ne colore pas son parcours de lui-même. */
+  .surface-slider {
+    @apply h-11 w-full cursor-pointer touch-manipulation bg-transparent align-middle;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .surface-slider::-webkit-slider-runnable-track {
+    @apply h-1.5 rounded-full;
+    background: linear-gradient(
+      90deg,
+      theme('colors.ink') 0%,
+      theme('colors.brass') var(--fill),
+      rgba(16, 20, 28, 0.1) var(--fill)
+    );
+  }
+
+  .surface-slider::-moz-range-track {
+    @apply h-1.5 rounded-full;
+    background: rgba(16, 20, 28, 0.1);
+  }
+
+  .surface-slider::-moz-range-progress {
+    @apply h-1.5 rounded-full;
+    background: linear-gradient(90deg, theme('colors.ink'), theme('colors.brass'));
+  }
+
+  /* La pastille est large de 1,5 rem : en deçà, la cible tactile impose de
+     viser, et l'on rate son geste sur un écran de téléphone. */
+  .surface-slider::-webkit-slider-thumb {
+    @apply h-6 w-6 rounded-full border-2 border-white bg-ink shadow-[0_2px_8px_-1px_rgba(16,20,28,0.5)];
+    -webkit-appearance: none;
+    appearance: none;
+    /* Recentre la pastille sur la piste : (1,5 rem − 0,375 rem) ÷ 2. */
+    margin-top: -0.5625rem;
+  }
+
+  .surface-slider::-moz-range-thumb {
+    @apply h-6 w-6 rounded-full border-2 border-white bg-ink shadow-[0_2px_8px_-1px_rgba(16,20,28,0.5)];
+    box-sizing: border-box;
+  }
+
+  .surface-slider:focus-visible {
+    outline: none;
+  }
+
+  .surface-slider:focus-visible::-webkit-slider-thumb {
+    @apply ring-2 ring-brass ring-offset-2;
+  }
+
+  .surface-slider:focus-visible::-moz-range-thumb {
+    @apply ring-2 ring-brass ring-offset-2;
+  }
 }
 
 @layer utilities {

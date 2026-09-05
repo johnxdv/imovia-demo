@@ -6,7 +6,7 @@
 // on les réutilise ici plutôt que d'en tenir une seconde version.
 
 import { fetchBuildingsOnParcel } from '../../src/lib/bdnb.js'
-import { fetchParcelle } from '../../src/lib/ign.js'
+import { fetchBuildingAt, fetchParcelle } from '../../src/lib/ign.js'
 
 const DPE_ENDPOINT = 'https://api.bdnb.io/v1/bdnb/donnees/batiment_groupe_dpe_representatif_logement'
 
@@ -39,10 +39,14 @@ const PLAUSIBLE = {
  *
  * Valeur relevée sur les bâtiments que la BDNB documente à la fois par leur
  * géométrie et par un DPE — donc dont la surface habitable est connue : le
- * rapport y est médian à 0,67 (n = 19 maisons, quartiles 0,54 et 0,80), et les
- * quelques collectifs de l'échantillon s'en écartent trop peu pour justifier
- * un second coefficient. L'API ouverte plafonnant ses réponses par commune,
- * l'échantillon est court : il donne un ordre de grandeur, pas un étalon.
+ * rapport y est médian à 0,678 (n = 92 maisons, quartiles 0,52 et 0,80).
+ * Reconstituée avec ce coefficient, la surface ressort à 1,03 fois la surface
+ * habitable réelle en médiane : la formule ne penche ni d'un côté ni de
+ * l'autre, elle est seulement bruitée — quartiles 0,87 et 1,35.
+ *
+ * L'API ouverte plafonne ses réponses à dix lignes par requête, d'où la
+ * pagination qu'il a fallu dérouler pour obtenir cet échantillon : il donne un
+ * ordre de grandeur solide, pas un étalon.
  *
  * Ce coefficient ne sert que de repli — dès qu'un DPE couvre le bâtiment,
  * c'est sa surface habitable qui est retenue, sans reconstitution.
@@ -57,6 +61,49 @@ const HABITABLE_RATIO = 0.7
  */
 const MAX_LEVELS_HOUSE = 3
 const MAX_LEVELS_BUILDING = 30
+
+/**
+ * Paliers de hauteur, en mètres, au-delà desquels on compte un niveau de plus.
+ *
+ * Le piège de la hauteur BD TOPO® est qu'elle est mesurée **au faîtage**, pas à
+ * l'égout du toit : une maison de plain-pied mesure 5,2 m en médiane (n = 203,
+ * quartiles 4,6 et 6,6), une R+1 en mesure 7,9 m. Diviser bêtement la hauteur
+ * par une hauteur d'étage — 3 m, le réflexe naturel — donne alors deux niveaux
+ * à 72 % des plain-pied : soit exactement la sur-évaluation que ce repli est
+ * censé éviter, en sens inverse.
+ *
+ * D'où ces paliers : le premier absorbe la toiture en plus du rez-de-chaussée,
+ * les suivants valent une hauteur d'étage ordinaire. Relevés sur 2 181
+ * bâtiments résidentiels portant à la fois hauteur et nombre d'étages
+ * (secteur de l'agence et cinq grandes villes), ils retrouvent le bon nombre de
+ * niveaux dans 42 % des cas et tombent à un niveau près dans 84 %, sans biais
+ * médian — contre 38 % pour une simple division par 3.
+ */
+const HEIGHT_LEVELS = [7, 10, 13, 16, 19]
+
+/**
+ * Niveaux estimés depuis la hauteur au faîtage. Un bâtiment bas reste à un
+ * seul niveau : le repli ne doit corriger que ce que la hauteur désigne
+ * réellement comme un bâtiment à étages.
+ */
+function niveauxDepuisHauteur(hauteur) {
+  const h = Number(hauteur)
+  if (!Number.isFinite(h) || h <= 0) return null
+
+  return HEIGHT_LEVELS.reduce((levels, palier) => (h >= palier ? levels + 1 : levels), 1)
+}
+
+/**
+ * Niveaux retenus quand rien — ni les bases, ni la hauteur — n'a rien à dire.
+ *
+ * Compter un seul niveau reviendrait à retenir l'emprise au sol nue, ce qui
+ * sous-évalue mécaniquement tout bâtiment à étage. Un niveau et demi traduit
+ * qu'une maison a le plus souvent un étage, complet ou partiel : appliqué avec
+ * `HABITABLE_RATIO`, il ramène la surface estimée à 1,05 fois l'emprise, très
+ * près du rapport médian de 1,04 relevé entre emprise au sol et surface
+ * habitable réelle sur le parc local.
+ */
+const DEFAULT_LEVELS = 1.5
 
 /**
  * Surface d'un appartement quand aucune source n'a rien à en dire. Ordre de
@@ -127,9 +174,15 @@ async function resolveFiche({ lat, lon, areaM2, parcelle }, { signal } = {}) {
 /**
  * Surface retenue pour le calcul, et provenance de cette surface.
  *
- * Trois sources, par ordre de fiabilité décroissante : la surface habitable
- * d'un DPE, le produit emprise au sol × niveaux, puis la seule emprise au sol
- * — le repli prévu par le cahier des charges lorsque la BDNB reste muette.
+ * Deux sources, par ordre de fiabilité décroissante : la surface habitable
+ * mesurée d'un DPE, puis le produit emprise au sol × niveaux — les niveaux
+ * étant eux-mêmes cherchés successivement dans la BDNB, la BD TOPO®, la
+ * hauteur du bâtiment, et seulement à défaut présumés.
+ *
+ * L'emprise au sol nue n'est jamais retenue comme surface finale : c'est la
+ * surface d'un seul plancher, et l'utiliser telle quelle sous-évaluait tout
+ * bâtiment à étages d'un facteur égal à son nombre de niveaux.
+ *
  * Aucune de ces étapes ne peut interrompre le calcul : à défaut de tout, un
  * ordre de grandeur vaut mieux qu'un parcours qui s'arrête.
  */
@@ -176,8 +229,16 @@ function resolveSurface({ type, fiche, dpe, areaM2, properties, contenance }) {
   // dès qu'ils sont contigus — une ferme et sa grange, une rangée de maisons
   // de ville. Le polygone BD TOPO®, lui, ne décrit que le bâtiment désigné.
   const footprint = readNumber(areaM2) ?? readNumber(fiche?.s_geom_groupe)
+
+  // Les niveaux, par ordre de fiabilité décroissante : comptés par la BDNB,
+  // comptés par la BD TOPO®, déduits de la hauteur au faîtage, et à défaut
+  // présumés. Ce qu'il ne faut surtout pas faire, c'est retomber sur un seul
+  // niveau faute de mieux — c'est ce qui sous-évaluait les bâtiments à étages.
   const levels = Math.min(
-    readNumber(fiche?.nb_niveau) ?? readNumber(properties?.nombre_d_etages) ?? 1,
+    readNumber(fiche?.nb_niveau) ??
+      readNumber(properties?.nombre_d_etages) ??
+      niveauxDepuisHauteur(properties?.hauteur) ??
+      DEFAULT_LEVELS,
     collective ? MAX_LEVELS_BUILDING : MAX_LEVELS_HOUSE,
   )
 
@@ -186,9 +247,14 @@ function resolveSurface({ type, fiche, dpe, areaM2, properties, contenance }) {
     const candidate = collective ? built / logements : built
     if (inRange(candidate, limits)) return { surfaceM2: candidate, source: 'geometrie' }
 
-    // 3. Emprise seule — repli explicite du cahier des charges.
-    if (!collective && inRange(footprint, limits)) {
-      return { surfaceM2: footprint, source: 'emprise' }
+    // 3. Reconstitution hors bornes. Au-dessus du plafond, on s'y arrête : le
+    // bâtiment est au moins aussi grand que ça, et retomber sur l'emprise au
+    // sol nue — le repli d'origine — reviendrait à diviser la surface par le
+    // nombre de niveaux, soit à sous-évaluer d'autant plus que le bâtiment est
+    // haut. En dessous du plancher, il n'y a rien à sauver : une emprise de
+    // quelques mètres carrés désigne un abri, pas un logement.
+    if (!collective && candidate > limits[1]) {
+      return { surfaceM2: limits[1], source: 'geometrie-plafonnee' }
     }
   }
 
@@ -222,14 +288,28 @@ export async function describeBien(selection, { signal } = {}) {
   const { parcelle, fiche } = resolved
   const batimentGroupeId = fiche?.batiment_groupe_id ?? selection.batimentGroupeId
 
-  const dpe = await fetchDpe(batimentGroupeId, { signal }).catch(() => null)
+  // On ne va chercher la hauteur que si elle sert : elle ne compte les niveaux
+  // que lorsque ni la BDNB ni la BD TOPO® ne les ont comptés, et la requête ne
+  // mérite d'être payée que dans ce cas-là. Elle part en même temps que le DPE
+  // plutôt qu'après : enchaînées, les deux coûteraient le double sur le budget
+  // de l'écran de chargement.
+  const besoinHauteur =
+    type !== 'terrain' &&
+    readNumber(fiche?.nb_niveau) === null &&
+    readNumber(properties?.nombre_d_etages) === null &&
+    readNumber(properties?.hauteur) === null
+
+  const [dpe, releve] = await Promise.all([
+    fetchDpe(batimentGroupeId, { signal }).catch(() => null),
+    besoinHauteur ? fetchBuildingAt(lat, lon, { signal }).catch(() => null) : null,
+  ])
 
   const { surfaceM2, source } = resolveSurface({
     type,
     fiche,
     dpe,
     areaM2,
-    properties,
+    properties: releve ? { ...properties, ...releve } : properties,
     contenance: selection.contenance ?? parcelle?.contenance,
   })
 

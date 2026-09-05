@@ -22,6 +22,10 @@ const TIMEOUT_MS = 15000
  * Le montant est volontairement tiré une seule fois, au lancement de
  * l'analyse : le redemander à l'affichage du résultat le ferait varier d'un
  * rendu à l'autre.
+ *
+ * À ne pas confondre avec l'aperçu de la fenêtre de surface
+ * (`src/lib/prixSecteur.js`) : celui-ci n'est qu'un ordre de grandeur calculé
+ * dans le navigateur, que le montant obtenu ici vient remplacer.
  */
 export async function requestEstimation(selection) {
   if (!selection || !Number.isFinite(selection.lat) || !Number.isFinite(selection.lon)) {
@@ -36,6 +40,12 @@ export async function requestEstimation(selection) {
     kind: selection.kind ?? null,
     type: selection.type ?? null,
     areaM2: selection.areaM2 ?? null,
+    // Surface déclarée au curseur de la fenêtre de surface — la seule donnée
+    // que l'utilisateur ait saisie de tout le parcours. Le serveur la fait
+    // passer avant toute surface reconstituée depuis les bases. Nulle pour un
+    // terrain, qui ne passe pas par cette fenêtre : sa contenance cadastrale
+    // voyage dans `parcelle`.
+    surfaceM2: selection.surfaceM2 ?? null,
     // Parcelle cadastrale et fiche BDNB ont déjà été obtenues pour déterminer
     // le type du bien, pendant que la fenêtre de confirmation était à l'écran.
     // Les retransmettre évite au serveur de refaire la même chaîne d'appels —
@@ -49,6 +59,10 @@ export async function requestEstimation(selection) {
           usage_1: properties.usage_1 ?? null,
           nombre_de_logements: properties.nombre_de_logements ?? null,
           nombre_d_etages: properties.nombre_d_etages ?? null,
+          // Repli pour compter les niveaux quand `nombre_d_etages` manque : le
+          // serveur saurait la retrouver seul, mais c'est une requête de plus
+          // sur le budget de l'écran de chargement, et la carte l'a déjà.
+          hauteur: properties.hauteur ?? null,
         }
       : null,
   }

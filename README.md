@@ -106,6 +106,7 @@ Modelo (dépend de l'API Modelo).
 api/
 ├── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
 ├── estimation.js           Fonction serverless — moteur d'estimation (DVF)
+├── prix-m2.js              Fonction serverless — prix indicatif au m² (aperçu)
 └── _lib/                   Briques du moteur (préfixe `_` : jamais des routes)
     ├── bien.js             Étape A — surface et année du bien (BDNB, cadastre)
     ├── comparables.js      Étapes B et C — ventes comparables, médiane au m²
@@ -120,7 +121,8 @@ src/
 │   │                PropertyCard, PropertyGrid, Button, DpeScale…)
 │   ├── home/        Hero + barre de recherche
 │   ├── property/    PropertyListing (Acheter / Louer, avec filtres)
-│   ├── estimation/  Parcours d'estimation (accueil, adresse, carte bâtiment)
+│   ├── estimation/  Parcours d'estimation (accueil, adresse, carte bâtiment,
+│   │                curseur de surface et ses cinq silhouettes)
 │   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
 │   ├── properties.json   15 biens fictifs
@@ -139,6 +141,7 @@ src/
 │   ├── typeBien.js       Déduction du type de bien + correction manuelle
 │   ├── geo.js            Emprise au sol d'une géométrie GeoJSON
 │   ├── estimation.js     Appel du moteur d'estimation (POST /api/estimation)
+│   ├── prixSecteur.js    Prix indicatif au m² du secteur (POST /api/prix-m2)
 │   └── nav.js            Architecture de navigation
 └── pages/           Une page par route
 ```
@@ -183,8 +186,12 @@ sans navigation d'URL entre les étapes :
    service public gratuit et sans clé. Choisir une proposition suffit : les
    coordonnées viennent de la réponse elle-même, et l'écran enchaîne seul.
 3. **Bâtiment** — photo aérienne, emprises bâties cliquables. Sélectionner un
-   bâtiment ouvre une **fenêtre modale** « Bien confirmé », par-dessus la page
-   assombrie et floutée.
+   bâtiment ouvre une **fenêtre modale** « Votre surface habitable », par-dessus
+   la page assombrie et floutée : un curseur de 10 à 800 m², une silhouette qui
+   change de gabarit avec lui, et un montant d'aperçu qui suit le geste (voir
+   « Curseur de surface » plus bas). Un repérage libre — quand les contours
+   bâtis sont indisponibles — vaut terrain : pas de fenêtre, la contenance
+   cadastrale fait la surface et l'analyse s'enchaîne directement.
 4. **Analyse** — enchaînement de trois étapes, barre de progression, encart
    d'attente. Le calcul réel démarre au lancement de cet écran et tourne
    derrière l'animation (voir « Moteur d'estimation » plus bas).
@@ -217,7 +224,8 @@ l'animation d'analyse.
 
 | Étape | Objet | Source |
 | ----- | ----- | ------ |
-| **A** | Surface et année du bien | BDNB (surface habitable d'un DPE ; à défaut emprise × niveaux), cadastre pour un terrain |
+| **A** | Surface et année du bien | Surface déclarée au curseur ; à défaut BDNB (surface habitable d'un DPE, sinon emprise × niveaux), cadastre pour un terrain |
+| | ↳ *niveaux* | BDNB `nb_niveau`, à défaut BD TOPO® `nombre_d_etages`, à défaut déduits de la hauteur du bâtiment |
 | **B** | Ventes comparables | [DVF / Etalab](https://files.data.gouv.fr/geo-dvf/) — 1 km, 3 derniers millésimes |
 | **C** | Prix médian au m² × surface | — |
 
@@ -260,6 +268,34 @@ que l'ordre de grandeur départemental. Ils sont à remplacer par les référenc
 de l'agence via la variable d'environnement `ESTIMATION_PRIX_M2` (voir plus
 haut) — c'est la seule façon d'obtenir des chiffres réellement locaux en
 Alsace-Moselle.
+
+### Curseur de surface
+
+La surface est **la seule donnée que l'utilisateur saisisse de tout le
+parcours**, et elle pèse linéairement sur le montant : le moteur la fait donc
+passer avant toute surface reconstituée depuis les bases (`surfaceSource:
+declaree` dans le journal, qui conserve à côté ce qu'aurait donné la géométrie).
+La reconstitution reste calculée — elle tourne en parallèle de la recherche DVF,
+sans coût de temps propre — et c'est l'écart entre les deux qui dira si la
+formule emprise × niveaux vise juste.
+
+Cinq paliers, un dessin par palier : petite maison, pavillon, maison à étage,
+grande maison avec piscine, château. Cinq SVG distincts plutôt qu'une forme
+qu'on déformerait — à 800 m², ce n'est plus la même maison en plus grand.
+
+**Le montant d'aperçu n'est pas l'estimation.** Il vient d'un second point
+d'entrée, volontairement bridé : [`api/prix-m2.js`](api/prix-m2.js) rend un prix
+au m² du secteur en un seul rayon, deux millésimes, sans élargissement ni
+département voisin — une à deux secondes, contre dix pour le calcul complet. Le
+front le multiplie ensuite par la valeur du curseur **dans le navigateur** :
+déplacer le curseur ne déclenche aucune requête. Le montant réel le remplace à
+l'écran de résultat. Effet de bord utile : les millésimes chargés pour l'aperçu
+restent en cache pour l'estimation qui suit, sur la même instance.
+
+Le flou reprend la règle du parcours — premier chiffre net, le reste sous un
+flou d'intensité fixe (voir [`PriceReveal`](src/components/estimation/PriceReveal.jsx)).
+Ce premier chiffre suit le curseur, et c'est là tout l'intérêt : il donne
+l'ordre de grandeur sans donner le montant.
 
 ### Sources cartographiques
 
@@ -339,11 +375,13 @@ nombre de bâtiments.
 - **Sans survol** (tactile), un premier appui présélectionne, un second confirme.
 - Leaflet et la carte sont dans un **chunk séparé**, chargé seulement à
   l'étape 3 (amorcé dès l'étape adresse) : les autres pages n'en portent rien.
-- Le décor « chiffre en train de se former » de la fenêtre de confirmation est
-  **purement ornemental** : rien n'est calculé à ce stade. Tout est animé en CSS
-  sur `opacity` et `transform` seuls — composite GPU, aucun recalcul de mise en
-  page. Sous `prefers-reduced-motion`, les animations sont neutralisées et les
-  éléments retombent sur leur style de base, donc visibles et immobiles.
+- Les cinq silhouettes du curseur de surface sont **montées en permanence** et
+  superposées : franchir un palier ne fait que changer des opacités, rien n'est
+  monté ni démonté. C'est ce qui permet de traverser toute l'échelle d'un geste
+  sans à-coup — les paliers sautés restent simplement à zéro. `opacity` et
+  `transform` seuls : composite GPU, aucun recalcul de mise en page pendant le
+  glissement. Sous `prefers-reduced-motion`, les transitions sont neutralisées
+  et le changement devient un remplacement net.
 - La fenêtre de confirmation se positionne en `fixed` **sans portail**, parce
   que Framer Motion laisse `transform: none` sur l'étape au repos. Pendant la
   transition vers l'écran suivant, l'étape reprend un `transform` et la fenêtre
