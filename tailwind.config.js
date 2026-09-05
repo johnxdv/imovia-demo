@@ -74,6 +74,26 @@ export default {
           '60%': { opacity: '1', transform: 'scale(1.02)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        // Icône qui pousse du sol puis y retourne, en boucle. `scaleY` déforme
+        // depuis `transform-origin: bottom` (posé côté composant) : l'icône
+        // grandit depuis sa base plutôt que de se redimensionner sur son centre.
+        'grow-from-ground': {
+          '0%, 100%': { opacity: '0', transform: 'translateY(55%) scaleY(0.45)' },
+          '18%': { opacity: '1', transform: 'translateY(0%) scaleY(1.08)' },
+          '26%': { transform: 'translateY(0%) scaleY(0.96)' },
+          '34%': { transform: 'translateY(0%) scaleY(1)' },
+          '78%': { opacity: '1', transform: 'translateY(0%) scaleY(1)' },
+          '94%': { opacity: '0', transform: 'translateY(30%) scaleY(0.7)' },
+        },
+        // Rotation d'icônes superposées : chaque copie n'est visible que sur un
+        // quart du cycle, décalée par un délai négatif — les quatre fenêtres se
+        // succèdent sans blanc ni superposition perceptible.
+        'icon-rotate': {
+          '0%, 100%': { opacity: '0', transform: 'scale(0.85)' },
+          '3%': { opacity: '1', transform: 'scale(1)' },
+          '20%': { opacity: '1', transform: 'scale(1)' },
+          '25%': { opacity: '0', transform: 'scale(0.85)' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
@@ -90,6 +110,8 @@ export default {
         // jamais en phase, le motif ne se laisse pas mémoriser.
         'figure-forming': 'figure-forming 2.3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spark-twinkle': 'spark-twinkle 3.1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'grow-from-ground': 'grow-from-ground 4.8s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+        'icon-rotate': 'icon-rotate 8s linear infinite',
       },
     },
   },

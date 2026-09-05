@@ -1,5 +1,6 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
+import { HouseTrendIcon } from '../ui/HouseTrendIcon'
 
 const stats = [
   { value: '30 sec', label: 'pour analyser' },
@@ -31,17 +32,13 @@ export function EstimationIntro({ onStart }) {
         spin="animate-border-spin-slow"
       />
 
-      <div className="relative rounded-2xl border border-ink/10 bg-white p-7 shadow-[0_22px_54px_-16px_rgba(16,20,28,0.3),0_0_38px_-6px_rgba(176,141,87,0.5)] sm:p-9">
+      <div className="relative rounded-2xl border border-ink/10 bg-white p-8 shadow-[0_22px_54px_-16px_rgba(16,20,28,0.3),0_0_38px_-6px_rgba(176,141,87,0.5)] sm:p-9">
         <span className="absolute right-5 top-5 inline-flex items-center rounded-full bg-bottle px-3 py-1 font-mono text-[0.6rem] uppercase tracking-micro text-white sm:right-6 sm:top-6">
           Nouveau
         </span>
 
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-ink via-ink to-ink/70 shadow-lg shadow-ink/20">
-          <Sparkles
-            className="h-8 w-8 animate-sparkle-shimmer text-brass"
-            strokeWidth={1.5}
-            aria-hidden="true"
-          />
+          <HouseTrendIcon className="h-8 w-8 animate-sparkle-shimmer text-brass" strokeWidth={1.5} />
         </div>
 
         <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem]">
@@ -58,8 +55,8 @@ export function EstimationIntro({ onStart }) {
               key={stat.label}
               className="rounded-xl border border-ink/5 bg-stone/60 px-4 py-5 text-center"
             >
-              <p className="font-display text-2xl font-semibold leading-none text-ink">{stat.value}</p>
-              <p className="mt-2 text-xs text-ink/50">{stat.label}</p>
+              <p className="font-display text-[1.7rem] font-semibold leading-none text-ink">{stat.value}</p>
+              <p className="mt-2 text-sm font-bold text-ink/50">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -77,7 +74,7 @@ export function EstimationIntro({ onStart }) {
           >
             <Shine width="w-1/6" tint="via-brass/40" />
 
-            <span className="relative inline-flex items-center gap-2.5 font-mono text-[0.72rem] uppercase tracking-micro text-white">
+            <span className="relative inline-flex items-center gap-2.5 font-mono text-[0.85rem] uppercase tracking-micro text-white">
               Commencer l’estimation
               <ArrowRight
                 className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:translate-x-1"

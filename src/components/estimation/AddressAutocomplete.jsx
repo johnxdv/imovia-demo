@@ -186,7 +186,7 @@ export function AddressAutocomplete({
                 onClick={() => select(suggestion)}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={[
-                  'flex w-full touch-manipulation items-center gap-3 px-4 py-3.5 text-left text-sm text-ink/80 transition-colors sm:px-5',
+                  'flex w-full touch-manipulation items-center gap-3 px-4 py-3.5 text-left text-base text-ink/80 transition-colors sm:px-5',
                   index === activeIndex ? 'bg-stone/70 text-ink' : 'bg-white',
                 ].join(' ')}
               >
@@ -199,7 +199,7 @@ export function AddressAutocomplete({
       ) : null}
 
       {showEmpty ? (
-        <p className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3.5 text-sm text-ink/55 shadow-xl shadow-ink/10 sm:px-5">
+        <p className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3.5 text-base text-ink/55 shadow-xl shadow-ink/10 sm:px-5">
           <SearchX className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} aria-hidden="true" />
           Aucune adresse ne correspond à cette recherche.
         </p>
@@ -207,7 +207,7 @@ export function AddressAutocomplete({
 
       {/* Panne réseau : message discret, la saisie reste possible. */}
       {status === 'error' ? (
-        <p role="status" className="mt-3 text-center text-sm text-ink/45">
+        <p role="status" className="mt-3 text-center text-base text-ink/45">
           Recherche d’adresse momentanément indisponible. Réessayez dans un instant.
         </p>
       ) : null}

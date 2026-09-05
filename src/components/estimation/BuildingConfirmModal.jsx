@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Check, Sparkles } from 'lucide-react'
+import { ArrowLeft, Check, Sparkles } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { EASE } from '../../lib/motion'
 
@@ -117,7 +117,7 @@ export function BuildingConfirmModal({ onClose, onEstimate }) {
 
           <h2
             id="confirmation-batiment-titre"
-            className="mt-6 font-display text-[1.5rem] font-semibold leading-tight text-ink sm:text-[1.75rem]"
+            className="mt-6 font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]"
           >
             Bien confirmé
           </h2>
@@ -145,12 +145,18 @@ export function BuildingConfirmModal({ onClose, onEstimate }) {
 
           {/* Seule sortie visible depuis le retrait de la croix — délibérément
               en retrait, mais nommée : « Modifier ma sélection » dit ce qui va
-              se passer là où une croix laissait deviner. */}
+              se passer là où une croix laissait deviner. La flèche reprend le
+              même retour visuel que les boutons « Retour » des autres étapes. */}
           <button
             type="button"
             onClick={onClose}
-            className="mt-5 touch-manipulation text-[0.8rem] text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
+            className="group mt-5 inline-flex touch-manipulation items-center gap-1.5 text-[0.8rem] text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
           >
+            <ArrowLeft
+              className="h-3.5 w-3.5 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
             Modifier ma sélection
           </button>
         </div>

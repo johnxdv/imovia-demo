@@ -1,10 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Check, Lightbulb, Loader2, Sparkles } from 'lucide-react'
+import { Building2, Check, Home, LandPlot, Lightbulb, Loader2, TreeDeciduous } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
 import { EASE } from '../../lib/motion'
+import { GrowingIcons } from '../ui/GrowingIcons'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
+
+/**
+ * Icônes qui se succèdent dans la pastille centrale — un bien vu sous quatre
+ * échelles plutôt qu'une étincelle générique. `delay` négatif décale chaque
+ * copie d'un quart du cycle de `animate-icon-rotate` (8 s) : les fenêtres de
+ * visibilité s'enchaînent sans blanc ni recouvrement.
+ */
+const ROTATING_ICONS = [
+  { Icon: Home, delay: 0 },
+  { Icon: Building2, delay: -2 },
+  { Icon: TreeDeciduous, delay: -4 },
+  { Icon: LandPlot, delay: -6 },
+]
+
+/** Décor : immeuble et maison qui poussent du sol, même principe qu'à l'étape adresse. */
+const GROUND_ICONS = [
+  { Icon: Building2, delay: 0 },
+  { Icon: Home, delay: -2 },
+]
 
 /**
  * Écran 2 — analyse simulée.
@@ -60,29 +80,40 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   return (
     <div className="w-full max-w-lg">
       {/* Icône centrale : halo qui respire, repris de l'écran d'accueil de
-          l'outil pour que l'attente reste dans le même univers. */}
+          l'outil pour que l'attente reste dans le même univers. Le pictogramme
+          change au fil du cycle plutôt que de rester fixe : maison, immeuble,
+          arbre puis terrain — les échelles du bien passées en revue. */}
       <div className="relative mx-auto h-20 w-20">
         <span
           aria-hidden="true"
           className="pointer-events-none absolute -inset-3 animate-cta-breath rounded-full bg-brass/40 blur-2xl"
         />
         <span className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-ink via-ink to-ink/70 shadow-lg shadow-ink/25">
-          <Sparkles
-            className="h-9 w-9 animate-sparkle-shimmer text-brass"
-            strokeWidth={1.5}
-            aria-hidden="true"
-          />
+          {ROTATING_ICONS.map(({ Icon, delay }, index) => (
+            <Icon
+              key={index}
+              className="absolute h-9 w-9 animate-icon-rotate text-brass"
+              style={{ animationDelay: `${delay}s` }}
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+          ))}
         </span>
       </div>
 
-      <h1 className="mt-8 text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+      {/* Décor : immeuble et maison qui poussent du sol, même principe qu'à
+          l'étape adresse — la construction du dossier prend forme pendant
+          l'attente. */}
+      <GrowingIcons icons={GROUND_ICONS} className="mt-5 h-8 text-ink/20" iconClassName="h-6 w-6" />
+
+      <h1 className="mt-6 text-center font-display text-[1.8rem] font-semibold leading-tight text-ink sm:text-[2.25rem]">
         Analyse personnalisée en cours…
       </h1>
 
       <p
         role="status"
         aria-live="polite"
-        className="mt-3 text-center font-mono text-[0.66rem] uppercase tracking-micro text-brass"
+        className="mt-3 text-center font-mono text-[0.72rem] uppercase tracking-micro text-brass"
       >
         {Math.min(completed + 1, ANALYSIS_STEPS.length)}/{ANALYSIS_STEPS.length} —{' '}
         {completed >= ANALYSIS_STEPS.length ? 'Analyse terminée' : ANALYSIS_STEPS[current].label}
@@ -146,7 +177,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
 
               <span
                 className={[
-                  'text-sm leading-snug transition-colors duration-500',
+                  'text-[0.95rem] leading-snug transition-colors duration-500',
                   isDone ? 'text-ink/70' : isCurrent ? 'text-ink' : 'text-ink/35',
                 ].join(' ')}
               >
@@ -167,10 +198,10 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
       >
         <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-brass" strokeWidth={1.75} aria-hidden="true" />
         <span>
-          <span className="block font-mono text-[0.6rem] uppercase tracking-micro text-ink/45">
+          <span className="block font-mono text-[0.66rem] uppercase tracking-micro text-ink/45">
             Le saviez-vous&nbsp;?
           </span>
-          <span className="mt-1.5 block text-[0.85rem] leading-relaxed text-ink/65">{fact}</span>
+          <span className="mt-1.5 block text-[0.95rem] leading-relaxed text-ink/65">{fact}</span>
         </span>
       </motion.aside>
     </div>

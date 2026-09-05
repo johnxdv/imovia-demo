@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import { Sparkles } from 'lucide-react'
+import { HouseTrendIcon } from '../ui/HouseTrendIcon'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 
 /**
  * CTA d'estimation du hero — bouton blanc compact repris de l'écran
- * d'estimation : pastille Ink dégradée à étincelle Brass, libellé principal et
- * mention secondaire.
+ * d'estimation : pastille Ink dégradée au pictogramme maison + courbe
+ * ascendante Brass, libellé principal et mention secondaire.
  *
  * Accroches superposées, toutes en CSS pur, toutes sur `transform` ou `opacity`
  * (composite GPU, aucun reflow — le scroll mobile reste fluide) :
@@ -13,7 +13,7 @@ import { GoldFrame, Shine } from '../ui/GoldFrame'
  *   2. liseré doré de 3 px qui tourne autour du cadre (arc conique en rotation),
  *      souligné d'un filet Ink qui le détache du fond clair de la vidéo ;
  *   3. reflet diagonal qui balaie le bouton, un passage par cycle ;
- *   4. étincelle qui scintille, désynchronisée du halo.
+ *   4. pictogramme qui scintille, désynchronisé du halo.
  * `prefers-reduced-motion` les fige toutes via la règle globale d'index.css.
  */
 export function EstimationCta({ className = '' }) {
@@ -41,18 +41,14 @@ export function EstimationCta({ className = '' }) {
 
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-ink via-ink to-ink/75 sm:h-12 sm:w-12">
           {/* 4 — scintillement */}
-          <Sparkles
-            className="h-5 w-5 animate-sparkle-shimmer text-brass sm:h-6 sm:w-6"
-            strokeWidth={1.75}
-            aria-hidden="true"
-          />
+          <HouseTrendIcon className="h-5 w-5 animate-sparkle-shimmer text-brass sm:h-6 sm:w-6" />
         </span>
 
         <span className="relative flex flex-col items-start gap-1">
           <span className="font-mono text-[0.85rem] font-medium uppercase tracking-micro text-ink">
             Estimer mon bien
           </span>
-          <span className="font-mono text-[0.68rem] uppercase tracking-[0.06em] text-ink/70">
+          <span className="font-mono text-[0.68rem] font-bold uppercase tracking-[0.06em] text-ink/70">
             30 sec · 100&nbsp;% gratuit
           </span>
         </span>

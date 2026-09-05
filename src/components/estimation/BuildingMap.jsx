@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Loader2, TriangleAlert } from 'lucide-react'
+import { Loader2, MapPin, TriangleAlert } from 'lucide-react'
 import {
   BUILDINGS_RADIUS_M,
   IGN_ATTRIBUTION,
@@ -76,6 +76,10 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
   const [buildingsStatus, setBuildingsStatus] = useState('loading')
   const [buildings, setBuildings] = useState(null)
   const [armedId, setArmedId] = useState(null)
+  // Retombe dès le premier survol, la première présélection tactile ou la
+  // première sélection : l'infobulle centrale n'a rien à dire une fois que
+  // l'utilisateur a compris le geste attendu.
+  const [hasInteracted, setHasInteracted] = useState(false)
 
   // Sans survol (tactile), un premier appui présélectionne et un second
   // confirme : sur ces écrans le clic est le seul geste disponible, il ne peut
@@ -219,12 +223,14 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
       onEachFeature: (feature, featureLayer) => {
         featureLayer.on({
           mouseover: () => {
+            setHasInteracted(true)
             if (canHoverRef.current && isIdle()) featureLayer.setStyle(HOVER_STYLE)
           },
           mouseout: () => {
             if (canHoverRef.current && isIdle()) featureLayer.setStyle(RESTING_STYLE)
           },
           click: (event) => {
+            setHasInteracted(true)
             if (canHoverRef.current || armedIdRef.current === feature.id) {
               commit(feature, featureLayer, event.latlng)
               return
@@ -234,6 +240,7 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
           keydown: (event) => {
             const key = event.originalEvent?.key
             if (key !== 'Enter' && key !== ' ') return
+            setHasInteracted(true)
             event.originalEvent.preventDefault()
             commit(feature, featureLayer, null)
           },
@@ -325,6 +332,11 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
   }, [selection])
 
   const showTouchHint = !canHover && armedId !== null && selection === null
+  // Infobulle centrale : seulement tant que rien n'a été touché ni sélectionné,
+  // et une fois la carte réellement utilisable (fond chargé, emprises prêtes
+  // ou repli activé) — inutile de promettre un geste que rien ne permet encore.
+  const showCenterHint =
+    tilesReady && !hasInteracted && selection === null && (buildingsStatus === 'ready' || fallbackEnabled)
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)]">
@@ -373,6 +385,18 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
             ? 'Aucun contour de bâtiment n’est disponible ici. Désignez directement l’emplacement de votre bien sur la photo.'
             : 'Les contours de bâtiments sont momentanément indisponibles. Désignez directement l’emplacement de votre bien sur la photo.'}
         </p>
+      ) : null}
+
+      {/* Infobulle centrale : rend le geste attendu compréhensible d'un coup
+          d'œil, avant tout survol ou clic. `pointer-events-none` : elle ne
+          doit jamais intercepter le clic qu'elle annonce. */}
+      {showCenterHint ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <p className="inline-flex items-center gap-2 rounded-full bg-ink/75 px-4 py-2 font-mono text-[0.62rem] uppercase tracking-micro text-stone/90 shadow-lg shadow-ink/30 backdrop-blur-sm">
+            <MapPin className="h-3.5 w-3.5 text-brass" strokeWidth={2} aria-hidden="true" />
+            Appuyez pour confirmer
+          </p>
+        </div>
       ) : null}
 
       {/* Présélection tactile : rappel du second appui attendu. */}

@@ -1,12 +1,12 @@
 /**
  * Étapes affichées pendant l'analyse. Les durées sont purement visuelles : il
  * n'y a encore aucun calcul en arrière-plan, le vrai enchaînement les
- * remplacera. Total ≈ 5,1 s, assez pour crédibiliser l'analyse sans lasser.
+ * remplacera. Total = 12 s, réparties à parts égales entre les trois étapes.
  */
 export const ANALYSIS_STEPS = [
-  { id: 'batiment', label: 'Analyse du bâtiment…', done: 'Bâtiment analysé', durationMs: 1700 },
-  { id: 'marche', label: 'Consultation des données du marché local…', done: 'Marché local consulté', durationMs: 1900 },
-  { id: 'calcul', label: 'Calcul de l’estimation…', done: 'Estimation calculée', durationMs: 1500 },
+  { id: 'batiment', label: 'Expertise du bien…', done: 'Bien expertisé', durationMs: 4000 },
+  { id: 'marche', label: 'Étude comparative de marché…', done: 'Étude de marché réalisée', durationMs: 4000 },
+  { id: 'calcul', label: 'Calcul de l’estimation…', done: 'Estimation calculée', durationMs: 4000 },
 ]
 
 /**

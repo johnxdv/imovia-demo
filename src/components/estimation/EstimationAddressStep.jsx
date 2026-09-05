@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Building2, Check, Home, TreeDeciduous } from 'lucide-react'
 import { AddressAutocomplete } from './AddressAutocomplete'
+import { GrowingIcons } from '../ui/GrowingIcons'
+
+/**
+ * Immeuble, maison puis arbre : trois échelles du bâti qui poussent du sol
+ * l'une après l'autre, en boucle — décor d'ouverture de l'étape adresse.
+ * Délais négatifs décalés d'un bon tiers du cycle (`animate-grow-from-ground`,
+ * 4,8 s) pour que la pousse de chacun s'enchaîne sans jamais se synchroniser.
+ */
+const GROWING_ICONS = [
+  { Icon: Building2, delay: 0 },
+  { Icon: Home, delay: -1.6 },
+  { Icon: TreeDeciduous, delay: -3.2 },
+]
 
 /**
  * Délai entre le choix dans la liste et le passage à la carte. Assez court pour
@@ -37,7 +50,7 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
         <button
           type="button"
           onClick={onBack}
-          className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink"
+          className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.7rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink"
         >
           <ArrowLeft
             className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
@@ -48,10 +61,12 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
         </button>
       ) : null}
 
-      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+      <GrowingIcons icons={GROWING_ICONS} className="mb-6 h-12 text-brass" iconClassName="h-9 w-9" />
+
+      <h1 className="text-center font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]">
         Où se situe votre bien&nbsp;?
       </h1>
-      <p className="mx-auto mt-4 max-w-md text-center text-[0.95rem] leading-relaxed text-ink/55">
+      <p className="mx-auto mt-4 max-w-md text-center text-base leading-relaxed text-ink/55">
         Commencez à saisir l’adresse, puis choisissez-la dans la liste.
       </p>
 
@@ -71,13 +86,13 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
             <span className="block font-mono text-[0.62rem] uppercase tracking-micro text-bottle">
               Adresse confirmée
             </span>
-            <span className="mt-1.5 block text-sm leading-relaxed text-ink/75">{address.label}</span>
+            <span className="mt-1.5 block text-[0.95rem] leading-relaxed text-ink/75">{address.label}</span>
           </span>
         </div>
       ) : null}
 
       {address && !mappable ? (
-        <p role="status" className="mt-4 text-center text-sm text-ink/45">
+        <p role="status" className="mt-4 text-center text-base text-ink/45">
           Cette adresse n’est pas localisable sur la carte. Essayez une adresse voisine.
         </p>
       ) : null}
