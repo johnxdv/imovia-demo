@@ -19,6 +19,11 @@ const TIMEOUT_MS = 15000
  * requête a échoué. En cas d'échec complet, la promesse est tenue avec `null`
  * — l'écran résultat sait déjà l'afficher sans se casser.
  *
+ * Silencieux pour l'utilisateur, mais jamais pour la console : chaque sortie
+ * en `null` laisse une trace. Un `null` sans explication a déjà coûté un
+ * diagnostic complet — l'écran affichait « — € » et rien, nulle part, ne
+ * disait que la fonction serverless ne démarrait plus.
+ *
  * Le montant est volontairement tiré une seule fois, au lancement de
  * l'analyse : le redemander à l'affichage du résultat le ferait varier d'un
  * rendu à l'autre.
@@ -86,13 +91,22 @@ export async function requestEstimation(selection) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
 
-    if (!response.ok) return null
+    if (!response.ok) {
+      console.error(`[estimation] ${ENDPOINT} a répondu ${response.status}`)
+      return null
+    }
 
     const data = await response.json().catch(() => null)
     const price = Number(data?.price)
 
-    return Number.isFinite(price) && price > 0 ? price : null
-  } catch {
+    if (!Number.isFinite(price) || price <= 0) {
+      console.error('[estimation] Réponse sans montant exploitable —', data)
+      return null
+    }
+
+    return price
+  } catch (error) {
+    console.error('[estimation] Appel au moteur en échec —', error)
     return null
   }
 }

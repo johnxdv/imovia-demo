@@ -2,7 +2,7 @@
 // licence ouverte Etalab, sans clé ni quota déclaré.
 // https://geoservices.ign.fr/services-geoplateforme-diffusion
 
-import { boundingBox, pointInRing } from './geo'
+import { boundingBox, pointInRing } from './geo.js'
 
 /**
  * Orthophotographie IGN en WMTS. Le jeu de tuiles « PM » est la pyramide

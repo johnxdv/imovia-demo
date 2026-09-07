@@ -6,9 +6,10 @@
   "description": "Site vitrine — agence immobilière Imovia (démonstrateur)",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run check:api && vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check:api": "node scripts/check-api-imports.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.5.4",

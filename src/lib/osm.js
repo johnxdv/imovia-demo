@@ -20,7 +20,7 @@
 // les quelques IP de sortie de l'hébergeur — un seul visiteur un peu insistant
 // y ferait tomber les autres.
 
-import { BUILDINGS_RADIUS_M, boundingBox, pointInRing } from './geo'
+import { BUILDINGS_RADIUS_M, boundingBox, pointInRing } from './geo.js'
 
 /**
  * Instances publiques de l'API Overpass, essayées dans l'ordre.
