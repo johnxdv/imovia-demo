@@ -4,6 +4,10 @@
 // le calcul vit ici : le front ne connaît ni les sources de données, ni la
 // méthode, ni les paliers d'élargissement — il n'obtient qu'un nombre.
 //
+// La Principauté de Monaco court-circuite tout cela : aucune des sources
+// n'y publie quoi que ce soit, et le montant s'y calcule d'une multiplication
+// par un prix au m² de référence (voir `../src/lib/monaco.js`).
+//
 //   A. Caractéristiques du bien      → `_lib/bien.js`      (BDNB, cadastre)
 //   B. Ventes comparables            → `_lib/comparables.js` (DVF / Etalab)
 //   C. Médiane au m² × surface       → ci-dessous
@@ -19,6 +23,7 @@ import { departementPricePerM2, findComparables } from './_lib/comparables.js'
 import { communeAtPoint, departementFromInsee } from './_lib/geo.js'
 import { estHorsCouvertureDvf, prixReference } from './_lib/reference.js'
 import { detectPropertyType } from '../src/lib/typeBien.js'
+import { MONACO_PRICE_PER_M2 } from '../src/lib/monaco.js'
 
 /**
  * Budgets de temps. L'écran de chargement dure 12 s côté front, et c'est lui
@@ -62,6 +67,8 @@ function surfaceDeclaree(value) {
 
 /** Bornes du montant renvoyé — au-delà, le calcul relève de la donnée aberrante. */
 const PRICE_RANGE = [15000, 20000000]
+
+const clampPrice = (value) => Math.min(Math.max(value, PRICE_RANGE[0]), PRICE_RANGE[1])
 
 /**
  * Le montant est arrondi au millier : une estimation au dernier euro
@@ -136,6 +143,41 @@ export default async function handler(req, res) {
   const lat = Number(body.lat)
   const lon = Number(body.lon)
 
+  // Monaco d'abord, et avant même la vérification des coordonnées : elles ne
+  // serviraient à rien ici — ni commune INSEE, ni département, ni millésime DVF
+  // ne répondraient de l'autre côté de la frontière. Le barème monégasque tient
+  // en une constante et une surface déclarée ; il n'y a rien à aller chercher,
+  // donc rien qui puisse échouer ni prendre du temps.
+  if (body.monaco === true) {
+    const type = body.type === 'maison' ? 'maison' : 'appartement'
+    const declaree = surfaceDeclaree(body.surfaceM2)
+    const surfaceM2 = declaree ?? SURFACE_PAR_DEFAUT[type]
+
+    // Pas de bornage ici, contrairement au calcul français : les deux facteurs
+    // sont déjà bornés — la surface par le curseur (10 à 800 m²), le prix au m²
+    // par une constante. Le produit tient de lui-même entre 575 000 € et 46 M€,
+    // et le plafond français (20 M€) écrêterait une villa monégasque de grande
+    // surface sur un montant qui, lui, n'a rien d'aberrant.
+    const price = round(MONACO_PRICE_PER_M2 * surfaceM2)
+
+    const meta = {
+      type,
+      surfaceM2,
+      surfaceSource: declaree ? 'declaree' : 'defaut',
+      pricePerM2: MONACO_PRICE_PER_M2,
+      source: 'monaco-imsee',
+    }
+
+    console.log('[estimation]', JSON.stringify(meta))
+
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(200).json({
+      ok: true,
+      price,
+      ...(process.env.ESTIMATION_DEBUG ? { meta } : {}),
+    })
+  }
+
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     return badRequest(res, 'Coordonnées manquantes.')
   }
@@ -208,7 +250,7 @@ export default async function handler(req, res) {
       selection.surfaceM2 ?? bien.surfaceM2 ?? SURFACE_PAR_DEFAUT[type] ?? SURFACE_PAR_DEFAUT.maison
 
     const raw = prix.pricePerM2 * surfaceM2
-    const price = Math.min(Math.max(round(raw), PRICE_RANGE[0]), PRICE_RANGE[1])
+    const price = clampPrice(round(raw))
 
     const meta = {
       type,

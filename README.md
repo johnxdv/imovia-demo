@@ -105,7 +105,7 @@ Modelo (dépend de l'API Modelo).
 ```
 api/
 ├── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
-├── estimation.js           Fonction serverless — moteur d'estimation (DVF)
+├── estimation.js           Fonction serverless — moteur d'estimation (DVF, + barème Monaco)
 ├── prix-m2.js              Fonction serverless — prix indicatif au m² (aperçu)
 └── _lib/                   Briques du moteur (préfixe `_` : jamais des routes)
     ├── bien.js             Étape A — surface et année du bien (BDNB, cadastre)
@@ -122,7 +122,7 @@ src/
 │   ├── home/        Hero + barre de recherche
 │   ├── property/    PropertyListing (Acheter / Louer, avec filtres)
 │   ├── estimation/  Parcours d'estimation (accueil, adresse, carte bâtiment,
-│   │                curseur de surface et ses cinq silhouettes)
+│   │                variante Monaco, curseur de surface et ses cinq silhouettes)
 │   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
 │   ├── properties.json   15 biens fictifs
@@ -139,6 +139,7 @@ src/
 │   ├── ign.js            Géoplateforme IGN — orthophotos, bâtiments, parcelles
 │   ├── bdnb.js           Base nationale des bâtiments — vocation, logements
 │   ├── typeBien.js       Déduction du type de bien + correction manuelle
+│   ├── monaco.js         Détection Monaco, prix au m² de référence, fourchette
 │   ├── geo.js            Emprise au sol d'une géométrie GeoJSON
 │   ├── estimation.js     Appel du moteur d'estimation (POST /api/estimation)
 │   ├── prixSecteur.js    Prix indicatif au m² du secteur (POST /api/prix-m2)
@@ -192,6 +193,9 @@ sans navigation d'URL entre les étapes :
    « Curseur de surface » plus bas). Un repérage libre — quand les contours
    bâtis sont indisponibles — vaut terrain : pas de fenêtre, la contenance
    cadastrale fait la surface et l'analyse s'enchaîne directement.
+   Une adresse **monégasque** saute entièrement cet écran (voir « Monaco »
+   plus bas) : ni carte, ni bâtiment à cliquer — la fenêtre de surface s'ouvre
+   seule, augmentée d'un choix de type.
 4. **Analyse** — enchaînement de trois étapes, barre de progression, encart
    d'attente. Le calcul réel démarre au lancement de cet écran et tourne
    derrière l'animation (voir « Moteur d'estimation » plus bas).
@@ -269,6 +273,39 @@ de l'agence via la variable d'environnement `ESTIMATION_PRIX_M2` (voir plus
 haut) — c'est la seule façon d'obtenir des chiffres réellement locaux en
 Alsace-Moselle.
 
+#### Monaco — parcours simplifié
+
+**Aucune source du moteur ne franchit la frontière monégasque** : ni la BAN, ni
+le cadastre IGN, ni la BDNB, ni DVF. Il n'y a donc là-bas ni adresse à
+géocoder, ni contour de bâtiment à cliquer, ni vente comparable à médianiser.
+D'où un parcours à part, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
+
+| | Parcours français | Parcours monégasque |
+| --- | --- | --- |
+| Écran bâtiment | Photo aérienne, emprises cliquables | Sauté — [`EstimationMonacoStep`](src/components/estimation/EstimationMonacoStep.jsx) ouvre directement la fenêtre de surface |
+| Type de bien | Détecté (cadastre → BDNB → BD TOPO®) | Demandé : appartement ou maison / villa |
+| Prix au m² | Médiane DVF du voisinage | Constante `MONACO_PRICE_PER_M2` — **57 500 €**, source [IMSEE](https://www.imsee.mc/), à réviser à la main |
+| Calcul | Médiane × surface, avec replis | Constante × surface déclarée, sans repli |
+| Fourchette finale | ± 5 % | ± 20 % (`MONACO_RANGE_PCT`) |
+
+**La fourchette élargie n'est pas une précaution de forme** : le marché
+monégasque va, selon le quartier et les sources, de ~38 000 € à plus de
+100 000 €/m². Une moyenne unique ne peut pas prétendre au resserrement d'une
+médiane de ventes voisines. Le reste de l'écran de résultat est identique,
+mention « Prix soumis à expertise, hors estimation du terrain » comprise.
+
+**La détection ne peut pas se lire dans la réponse de la BAN**, qui ne connaît
+aucune adresse monégasque : interrogée sur « Monte-Carlo, Monaco », elle répond
+par des avenues Monte-Carlo à Cannes ou à Toulon. Elle se lit donc dans la
+saisie — code postal `98000`, seul code de la Principauté, ou « Monaco » en fin
+de saisie, là où s'écrit une commune. Un autre code postal à cinq chiffres
+suffit à écarter la piste.
+
+Et surtout : **la Principauté est une proposition de plus dans la liste, jamais
+une requalification.** « Boulevard Princesse Grace de Monaco 06300 Nice » ou
+« Impasse de Monaco 31100 Toulouse » restent des adresses françaises, et le
+basculement demande un choix explicite de l'utilisateur.
+
 ### Curseur de surface
 
 La surface est **la seule donnée que l'utilisateur saisisse de tout le
@@ -282,6 +319,20 @@ formule emprise × niveaux vise juste.
 Cinq paliers, un dessin par palier : petite maison, pavillon, maison à étage,
 grande maison avec piscine, château. Cinq SVG distincts plutôt qu'une forme
 qu'on déformerait — à 800 m², ce n'est plus la même maison en plus grand.
+
+**Deux gestes, deux pas.** Le glissement avance de 5 m² — assez fin pour tomber
+sur sa surface, assez large pour que la valeur ne tremble pas sous le doigt. Les
+boutons « − » et « + » qui encadrent le curseur avancent de **1 m²**, pour
+l'ajustement final : 5 m² d'écart sur un deux-pièces, ce n'est pas rien. Ils
+font 44 px de côté (la cible tactile recommandée, celle qui dicte déjà la taille
+de la pastille) et se désactivent en butée plutôt que de disparaître — une
+commande qui s'efface déplacerait le curseur avec elle.
+
+Valeur affichée, montant d'aperçu, remplissage de la piste et silhouette suivent
+tous la valeur exacte, au m² près. Seule la pastille reste crantée sur 5 : un
+`input[type=range]` recale de toute façon toute valeur hors cran, et elle se
+figerait entre deux clics de bouton. L'écart est de 2 m² au pire — un quart de
+pixel sur la piste.
 
 **Le montant d'aperçu n'est pas l'estimation.** Il vient d'un second point
 d'entrée, volontairement bridé : [`api/prix-m2.js`](api/prix-m2.js) rend un prix

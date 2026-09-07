@@ -6,6 +6,7 @@ import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { formatEuros, priceRange } from '../../lib/format'
+import { MONACO_RANGE_PCT } from '../../lib/monaco'
 import { EASE } from '../../lib/motion'
 
 /**
@@ -46,10 +47,16 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
   const [contact, setContact] = useState(null)
   const formatted = formatEuros(price)
   const finished = contact !== null
-  // La fourchette (± 5 % autour de l'estimation) n'existe qu'à la révélation
-  // finale : elle s'affiche dans une carte à part, sous le montant, jamais
-  // avant que celui-ci ne soit intégralement net.
-  const range = finished ? priceRange(price) : null
+  // La fourchette n'existe qu'à la révélation finale : elle s'affiche dans une
+  // carte à part, sous le montant, jamais avant que celui-ci ne soit
+  // intégralement net.
+  //
+  // ± 5 % autour d'une estimation française, adossée à des ventes voisines
+  // ; quatre fois plus large en Principauté, où le montant ne repose que sur
+  // une moyenne nationale et où l'écart d'un quartier à l'autre est sans
+  // commune mesure (voir `src/lib/monaco.js`). Annoncer la même précision dans
+  // les deux cas reviendrait à surjouer le second.
+  const range = finished ? priceRange(price, address.monaco ? MONACO_RANGE_PCT : undefined) : null
   const showRange = range != null
 
   useEffect(() => {

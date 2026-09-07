@@ -28,7 +28,15 @@ const TIMEOUT_MS = 15000
  * dans le navigateur, que le montant obtenu ici vient remplacer.
  */
 export async function requestEstimation(selection) {
-  if (!selection || !Number.isFinite(selection.lat) || !Number.isFinite(selection.lon)) {
+  if (!selection) return null
+
+  const monaco = selection.monaco === true
+
+  // Les coordonnées commandent tout le calcul français — commune, département,
+  // millésimes DVF. Sans elles, il n'y a rien à demander. Monaco fait
+  // exception : son calcul ne dépend d'aucun découpage administratif, seulement
+  // du type et de la surface déclarés.
+  if (!monaco && (!Number.isFinite(selection.lat) || !Number.isFinite(selection.lon))) {
     return null
   }
 
@@ -37,6 +45,9 @@ export async function requestEstimation(selection) {
   const payload = {
     lat: selection.lat,
     lon: selection.lon,
+    // Bascule le moteur sur son barème monégasque : prix au m² de référence ×
+    // surface déclarée, sans cadastre ni comparables (voir `src/lib/monaco.js`).
+    monaco,
     kind: selection.kind ?? null,
     type: selection.type ?? null,
     areaM2: selection.areaM2 ?? null,

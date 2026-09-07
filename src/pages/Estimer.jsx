@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { EstimationIntro } from '../components/estimation/EstimationIntro'
 import { EstimationAddressStep } from '../components/estimation/EstimationAddressStep'
 import { EstimationBuildingStep } from '../components/estimation/EstimationBuildingStep'
+import { EstimationMonacoStep } from '../components/estimation/EstimationMonacoStep'
 import { EstimationLoadingStep } from '../components/estimation/EstimationLoadingStep'
 import { EstimationResultStep } from '../components/estimation/EstimationResultStep'
 import { requestEstimation } from '../lib/estimation'
@@ -26,6 +27,13 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  * aérienne, analyse, résultat flouté avec conversation de capture intégrée
  * (split-screen) qui se conclut, sur ce même écran, par la confirmation
  * finale et le déblocage complet du prix.
+ *
+ * Une adresse en Principauté de Monaco emprunte une variante de l'étape
+ * « bâtiment » : le cadastre IGN, la BDNB et DVF s'arrêtant à la frontière, il
+ * n'y a ni photo aérienne à cliquer ni type à détecter — l'étape se réduit à la
+ * fenêtre de surface, qui demande le type au passage (voir
+ * `EstimationMonacoStep` et `src/lib/monaco.js`). Elle occupe la même case du
+ * parcours : la barre de progression et les retours en arrière n'en savent rien.
  *
  * Le montant affiché est calculé pour de bon : le clic sur « Obtenir une
  * estimation instantanée » lance la requête au moteur (`api/estimation.js`,
@@ -175,12 +183,21 @@ export default function Estimer() {
             ) : null}
 
             {step === 'batiment' && address ? (
-              <EstimationBuildingStep
-                address={address}
-                onBack={() => goToStep('adresse')}
-                onEstimate={startAnalysis}
-                onProgress={setStageProgress}
-              />
+              address.monaco ? (
+                <EstimationMonacoStep
+                  address={address}
+                  onBack={() => goToStep('adresse')}
+                  onEstimate={startAnalysis}
+                  onProgress={setStageProgress}
+                />
+              ) : (
+                <EstimationBuildingStep
+                  address={address}
+                  onBack={() => goToStep('adresse')}
+                  onEstimate={startAnalysis}
+                  onProgress={setStageProgress}
+                />
+              )
             ) : null}
 
             {step === 'analyse' ? (
