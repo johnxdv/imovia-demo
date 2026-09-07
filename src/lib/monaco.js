@@ -118,3 +118,17 @@ export function monacoSuggestion() {
     monaco: true,
   }
 }
+
+/**
+ * La saisie évoque-t-elle la Principauté, sans pour autant la désigner ?
+ *
+ * Bien plus large que `looksLikeMonacoQuery` : « Monaco » ou « Monte-Carlo »
+ * n'importe où dans le texte suffit. Cette largeur n'a qu'un usage — décider
+ * s'il vaut la peine d'interroger le géocodeur monégasque en plus de la BAN
+ * (voir `src/lib/adresse.js`). Les propositions qui en reviennent sont alors
+ * placées *après* les adresses françaises : « Impasse de Monaco 31100
+ * Toulouse » garde ses résultats en tête, et rien n'est requalifié.
+ */
+export function mentionsMonaco(query) {
+  return /\bmonaco\b|\bmonte[-\s]?carlo\b/.test(NON_ACCENTUE(query))
+}

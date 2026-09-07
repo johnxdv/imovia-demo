@@ -1,6 +1,12 @@
 // Client de l'API Adresse (Base Adresse Nationale), service public français :
 // gratuite, sans clé ni configuration. https://adresse.data.gouv.fr/api-doc/adresse
-import { isMonacoAddress, looksLikeMonacoQuery, monacoSuggestion } from './monaco.js'
+import { searchMonacoAddresses } from './adresseMonaco.js'
+import {
+  isMonacoAddress,
+  looksLikeMonacoQuery,
+  mentionsMonaco,
+  monacoSuggestion,
+} from './monaco.js'
 
 const ENDPOINT = 'https://api-adresse.data.gouv.fr/search/'
 
@@ -20,11 +26,15 @@ export const SEARCH_DEBOUNCE_MS = 300
  * l'utilisateur continue de taper — sans quoi une réponse lente pourrait
  * écraser une réponse plus récente.
  *
- * La Principauté de Monaco est ajoutée en tête de liste lorsque la saisie la
- * désigne : la BAN n'en connaît aucune adresse et répondrait, au mieux, par des
- * voies françaises homonymes (voir `looksLikeMonacoQuery`). Elle reste une
- * proposition parmi les autres — c'est le choix de l'utilisateur, jamais une
- * requalification, qui fait basculer le parcours (voir `src/lib/monaco.js`).
+ * Les adresses de la Principauté de Monaco viennent d'ailleurs : la BAN n'en
+ * connaît aucune et répondrait, au mieux, par des voies françaises homonymes.
+ * Quand la saisie désigne la Principauté (voir `looksLikeMonacoQuery`), un
+ * second géocodeur prend le relais pour elle seule — Nominatim, via
+ * `src/lib/adresseMonaco.js` — et ses rues s'ajoutent en tête de liste ; à
+ * défaut de réponse, la proposition générique « Principauté de Monaco » tient
+ * ce rôle comme auparavant. Ces adresses restent des propositions parmi les
+ * autres : c'est le choix de l'utilisateur, jamais une requalification, qui
+ * fait basculer le parcours (voir `src/lib/monaco.js`).
  *
  * Lève une erreur en cas de panne réseau ou de réponse non 2xx ; l'annulation
  * remonte une `AbortError`, à ignorer côté appelant.
@@ -61,11 +71,25 @@ export async function searchAddresses(query, { limit = 5, signal } = {}) {
     })
     .filter((suggestion) => Boolean(suggestion.label))
 
-  // En tête, et sans jamais évincer une adresse française : la Principauté
-  // s'ajoute à la liste, elle ne la remplace pas.
-  const dejaMonegasque = suggestions.some((suggestion) => suggestion.monaco)
+  // Aucune adresse française ne peut venir de la BAN pour la Principauté : si
+  // l'une d'elles se dit monégasque, la question est déjà tranchée.
+  if (suggestions.some((suggestion) => suggestion.monaco)) return suggestions
 
-  return looksLikeMonacoQuery(query) && !dejaMonegasque
-    ? [monacoSuggestion(), ...suggestions]
-    : suggestions
+  const designeMonaco = looksLikeMonacoQuery(query)
+
+  // Deux niveaux de déclenchement, pour deux traitements différents :
+  //
+  // - la saisie *désigne* la Principauté : ses adresses passent en tête ;
+  // - elle ne fait que l'évoquer (« Monaco » ailleurs qu'en fin de saisie), et
+  //   la BAN n'a rien trouvé : on complète, mais derrière — les adresses
+  //   françaises restent prioritaires, elles ne sont jamais reléguées.
+  const complete = !designeMonaco && suggestions.length === 0 && mentionsMonaco(query)
+  if (!designeMonaco && !complete) return suggestions
+
+  // Le géocodage monégasque ne rejette pas (hors annulation) : une panne rend
+  // une liste vide, et la proposition générique reprend son rôle d'antan.
+  const monegasques = await searchMonacoAddresses(query, { signal })
+  const enTete = monegasques.length > 0 ? monegasques.slice(0, limit) : [monacoSuggestion()]
+
+  return designeMonaco ? [...enTete, ...suggestions] : [...suggestions, ...enTete]
 }
