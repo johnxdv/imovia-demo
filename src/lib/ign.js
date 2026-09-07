@@ -2,6 +2,8 @@
 // licence ouverte Etalab, sans clé ni quota déclaré.
 // https://geoservices.ign.fr/services-geoplateforme-diffusion
 
+import { boundingBox, pointInRing } from './geo'
+
 /**
  * Orthophotographie IGN en WMTS. Le jeu de tuiles « PM » est la pyramide
  * Web Mercator standard : les indices WMTS se confondent avec ceux d'un fond
@@ -56,36 +58,8 @@ const BUILDING_FIELDS = [
   'geometrie',
 ]
 
-/**
- * Demi-côté de la zone interrogée, en mètres. Couvre largement la carte au
- * zoom d'ouverture tout en laissant de la marge pour un déplacement — le tout
- * en une seule requête, sans rechargement au panoramique.
- */
-export const BUILDINGS_RADIUS_M = 150
-
 /** Garde-fou : au-delà, la réponse pèserait plus qu'elle n'aiderait. */
 const MAX_BUILDINGS = 400
-
-const METERS_PER_DEGREE_LAT = 111320
-
-/**
- * Emprise carrée (en degrés) centrée sur un point. L'écart en longitude est
- * corrigé de la latitude, sans quoi la zone serait très aplatie sous nos
- * latitudes.
- */
-export function boundingBox(lat, lon, radiusM = BUILDINGS_RADIUS_M) {
-  const deltaLat = radiusM / METERS_PER_DEGREE_LAT
-  // Plancher sur le cosinus : purement défensif, la France n'en approche jamais.
-  const cos = Math.max(Math.cos((lat * Math.PI) / 180), 0.01)
-  const deltaLon = radiusM / (METERS_PER_DEGREE_LAT * cos)
-
-  return {
-    south: lat - deltaLat,
-    west: lon - deltaLon,
-    north: lat + deltaLat,
-    east: lon + deltaLon,
-  }
-}
 
 /**
  * Emprises des bâtiments autour d'un point, en GeoJSON prêt pour Leaflet
@@ -141,21 +115,6 @@ export async function fetchBuildings(lat, lon, { signal } = {}) {
  * la réponse tienne en quelques bâtiments plutôt qu'en quelques centaines.
  */
 const SINGLE_BUILDING_RADIUS_M = 30
-
-/** Le point est-il dans l'anneau ? Lancer de rayon, en coordonnées [lon, lat]. */
-function pointInRing(lon, lat, ring) {
-  let inside = false
-
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    const crosses = yi > lat !== yj > lat
-
-    if (crosses && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
-  }
-
-  return inside
-}
 
 /** Le point tombe-t-il dans le contour extérieur de la géométrie ? */
 function geometryContains(geometry, lon, lat) {

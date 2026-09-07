@@ -52,3 +52,51 @@ export function footprintAreaM2(geometry) {
 
   return Math.abs(area)
 }
+
+/**
+ * Demi-côté de la zone interrogée pour charger les emprises bâties autour
+ * d'une adresse, en mètres. Couvre largement la carte au zoom d'ouverture tout
+ * en laissant de la marge pour un déplacement — le tout en une seule requête,
+ * sans rechargement au panoramique.
+ *
+ * Commun aux deux fournisseurs d'emprises (BD TOPO® en France, OpenStreetMap
+ * en Principauté) : c'est le cadrage de la carte qui le fixe, pas la source.
+ */
+export const BUILDINGS_RADIUS_M = 150
+
+const METERS_PER_DEGREE_LAT = 111320
+
+/**
+ * Emprise carrée (en degrés) centrée sur un point. L'écart en longitude est
+ * corrigé de la latitude, sans quoi la zone serait très aplatie sous nos
+ * latitudes.
+ */
+export function boundingBox(lat, lon, radiusM = BUILDINGS_RADIUS_M) {
+  const deltaLat = radiusM / METERS_PER_DEGREE_LAT
+  // Plancher sur le cosinus : purement défensif, aucun territoire desservi
+  // ici n'approche des pôles.
+  const cos = Math.max(Math.cos((lat * Math.PI) / 180), 0.01)
+  const deltaLon = radiusM / (METERS_PER_DEGREE_LAT * cos)
+
+  return {
+    south: lat - deltaLat,
+    west: lon - deltaLon,
+    north: lat + deltaLat,
+    east: lon + deltaLon,
+  }
+}
+
+/** Le point est-il dans l'anneau ? Lancer de rayon, en coordonnées [lon, lat]. */
+export function pointInRing(lon, lat, ring) {
+  let inside = false
+
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    const crosses = yi > lat !== yj > lat
+
+    if (crosses && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+
+  return inside
+}

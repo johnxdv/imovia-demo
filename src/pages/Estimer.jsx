@@ -29,11 +29,12 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  * finale et le déblocage complet du prix.
  *
  * Une adresse en Principauté de Monaco emprunte une variante de l'étape
- * « bâtiment » : le cadastre IGN, la BDNB et DVF s'arrêtant à la frontière, il
- * n'y a ni photo aérienne à cliquer ni type à détecter — l'étape se réduit à la
- * fenêtre de surface, qui demande le type au passage (voir
- * `EstimationMonacoStep` et `src/lib/monaco.js`). Elle occupe la même case du
- * parcours : la barre de progression et les retours en arrière n'en savent rien.
+ * « bâtiment » : même photo aérienne et même geste, mais des contours venus
+ * d'OpenStreetMap — la BD TOPO® s'arrête à la frontière — et, faute de cadastre
+ * et de BDNB où le lire, un type de bien demandé dans la fenêtre de surface
+ * plutôt que détecté (voir `EstimationMonacoStep` et `src/lib/monaco.js`). Elle
+ * occupe la même case du parcours : la barre de progression et les retours en
+ * arrière n'en savent rien.
  *
  * Le montant affiché est calculé pour de bon : le clic sur « Obtenir une
  * estimation instantanée » lance la requête au moteur (`api/estimation.js`,

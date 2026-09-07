@@ -2,14 +2,19 @@
 //
 // Tout le pipeline français (BAN, cadastre IGN, BDNB, DVF) s'arrête à la
 // frontière : Monaco n'est pas un territoire français, aucune de ces bases ne
-// le décrit. Ni adresse géocodable, ni contour de bâtiment, ni mutation
-// publiée — il n'y a donc rien à repérer sur une carte, et rien à comparer.
+// le décrit. OpenStreetMap comble deux de ces manques — les adresses, par
+// Nominatim (`src/lib/adresseMonaco.js`), et les contours de bâtiments, par
+// Overpass (`src/lib/osm.js`) : l'utilisateur retrouve donc sa rue au clavier,
+// puis son immeuble sur la photo aérienne, comme en France.
 //
-// D'où un parcours à part, volontairement court : l'utilisateur déclare son
-// type de bien et sa surface, et le montant se calcule d'une multiplication
-// par un prix au m² de référence. C'est un ordre de grandeur assumé — la
-// fourchette affichée en fin de parcours s'élargit en conséquence
-// (voir `MONACO_RANGE_PCT`).
+// Le troisième manque, lui, ne se comble pas : aucune base de mutations n'est
+// publiée en Principauté, et le cadastre monégasque ne se demande que sur
+// papier, extrait par extrait. Il n'y a donc ni surface habitable à lire, ni
+// ventes voisines à comparer. D'où ce qu'il reste de simplifié au parcours :
+// l'utilisateur déclare son type de bien et sa surface, et le montant se
+// calcule d'une multiplication par un prix au m² de référence. C'est un ordre
+// de grandeur assumé — la fourchette affichée en fin de parcours s'élargit en
+// conséquence (voir `MONACO_RANGE_PCT`).
 
 /** Seul et unique code postal monégasque. */
 export const MONACO_POSTAL_CODE = '98000'
@@ -34,7 +39,7 @@ export const MONACO_PRICE_PER_M2 = 57500
  */
 export const MONACO_RANGE_PCT = 0.2
 
-/** Centre de la Principauté — sert à situer l'adresse, jamais à cartographier. */
+/** Centre de la Principauté — point de repli quand aucune rue n'est désignée. */
 const MONACO_CENTER = { lat: 43.7384, lon: 7.4246 }
 
 const NON_ACCENTUE = (value) =>
@@ -104,8 +109,11 @@ export function looksLikeMonacoQuery(query) {
  * l'utilisateur qui tranche. Aucune adresse française ne peut ainsi basculer
  * dans le parcours monégasque sans avoir été explicitement écartée.
  *
- * Les coordonnées sont celles du centre de la Principauté : elles ne servent
- * qu'à situer le bien — le parcours monégasque n'ouvre aucune carte.
+ * Les coordonnées sont celles du centre de la Principauté : cette proposition
+ * générique ne désigne aucune rue, et la carte qu'elle ouvre montrera le
+ * quartier du Rocher plutôt que celui du bien. C'est le repli du repli — les
+ * propositions de Nominatim, qui portent chacune leur propre point, passent
+ * avant (voir `src/lib/adresseMonaco.js`).
  */
 export function monacoSuggestion() {
   return {

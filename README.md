@@ -121,8 +121,8 @@ src/
 │   │                PropertyCard, PropertyGrid, Button, DpeScale…)
 │   ├── home/        Hero + barre de recherche
 │   ├── property/    PropertyListing (Acheter / Louer, avec filtres)
-│   ├── estimation/  Parcours d'estimation (accueil, adresse, carte bâtiment,
-│   │                variante Monaco, curseur de surface et ses cinq silhouettes)
+│   ├── estimation/  Parcours d'estimation (accueil, adresse, carte bâtiment
+│   │                France et Monaco, curseur de surface et ses cinq silhouettes)
 │   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
 │   ├── properties.json   15 biens fictifs
@@ -140,7 +140,8 @@ src/
 │   ├── bdnb.js           Base nationale des bâtiments — vocation, logements
 │   ├── typeBien.js       Déduction du type de bien + correction manuelle
 │   ├── monaco.js         Détection Monaco, prix au m² de référence, fourchette
-│   ├── geo.js            Emprise au sol d'une géométrie GeoJSON
+│   ├── osm.js            OpenStreetMap / Overpass — contours bâtis monégasques
+│   ├── geo.js            Emprise au sol, emprise carrée, point dans un anneau
 │   ├── estimation.js     Appel du moteur d'estimation (POST /api/estimation)
 │   ├── prixSecteur.js    Prix indicatif au m² du secteur (POST /api/prix-m2)
 │   └── nav.js            Architecture de navigation
@@ -193,9 +194,11 @@ sans navigation d'URL entre les étapes :
    « Curseur de surface » plus bas). Un repérage libre — quand les contours
    bâtis sont indisponibles — vaut terrain : pas de fenêtre, la contenance
    cadastrale fait la surface et l'analyse s'enchaîne directement.
-   Une adresse **monégasque** saute entièrement cet écran (voir « Monaco »
-   plus bas) : ni carte, ni bâtiment à cliquer — la fenêtre de surface s'ouvre
-   seule, augmentée d'un choix de type.
+   Une adresse **monégasque** suit le même écran, avec des contours venus
+   d'OpenStreetMap plutôt que de la BD TOPO® (voir « Monaco » plus bas), et une
+   fenêtre de surface augmentée d'un choix de type. Un repérage libre y ouvre
+   la fenêtre lui aussi : sans contenance cadastrale à lire, le curseur reste
+   la seule source de surface.
 4. **Analyse** — enchaînement de trois étapes, barre de progression, encart
    d'attente. Le calcul réel démarre au lancement de cet écran et tourne
    derrière l'animation (voir « Moteur d'estimation » plus bas).
@@ -276,13 +279,21 @@ Alsace-Moselle.
 #### Monaco — parcours simplifié
 
 **Aucune source du moteur ne franchit la frontière monégasque** : ni la BAN, ni
-le cadastre IGN, ni la BDNB, ni DVF. Il n'y a donc là-bas ni adresse à
-géocoder, ni contour de bâtiment à cliquer, ni vente comparable à médianiser.
-D'où un parcours à part, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
+le cadastre IGN, ni la BDNB, ni DVF. OpenStreetMap en comble deux — les adresses
+par Nominatim, les contours de bâtiments par l'API Overpass
+([`src/lib/osm.js`](src/lib/osm.js)) — si bien que l'utilisateur retrouve sa rue
+puis clique son immeuble comme en France, sur la même orthophoto IGN (la
+Principauté tient dans l'emprise photographiée).
+
+Le troisième manque ne se comble pas : le cadastre monégasque ne se diffuse que
+sur papier, extrait par extrait, et aucune base de mutations n'y est publiée. Ni
+surface habitable à lire, ni vente comparable à médianiser. D'où ce qui reste de
+simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 
 | | Parcours français | Parcours monégasque |
 | --- | --- | --- |
-| Écran bâtiment | Photo aérienne, emprises cliquables | Sauté — [`EstimationMonacoStep`](src/components/estimation/EstimationMonacoStep.jsx) ouvre directement la fenêtre de surface |
+| Écran bâtiment | Photo aérienne, emprises BD TOPO® cliquables | Même écran, emprises OpenStreetMap — [`EstimationMonacoStep`](src/components/estimation/EstimationMonacoStep.jsx) |
+| Repérage libre | Vaut terrain : pas de fenêtre, contenance cadastrale | Ouvre la fenêtre de surface, comme un bâtiment |
 | Type de bien | Détecté (cadastre → BDNB → BD TOPO®) | Demandé : appartement ou maison / villa |
 | Prix au m² | Médiane DVF du voisinage | Constante `MONACO_PRICE_PER_M2` — **57 500 €**, source [IMSEE](https://www.imsee.mc/), à réviser à la main |
 | Calcul | Médiane × surface, avec replis | Constante × surface déclarée, sans repli |
@@ -350,13 +361,14 @@ l'ordre de grandeur sans donner le montant.
 
 ### Sources cartographiques
 
-Tout vient de la [Géoplateforme IGN](https://geoservices.ign.fr) — gratuite,
-sans clé, sous licence ouverte Etalab :
+L'essentiel vient de la [Géoplateforme IGN](https://geoservices.ign.fr) —
+gratuite, sans clé, sous licence ouverte Etalab :
 
-| Usage             | Service | Couche                             |
-| ----------------- | ------- | ---------------------------------- |
-| Fond satellite    | WMTS    | `ORTHOIMAGERY.ORTHOPHOTOS`         |
-| Emprises bâties   | WFS     | `BDTOPO_V3:batiment`               |
+| Usage                       | Service | Couche                     |
+| --------------------------- | ------- | -------------------------- |
+| Fond satellite              | WMTS    | `ORTHOIMAGERY.ORTHOPHOTOS` |
+| Emprises bâties (France)    | WFS     | `BDTOPO_V3:batiment`       |
+| Emprises bâties (Monaco)    | [Overpass](https://overpass-api.de) | OpenStreetMap, objets `building` |
 
 L'API Carto « cadastre » ne publie pas d'emprises bâties (`/api/cadastre/batiment`
 répond 404) ; c'est la BD TOPO® qui les porte. Elle est de surcroît levée par
@@ -364,8 +376,18 @@ photogrammétrie sur ces mêmes orthophotos — donc calée dessus — et expose
 les attributs (usage, étages, hauteur, nombre de logements) dont le calcul
 d'estimation se sert.
 
-La mention **« © IGN — Géoplateforme »** affichée en bas de la carte est une
-obligation de la licence : ne pas la retirer.
+La BD TOPO® s'arrêtant à la frontière, la Principauté emprunte ses contours à
+OpenStreetMap. L'orthophoto, elle, reste celle de l'IGN : l'emprise
+photographiée couvre la bande frontalière, et Monaco y tient tout entière. La
+requête part du navigateur — Overpass sert un en-tête CORS ouvert et plafonne
+par adresse IP, si bien que chaque visiteur consomme son propre quota au lieu de
+partager celui de l'hébergeur. Deux instances sont essayées à la suite, les
+serveurs publics étant bénévoles ; si aucune ne répond, la carte bascule sur son
+repli et l'utilisateur désigne son bien à main levée.
+
+Les mentions **« © IGN — Géoplateforme »** et, en Principauté,
+**« © OpenStreetMap (ODbL) »** affichées en bas de la carte sont des obligations
+de licence : ne pas les retirer.
 
 ### Détection du type de bien
 
@@ -483,6 +505,7 @@ pose les repères d'angle façon plan sur les cartes et les visuels.
   de contact individuel de la page Équipe fait exception : il passe déjà par
   un vrai back-end (voir [Variables d'environnement](#variables-denvironnement)).
 - **Cartes** : la carte de contact utilise OpenStreetMap ; l'outil d'estimation
-  utilise la Géoplateforme IGN. Les deux sont sans cookie et sans clé.
+  utilise la Géoplateforme IGN, plus OpenStreetMap (Nominatim et Overpass) pour
+  les adresses et les contours monégasques. Tous sont sans cookie et sans clé.
 - **Espace vendeur** : écran de connexion visuel, sans authentification.
 ```

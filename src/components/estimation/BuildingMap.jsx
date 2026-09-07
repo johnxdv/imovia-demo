@@ -3,14 +3,13 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import {
-  BUILDINGS_RADIUS_M,
   IGN_ATTRIBUTION,
   ORTHO_MAX_NATIVE_ZOOM,
   ORTHO_TILE_URL,
-  boundingBox,
   fetchBuildings,
 } from '../../lib/ign'
-import { footprintAreaM2 } from '../../lib/geo'
+import { OSM_ATTRIBUTION, fetchMonacoBuildings } from '../../lib/osm'
+import { BUILDINGS_RADIUS_M, boundingBox, footprintAreaM2 } from '../../lib/geo'
 import { useMediaQuery } from '../../lib/useMediaQuery'
 
 // Zoom d'ouverture : à ce niveau l'orthophoto est à sa résolution native (~20 cm
@@ -48,7 +47,11 @@ const ACTIVE_STYLE = {
   fillOpacity: 0.48,
 }
 
-/** Emprise des dalles orthophoto : métropole et DROM, rien au-delà. */
+/**
+ * Emprise des dalles orthophoto : métropole et DROM, rien au-delà. La
+ * Principauté y figure — l'IGN photographie la bande frontalière, et Monaco
+ * tient tout entier dedans : le parcours monégasque partage donc ce fond.
+ */
 const ORTHO_COVERAGE = L.latLngBounds([-22.5, -63.5], [51.5, 56])
 
 const featureIdOf = (layer) => layer?.feature?.id ?? null
@@ -62,10 +65,17 @@ const featureIdOf = (layer) => layer?.feature?.id ?? null
  * choix via `onSelect` et se contente de refléter l'état reçu — annuler côté
  * parent la remet donc en état de survol.
  *
+ * `monaco` ne change que la provenance des contours : OpenStreetMap en
+ * Principauté, où la BD TOPO® n'a rien (voir `src/lib/osm.js`), la BD TOPO®
+ * partout ailleurs. Le fond de carte est le même — l'orthophoto IGN couvre
+ * Monaco — et tout le reste aussi : survol, présélection tactile, repli au
+ * clic libre, navigation au clavier. Seule la mention d'attribution suit la
+ * source.
+ *
  * Leaflet est piloté impérativement plutôt que re-rendu : survoler un bâtiment
  * ne doit ni déclencher un rendu React ni reconstruire la couche vecteur.
  */
-export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
+export function BuildingMap({ lat, lon, addressLabel, selection, onSelect, monaco = false }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const buildingsLayerRef = useRef(null)
@@ -176,7 +186,9 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
     setBuildingsStatus('loading')
     setBuildings(null)
 
-    fetchBuildings(lat, lon, { signal: controller.signal })
+    const fetchEmprises = monaco ? fetchMonacoBuildings : fetchBuildings
+
+    fetchEmprises(lat, lon, { signal: controller.signal })
       .then((collection) => {
         setBuildings(collection)
         setBuildingsStatus(collection.features.length > 0 ? 'ready' : 'empty')
@@ -188,7 +200,7 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
       })
 
     return () => controller.abort()
-  }, [lat, lon])
+  }, [lat, lon, monaco])
 
   // --- Couche vecteur cliquable -------------------------------------------
   useEffect(() => {
@@ -423,9 +435,12 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect }) {
         </div>
       ) : null}
 
-      {/* Attribution — obligation de la licence ouverte Etalab. */}
+      {/* Attribution — obligation de la licence ouverte Etalab pour le fond
+          orthophoto, de la licence ODbL pour les contours OpenStreetMap. En
+          Principauté les deux sources coexistent, et les deux doivent être
+          citées. */}
       <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-ink/55 px-2 py-1 font-mono text-[0.55rem] uppercase tracking-[0.12em] text-stone/55 backdrop-blur-sm">
-        {IGN_ATTRIBUTION}
+        {monaco ? `${IGN_ATTRIBUTION} · ${OSM_ATTRIBUTION}` : IGN_ATTRIBUTION}
       </p>
     </div>
   )

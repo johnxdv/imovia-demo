@@ -72,9 +72,12 @@ const roundPrice = (value) => Math.round(value / 1000) * 1000
  * l'écran suivant, l'étape reprend un `transform` et la fenêtre glisse alors
  * avec la page — exactement l'enchaînement recherché.
  *
- * Elle n'est ouverte que pour un bâtiment : un terrain n'a pas de surface
- * habitable à déclarer, sa contenance cadastrale est déjà connue et l'étape
- * suivante s'enchaîne sans rien demander (voir `EstimationBuildingStep`).
+ * En France, elle n'est ouverte que pour un bâtiment : un terrain n'a pas de
+ * surface habitable à déclarer, sa contenance cadastrale est déjà connue et
+ * l'étape suivante s'enchaîne sans rien demander (voir
+ * `EstimationBuildingStep`). En Principauté, où aucune contenance n'est
+ * publiée, elle s'ouvre pour tout repérage — le curseur y est la seule source
+ * de surface (voir `EstimationMonacoStep`).
  *
  * Le type de bien détecté n'est volontairement pas affiché : la détection tourne
  * en arrière-plan pour le futur calcul d'estimation, elle n'a rien à dire à
@@ -335,7 +338,9 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
           {/* Seule sortie visible depuis le retrait de la croix — délibérément
               en retrait, mais nommée : « Modifier ma sélection » dit ce qui va
               se passer là où une croix laissait deviner. La flèche reprend le
-              même retour visuel que les boutons « Retour » des autres étapes. */}
+              même retour visuel que les boutons « Retour » des autres étapes.
+              Même libellé en Principauté : depuis que l'étape monégasque a sa
+              propre carte, on y revient au repérage comme partout ailleurs. */}
           <button
             type="button"
             onClick={onClose}
@@ -346,7 +351,7 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
               strokeWidth={2}
               aria-hidden="true"
             />
-            {monaco ? 'Modifier l’adresse' : 'Modifier ma sélection'}
+            Modifier ma sélection
           </button>
         </div>
       </motion.div>
