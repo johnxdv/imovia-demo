@@ -48,7 +48,7 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
   }, [selection, onProgress])
 
   const startEstimate = useCallback(
-    (surfaceM2, type) => {
+    (surfaceM2, type, etage) => {
       onProgress?.(1)
       onEstimate?.({
         ...address,
@@ -61,6 +61,13 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
         kind: 'batiment',
         surfaceM2,
         type,
+        // Déclaré dans la même fenêtre que la surface, dès lors que le type
+        // retenu est « appartement » — l'essentiel du parc monégasque.
+        etage: etage ?? null,
+        // Le type n'est pas détecté ici mais déclaré : c'est la source la plus
+        // sûre qui soit, et le journal doit pouvoir les distinguer.
+        typeSource: 'declare',
+        typeConfiance: 'haute',
         areaM2: selection?.areaM2 ?? null,
         // Aucune base ne décrit le bâti monégasque : ces champs, que le moteur
         // lit pour le parcours français, n'ont ici rien à recevoir. Les

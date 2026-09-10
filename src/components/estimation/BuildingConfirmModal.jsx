@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Check, Minus, Plus } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { HouseIllustration } from './HouseIllustration'
 import { PriceReveal } from './PriceReveal'
 import { formatEuros } from '../../lib/format'
+import { ETAGE_DEFAUT, ETAGE_MAX, ETAGE_MIN, coefficientEtage, etageLabel } from '../../lib/etage'
 import { fetchPrixM2 } from '../../lib/prixSecteur'
 import { MONACO_PRICE_PER_M2 } from '../../lib/monaco'
 import { EASE } from '../../lib/motion'
@@ -81,15 +82,24 @@ const roundPrice = (value) => Math.round(value / 1000) * 1000
  *
  * Le type de bien détecté n'est volontairement pas affiché : la détection tourne
  * en arrière-plan pour le futur calcul d'estimation, elle n'a rien à dire à
- * l'utilisateur à ce stade.
+ * l'utilisateur à ce stade. Elle commande en revanche ce qui lui est demandé —
+ * une maison n'a que sa surface habitable à déclarer, sa contenance cadastrale
+ * étant déjà connue ; un appartement se voit demander en plus son **étage**,
+ * qu'aucune base ne descend au logement et que lui seul peut donner.
+ *
+ * Le champ apparaît donc à la volée, quand la détection aboutit — quelques
+ * centaines de millisecondes après l'ouverture, pendant que la fenêtre se lit.
+ * Il ne bloque rien : validée avant, la fenêtre part sans étage, et le moteur
+ * s'en passe (coefficient 1, voir `src/lib/etage.js`).
  *
  * `monaco` bascule la fenêtre dans sa variante monégasque : le prix au m² n'est
  * plus demandé au réseau mais lu dans une constante, et le type de bien — que
  * plus aucune base ne peut deviner — est demandé à l'utilisateur en tête de
  * panneau. `onEstimate` reçoit alors ce type en second argument ; il vaut
- * `null` dans le parcours français, où la détection s'en charge.
+ * `null` dans le parcours français, où la détection s'en charge. Le troisième
+ * argument est l'étage, `null` dès que le bien retenu n'est pas un appartement.
  */
-export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = false }) {
+export function BuildingConfirmModal({ selection, type = null, onClose, onEstimate, monaco = false }) {
   const panelRef = useRef(null)
   const reduce = useReducedMotion()
 
@@ -98,6 +108,18 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
   // Type déclaré, en Principauté uniquement. L'appartement par défaut : c'est
   // l'essentiel du parc monégasque, et le choix reste à un clic.
   const [monacoType, setMonacoType] = useState(MONACO_TYPES[0].id)
+
+  // Étage déclaré. Ouvre sur l'étage de référence du barème — celui dont le
+  // coefficient vaut exactement 1 : un champ apparu tard et laissé tel quel ne
+  // doit déplacer le montant ni dans un sens ni dans l'autre.
+  const [etage, setEtage] = useState(ETAGE_DEFAUT)
+
+  // En France le type vient de la détection, en Principauté du choix ci-dessus.
+  // Tant que la détection n'a pas répondu, `type` vaut `null` : le champ étage
+  // n'est pas encore là, et c'est voulu — mieux vaut un champ qui arrive qu'un
+  // champ posé au hasard sur une maison.
+  const typeRetenu = monaco ? monacoType : type
+  const estAppartement = typeRetenu === 'appartement'
 
   // Prix indicatif au m² du secteur, demandé une seule fois à l'ouverture.
   // Tout le reste — le montant qui suit le curseur — se calcule ici même, sans
@@ -179,7 +201,13 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
   const atMin = surface <= SURFACE_MIN
   const atMax = surface >= SURFACE_MAX
   const surfaceLabel = `${atMax ? `${SURFACE_MAX}+` : surface} m²`
-  const formatted = pricePerM2 ? formatEuros(roundPrice(pricePerM2 * surface)) : null
+  // L'étage entre dans l'aperçu comme il entrera dans le calcul final : le même
+  // barème, appliqué au même endroit du produit. Sans quoi le montant sauterait
+  // entre la fenêtre et l'écran de résultat sans que rien ne l'explique.
+  const coefficient = coefficientEtage(estAppartement ? etage : null)
+  const formatted = pricePerM2
+    ? formatEuros(roundPrice(pricePerM2 * surface * coefficient))
+    : null
 
   // Part remplie de la piste, passée au CSS : un `input[type=range]` ne colore
   // pas son parcours de lui-même sur les moteurs WebKit. Elle suit la valeur
@@ -196,6 +224,9 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
   const sliderValue = Math.round(surface / SURFACE_STEP) * SURFACE_STEP
 
   const adjust = (delta) => setSurface((current) => clampSurface(current + delta))
+
+  const adjustEtage = (delta) =>
+    setEtage((current) => Math.min(Math.max(current + delta, ETAGE_MIN), ETAGE_MAX))
 
   return (
     <motion.div
@@ -269,6 +300,57 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
             </fieldset>
           ) : null}
 
+          {/* Étage — appartements seulement, et seulement une fois le type
+              détecté. Le champ arrive donc en cours de lecture de la fenêtre :
+              il se déplie plutôt qu'il n'apparaît d'un coup, sans quoi le
+              panneau sauterait sous les yeux. Une maison n'en voit jamais rien,
+              et ne se voit toujours demander que sa surface habitable. */}
+          <AnimatePresence initial={false}>
+            {estAppartement ? (
+              <motion.div
+                key="etage"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: reduce ? 0.15 : 0.3, ease: EASE }}
+                className="overflow-hidden"
+              >
+                <div role="group" aria-label="Étage du logement" className="mx-auto mt-5 max-w-[17rem]">
+                  <p className="font-mono text-[0.62rem] uppercase tracking-micro text-ink/40">
+                    Votre étage
+                  </p>
+
+                  {/* Mêmes boutons que ceux du curseur de surface : le geste
+                      d'ajustement est le même, il n'a pas à s'apprendre deux
+                      fois. Pas de curseur ici — une échelle de treize crans se
+                      traverse plus vite au bouton qu'au glissement. */}
+                  <div className="mt-2 flex items-center gap-2 sm:gap-3">
+                    <StepButton
+                      icon={Minus}
+                      label="Descendre d’un étage"
+                      disabled={etage <= ETAGE_MIN}
+                      onClick={() => adjustEtage(-1)}
+                    />
+
+                    <p
+                      aria-live="polite"
+                      className="min-w-0 flex-1 rounded-xl border border-ink/10 bg-stone/60 px-2 py-3 font-mono text-[0.64rem] uppercase tracking-micro text-ink"
+                    >
+                      {etageLabel(etage)}
+                    </p>
+
+                    <StepButton
+                      icon={Plus}
+                      label="Monter d’un étage"
+                      disabled={etage >= ETAGE_MAX}
+                      onClick={() => adjustEtage(1)}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
           <PricePreview formatted={formatted} surface={surface} />
 
           {/* Valeur en cours, au-dessus du curseur : elle suit le doigt sans
@@ -325,7 +407,9 @@ export function BuildingConfirmModal({ selection, onClose, onEstimate, monaco = 
 
             <button
               type="button"
-              onClick={() => onEstimate(surface, monaco ? monacoType : null)}
+              onClick={() =>
+                onEstimate(surface, monaco ? monacoType : null, estAppartement ? etage : null)
+              }
               className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-5 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
             >
               <Shine width="w-1/5" tint="via-brass/40" />

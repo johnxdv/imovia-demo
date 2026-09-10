@@ -10,7 +10,7 @@
 //
 //   A. Caractéristiques du bien      → `_lib/bien.js`      (BDNB, cadastre)
 //   B. Ventes comparables            → `_lib/comparables.js` (DVF / Etalab)
-//   C. Médiane au m² × surface       → ci-dessous
+//   C. Médiane au m² × surface × étage → ci-dessous
 //   D. Replis successifs             → `_lib/reference.js`
 //
 // Aucune de ces étapes ne peut faire échouer la réponse : chacune a son repli,
@@ -22,7 +22,8 @@ import { describeBien } from './_lib/bien.js'
 import { departementPricePerM2, findComparables } from './_lib/comparables.js'
 import { communeAtPoint, departementFromInsee } from './_lib/geo.js'
 import { estHorsCouvertureDvf, prixReference } from './_lib/reference.js'
-import { detectPropertyType } from '../src/lib/typeBien.js'
+import { arbitreTypeResidentiel, detectPropertyType } from '../src/lib/typeBien.js'
+import { coefficientEtage, normaliseEtage } from '../src/lib/etage.js'
 import { MONACO_PRICE_PER_M2 } from '../src/lib/monaco.js'
 
 /**
@@ -64,6 +65,16 @@ function surfaceDeclaree(value) {
 
   return Number.isFinite(surface) && surface >= min && surface <= max ? surface : null
 }
+
+/**
+ * Types que le moteur sait traiter. Le type descend du navigateur, où il a été
+ * détecté pendant le repérage ; tout ce qui n'est pas dans cette liste est
+ * traité comme une absence — et redétecté ici, plutôt que suivi les yeux
+ * fermés jusque dans le choix des comparables.
+ */
+const TYPES_CONNUS = new Set(['maison', 'appartement', 'terrain', 'local'])
+
+const typeRecu = (value) => (TYPES_CONNUS.has(value) ? value : null)
 
 /** Bornes du montant renvoyé — au-delà, le calcul relève de la donnée aberrante. */
 const PRICE_RANGE = [15000, 20000000]
@@ -110,6 +121,7 @@ async function resolvePricePerM2({ lat, lon, type, departement, codeInsee }, { s
         source: 'dvf',
         count: comparables.sales.length,
         radiusM: comparables.radiusM,
+        spanM: comparables.spanM,
       }
     }
 
@@ -153,17 +165,29 @@ export default async function handler(req, res) {
     const declaree = surfaceDeclaree(body.surfaceM2)
     const surfaceM2 = declaree ?? SURFACE_PAR_DEFAUT[type]
 
-    // Pas de bornage ici, contrairement au calcul français : les deux facteurs
-    // sont déjà bornés — la surface par le curseur (10 à 800 m²), le prix au m²
-    // par une constante. Le produit tient de lui-même entre 575 000 € et 46 M€,
-    // et le plafond français (20 M€) écrêterait une villa monégasque de grande
-    // surface sur un montant qui, lui, n'a rien d'aberrant.
-    const price = round(MONACO_PRICE_PER_M2 * surfaceM2)
+    // L'étage vaut de ce côté-ci de la frontière comme de l'autre : c'est la
+    // même fenêtre qui le recueille, et le même barème qui l'applique. Rien
+    // dans la Principauté ne justifierait qu'un rez-de-chaussée s'y vende au
+    // prix d'un huitième — au contraire, le marché y est encore plus sensible à
+    // la vue qu'ailleurs, ce que ce coefficient volontairement modéré n'a
+    // d'ailleurs pas la prétention de mesurer.
+    const etage = type === 'appartement' ? normaliseEtage(body.etage) : null
+    const coefficient = coefficientEtage(etage)
+
+    // Pas de bornage ici, contrairement au calcul français : les facteurs sont
+    // déjà bornés — la surface par le curseur (10 à 800 m²), le prix au m² par
+    // une constante, l'étage par un barème qui ne s'écarte jamais de 5 % de 1.
+    // Le produit tient de lui-même entre 545 000 € et 48 M€, et le plafond
+    // français (20 M€) écrêterait une villa monégasque de grande surface sur un
+    // montant qui, lui, n'a rien d'aberrant.
+    const price = round(MONACO_PRICE_PER_M2 * surfaceM2 * coefficient)
 
     const meta = {
       type,
       surfaceM2,
       surfaceSource: declaree ? 'declaree' : 'defaut',
+      etage,
+      coefficientEtage: coefficient,
       pricePerM2: MONACO_PRICE_PER_M2,
       source: 'monaco-imsee',
     }
@@ -191,13 +215,28 @@ export default async function handler(req, res) {
     // Le type est normalement détecté côté carte et transmis tel quel ; on ne
     // le recalcule que s'il manque — détection interrompue par une validation
     // rapide, ou réseau capricieux au moment du clic.
-    let type = body.type
+    //
+    // Il n'existe aucune sortie « type indéterminé » : la détection tranche
+    // toujours, et si elle-même n'aboutit pas — cadastre et BDNB tous deux
+    // injoignables — l'arbitrage sur les seuls indices géométriques tranche à
+    // sa place. Un `autre` qui descendrait jusqu'ici alignerait l'estimation
+    // sur une médiane tous logements confondus, c'est-à-dire sur le marché de
+    // personne (voir `src/lib/typeBien.js`).
+    let type = typeRecu(body.type)
+    let detection = null
     if (!type) {
-      const detected = await detectPropertyType(
+      detection = await detectPropertyType(
         { kind: body.kind ?? 'batiment', lat, lon, areaM2: body.areaM2, properties: body.properties },
         { signal },
       ).catch(() => null)
-      type = detected?.type ?? 'autre'
+
+      type =
+        typeRecu(detection?.type) ??
+        arbitreTypeResidentiel({
+          niveaux: body.properties?.nombre_d_etages,
+          hauteur: body.properties?.hauteur,
+          areaM2: body.areaM2,
+        }).type
     }
 
     // Ce que le front a déjà appris en repérant le bâtiment. Rien n'est pris
@@ -249,16 +288,31 @@ export default async function handler(req, res) {
     const surfaceM2 =
       selection.surfaceM2 ?? bien.surfaceM2 ?? SURFACE_PAR_DEFAUT[type] ?? SURFACE_PAR_DEFAUT.maison
 
-    const raw = prix.pricePerM2 * surfaceM2
+    // L'étage ne corrige que le prix d'un appartement — une maison n'en a pas
+    // au sens où l'entend ce champ, et un terrain encore moins. Le coefficient
+    // vaut 1 dès que l'étage n'a pas été déclaré : ne rien savoir ne doit ni
+    // bonifier ni pénaliser (voir `src/lib/etage.js`).
+    const etage = type === 'appartement' ? normaliseEtage(body.etage) : null
+    const coefficient = coefficientEtage(etage)
+
+    const raw = prix.pricePerM2 * surfaceM2 * coefficient
     const price = clampPrice(round(raw))
 
     const meta = {
       type,
+      // Comment le type a été obtenu, et à quel point il est sûr. Le calcul n'en
+      // dépend pas — il part avec le type quoi qu'il arrive — mais c'est le
+      // journal qui dira, à l'usage, quelle part des estimations repose sur une
+      // lecture des bases et quelle part sur un arbitrage.
+      typeSource: body.typeSource ?? detection?.source ?? (body.type ? 'front' : 'arbitrage'),
+      typeConfiance: body.typeConfiance ?? detection?.confiance ?? null,
       surfaceM2,
       surfaceSource: selection.surfaceM2 ? 'declaree' : bien.surfaceSource,
       // Conservée à côté de la surface retenue : c'est l'écart entre les deux
       // qui dira si la reconstitution géométrique vise juste.
       surfaceEstimee: bien.surfaceM2,
+      etage,
+      coefficientEtage: coefficient,
       anneeConstruction: bien.anneeConstruction,
       codeInsee,
       departement,
@@ -266,6 +320,10 @@ export default async function handler(req, res) {
       source: prix.source,
       comparables: prix.count,
       radiusM: prix.radiusM ?? null,
+      // Étendue réellement couverte par les ventes retenues, qui est ce qui
+      // compte : un palier à 15 km dont les comparables tiennent en 600 m n'a
+      // rien d'une estimation diluée, et l'inverse se voit tout autant.
+      spanM: prix.spanM ?? null,
       elapsedMs: Date.now() - startedAt,
     }
 

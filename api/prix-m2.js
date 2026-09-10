@@ -7,18 +7,18 @@
 // `/api/estimation.js` dès que le curseur est validé.
 //
 // D'où un moteur volontairement bridé, là où l'estimation finale déroule tout :
-// un seul rayon, deux millésimes, aucun élargissement, aucun département
-// voisin. La fenêtre est à l'écran pendant que la requête court — elle doit
-// répondre en une seconde ou deux, pas en dix. À défaut, le prix de référence
+// trois rayons au plus, trois millésimes, aucun département voisin. La fenêtre
+// est à l'écran pendant que la requête court : elle doit répondre en une
+// seconde ou deux, pas en dix. À défaut, le prix de référence
 // prend le relais : mieux vaut un ordre de grandeur tout de suite qu'une
 // médiane juste une fois la fenêtre refermée.
 //
 // Effet de bord utile : les millésimes chargés ici restent en cache pour
 // l'estimation qui suit, sur la même instance (voir `_lib/dvf.js`).
 
-import { comparableKinds, median } from './_lib/comparables.js'
+import { comparableKinds, median, nearestSales } from './_lib/comparables.js'
 import { candidateYears, loadDepartementYear } from './_lib/dvf.js'
-import { communeAtPoint, departementFromInsee, distanceM } from './_lib/geo.js'
+import { communeAtPoint, departementFromInsee } from './_lib/geo.js'
 import { estHorsCouvertureDvf, prixReference } from './_lib/reference.js'
 
 /**
@@ -28,17 +28,33 @@ import { estHorsCouvertureDvf, prixReference } from './_lib/reference.js'
 const BUDGET_MS = 3500
 
 /**
- * Voisinage sondé, en mètres. Plus large que le premier palier de l'estimation
- * finale (1 km) : sans élargissement possible, un rayon serré reviendrait trop
- * souvent bredouille — et un aperçu absent est pire qu'un aperçu approximatif.
+ * Voisinage sondé, du plus resserré au plus large.
+ *
+ * L'aperçu suit les mêmes paliers que le calcul complet, en plus courts : ce
+ * sont deux chiffres montrés au même utilisateur à quelques secondes
+ * d'intervalle, et il n'y a rien à gagner à ce que l'aperçu annonce le prix du
+ * quartier d'à côté. C'est même exactement l'inverse : l'aperçu partait
+ * jusqu'ici d'un seul rayon de 3 km — soit la commune entière dans bien des
+ * cas — et le montant final, une fois resserré à l'échelle du pâté de maisons,
+ * pouvait s'en écarter de vingt pour cent sans que rien ne l'explique.
+ *
+ * Les ventes retenues sont, ici aussi, les plus proches d'abord
+ * (`nearestSales`) : c'est ce qui recentre la médiane sur le quartier quand le
+ * rayon ramène tout un arrondissement.
  */
-const APERCU_RADIUS_M = 3000
+const APERCU_LADDER = [
+  { radiusM: 400, minSample: 4 },
+  { radiusM: 1000, minSample: 5 },
+  { radiusM: 3000, minSample: 5 },
+]
 
-/** Millésimes chargés. Deux suffisent à un ordre de grandeur ; chacun coûte un téléchargement. */
-const APERCU_YEARS = 2
-
-/** En deçà, une vente atypique pèserait trop lourd sur la médiane. */
-const MIN_SAMPLE = 5
+/**
+ * Millésimes chargés. Trois plutôt que deux depuis le resserrement du rayon :
+ * un voisinage plus étroit demande un peu plus de profondeur pour rendre le
+ * même nombre de ventes, et une année de plus coûte un téléchargement là où un
+ * kilomètre de plus coûterait la justesse du chiffre.
+ */
+const APERCU_YEARS = 3
 
 /**
  * Médiane du voisinage, puis du département entier sur les mêmes millésimes —
@@ -59,16 +75,15 @@ async function apercuDvf({ lat, lon, type, departement }, { signal }) {
 
   const sales = batches.flat().filter((sale) => kinds.has(sale.kind))
 
-  const proches = sales
-    .filter((sale) => distanceM(lat, lon, sale.lat, sale.lon) <= APERCU_RADIUS_M)
-    .map((sale) => sale.pricePerM2)
-
-  if (proches.length >= MIN_SAMPLE) {
-    return { pricePerM2: median(proches), source: 'dvf-apercu' }
+  for (const rung of APERCU_LADDER) {
+    const proches = nearestSales(sales, lat, lon, rung.radiusM)
+    if (proches.length >= rung.minSample) {
+      return { pricePerM2: median(proches.map((sale) => sale.pricePerM2)), source: 'dvf-apercu' }
+    }
   }
 
   const departemental = sales.map((sale) => sale.pricePerM2)
-  if (departemental.length >= MIN_SAMPLE) {
+  if (departemental.length >= APERCU_LADDER[0].minSample) {
     return { pricePerM2: median(departemental), source: 'dvf-departement' }
   }
 

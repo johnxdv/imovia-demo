@@ -56,12 +56,21 @@ export async function requestEstimation(selection) {
     kind: selection.kind ?? null,
     type: selection.type ?? null,
     areaM2: selection.areaM2 ?? null,
-    // Surface déclarée au curseur de la fenêtre de surface — la seule donnée
-    // que l'utilisateur ait saisie de tout le parcours. Le serveur la fait
-    // passer avant toute surface reconstituée depuis les bases. Nulle pour un
-    // terrain, qui ne passe pas par cette fenêtre : sa contenance cadastrale
-    // voyage dans `parcelle`.
+    // Surface déclarée au curseur de la fenêtre de surface — la première des
+    // deux données que l'utilisateur saisisse de tout le parcours. Le serveur
+    // la fait passer avant toute surface reconstituée depuis les bases. Nulle
+    // pour un terrain, qui ne passe pas par cette fenêtre : sa contenance
+    // cadastrale voyage dans `parcelle`.
     surfaceM2: selection.surfaceM2 ?? null,
+    // La seconde : l'étage, demandé dans la même fenêtre aux seuls
+    // appartements. Nul partout ailleurs — et le moteur l'entend bien ainsi,
+    // un étage inconnu ne corrigeant rien (voir `src/lib/etage.js`).
+    etage: selection.etage ?? null,
+    // Provenance et confiance de la détection. Le moteur n'en tire aucune
+    // décision — il ne les journalise que pour qu'on sache, à l'usage, sur quoi
+    // reposent les types retenus.
+    typeSource: selection.typeSource ?? null,
+    typeConfiance: selection.typeConfiance ?? null,
     // Parcelle cadastrale et fiche BDNB ont déjà été obtenues pour déterminer
     // le type du bien, pendant que la fenêtre de confirmation était à l'écran.
     // Les retransmettre évite au serveur de refaire la même chaîne d'appels —

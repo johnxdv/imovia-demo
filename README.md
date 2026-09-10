@@ -90,7 +90,7 @@ des services publics ouverts. Deux variables restent facultatives :
 | Variable              | Rôle                                                                     |
 | --------------------- | ------------------------------------------------------------------------ |
 | `ESTIMATION_PRIX_M2`  | Prix de référence au m², en JSON, par code commune INSEE ou par département — utilisés là où DVF n'a aucune donnée (voir « DVF ne couvre pas la Moselle »). Ex. `{"57176":{"maison":1650,"appartement":1400},"57":{"maison":1850}}`. |
-| `ESTIMATION_DEBUG`    | À `1`, la réponse joint le détail du calcul (surface retenue, prix au m², nombre de comparables, rayon). À laisser vide en production. |
+| `ESTIMATION_DEBUG`    | À `1`, la réponse joint le détail du calcul (type retenu et sa confiance, surface, étage et son coefficient, prix au m², nombre de comparables, rayon du palier et étendue réelle). À laisser vide en production. |
 
 Pour utiliser un autre prestataire d'envoi (SendGrid, Postmark, SMTP…), seul
 l'appel réseau dans `api/contact-conseiller.js` est à adapter ; le contrat
@@ -138,7 +138,8 @@ src/
 │   ├── adresse.js        API Adresse (BAN) — autocomplétion + coordonnées
 │   ├── ign.js            Géoplateforme IGN — orthophotos, bâtiments, parcelles
 │   ├── bdnb.js           Base nationale des bâtiments — vocation, logements
-│   ├── typeBien.js       Déduction du type de bien + correction manuelle
+│   ├── typeBien.js       Déduction du type de bien (tranche toujours) + arbitrage
+│   ├── etage.js          Étage d'un appartement — champ du parcours et barème
 │   ├── monaco.js         Détection Monaco, prix au m² de référence, fourchette
 │   ├── osm.js            OpenStreetMap / Overpass — contours bâtis monégasques
 │   ├── geo.js            Emprise au sol, emprise carrée, point dans un anneau
@@ -191,9 +192,13 @@ sans navigation d'URL entre les étapes :
    bâtiment ouvre une **fenêtre modale** « Votre surface habitable », par-dessus
    la page assombrie et floutée : un curseur de 10 à 800 m², une silhouette qui
    change de gabarit avec lui, et un montant d'aperçu qui suit le geste (voir
-   « Curseur de surface » plus bas). Un repérage libre — quand les contours
-   bâtis sont indisponibles — vaut terrain : pas de fenêtre, la contenance
-   cadastrale fait la surface et l'analyse s'enchaîne directement.
+   « Curseur de surface » plus bas). **Ce qui est demandé dépend du type
+   détecté** : une maison n'y déclare que sa surface habitable — sa surface de
+   terrain est la contenance cadastrale, déjà connue — là où un appartement se
+   voit demander en plus son **étage** (voir « Étage » plus bas). Un repérage
+   libre — quand les contours bâtis sont indisponibles — vaut terrain : pas de
+   fenêtre, la contenance cadastrale fait la surface et l'analyse s'enchaîne
+   directement.
    Une adresse **monégasque** suit le même écran, avec des contours venus
    d'OpenStreetMap plutôt que de la BD TOPO® (voir « Monaco » plus bas), et une
    fenêtre de surface augmentée d'un choix de type. Un repérage libre y ouvre
@@ -233,18 +238,64 @@ l'animation d'analyse.
 | ----- | ----- | ------ |
 | **A** | Surface et année du bien | Surface déclarée au curseur ; à défaut BDNB (surface habitable d'un DPE, sinon emprise × niveaux), cadastre pour un terrain |
 | | ↳ *niveaux* | BDNB `nb_niveau`, à défaut BD TOPO® `nombre_d_etages`, à défaut déduits de la hauteur du bâtiment |
-| **B** | Ventes comparables | [DVF / Etalab](https://files.data.gouv.fr/geo-dvf/) — 1 km, 3 derniers millésimes |
+| **B** | Ventes comparables | [DVF / Etalab](https://files.data.gouv.fr/geo-dvf/) — 300 m, 4 derniers millésimes, 40 ventes les plus proches |
 | **C** | Prix médian au m² × surface | — |
+| | ↳ *étage* | Coefficient 0,95 (RDC) à 1,05 (étage élevé), appartements seulement — [`src/lib/etage.js`](src/lib/etage.js) |
 
 **Médiane, jamais moyenne** : sur quelques ventes, une seule transaction hors
 norme déplacerait une moyenne de plusieurs dizaines de pour cent.
 
-**Élargissement automatique** — en deçà de cinq ventes comparables, la
-recherche s'élargit d'elle-même : 2 km/4 ans, 5 km/5 ans, puis 15 km. Rien n'en
-transparaît à l'écran : le parcours est identique qu'il s'agisse d'un
-centre-ville couvert par un millier de ventes ou d'un hameau qu'il a fallu
-chercher à quinze kilomètres. Les fichiers sont pris **par département** et
-gardés en mémoire : élargir le rayon ne coûte alors plus aucune requête.
+**La recherche part du pâté de maisons** — 300 m, quatre millésimes, quatre
+ventes suffisent — et ne s'élargit qu'à défaut : 600 m, 1,2 km, 3 km, 8 km,
+15 km, le seuil d'échantillon montant avec le rayon. Rien n'en transparaît à
+l'écran : le parcours est identique qu'il s'agisse d'un centre-ville couvert par
+un millier de ventes ou d'un hameau qu'il a fallu chercher à quinze kilomètres.
+Les fichiers sont pris **par département** et gardés en mémoire : élargir le
+rayon ne coûte alors plus aucune requête.
+
+Quel que soit le palier atteint, seules les **40 ventes les plus proches** sont
+retenues. C'est ce qui recentre la médiane sur le quartier sans qu'aucun palier
+ait à le prévoir : en tissu dense, ces quarante ventes tiennent en une centaine
+de mètres ; dans le pavillonnaire, elles vont chercher jusqu'à 800 m.
+
+#### Pourquoi si serré — la dilution géographique
+
+Le premier palier valait 1 km, avec cinq ventes pour seuil : deux conditions
+qu'une ville dense remplit toujours, et de très loin. Un disque d'un kilomètre
+autour d'une adresse lyonnaise contient **trois mille ventes** réparties sur
+trois ou quatre quartiers ; la médiane qui en sortait n'était pas celle de la
+rue, mais celle de l'arrondissement. Mesuré sur DVF (69, 33, 92, cinq
+millésimes), en écart au prix réellement observé dans les 250 m :
+
+| Adresse | Avant (1 km) | Après (300 m, 40 plus proches) |
+| --- | --- | --- |
+| Lyon 3e — Part-Dieu | **+17,9 %** | +1,2 % |
+| Bordeaux — Chartrons | −9,7 % | +3,0 % |
+| Neuilly-sur-Seine | −5,2 % | −3,8 % |
+| Gennevilliers | +4,4 % | +0,7 % |
+| Vaulx-en-Velin (maison) | −6,8 % | −1,8 % |
+| Écully (maison) | +0,4 % | +1,4 % |
+
+L'erreur d'avant n'allait pas toujours dans le même sens, ce qui est pire qu'un
+biais : elle était imprévisible et ne se rattrapait pas.
+
+**L'arbitrage retenu est de remonter dans le temps plutôt que de s'éloigner dans
+l'espace.** Un millésime de plus fait entrer une dérive de marché de quelques
+pour cent par an ; un kilomètre de plus en fait entrer vingt-cinq d'un coup.
+D'où un rayon serré, un échantillon plus court assumé — quatre ventes du même
+pâté de maisons valent mieux que cinquante ventes de la commune entière — et une
+profondeur d'historique portée à cinq millésimes.
+
+L'aperçu de la fenêtre de surface ([`api/prix-m2.js`](api/prix-m2.js)) suit les
+mêmes paliers en plus courts : ce sont deux chiffres montrés au même utilisateur
+à quelques secondes d'intervalle, et l'aperçu n'a rien à gagner à annoncer le
+prix du quartier d'à côté.
+
+**Ce que ce resserrement coûte** : là où un programme neuf vient d'être livré,
+les quarante ventes les plus proches peuvent être quarante VEFA du même immeuble,
+et la médiane monte avec elles. C'est le prix d'une médiane hyperlocale, et il se
+paie sciemment — l'inverse revenait à estimer chaque bien au prix moyen de sa
+commune.
 
 Trois pièges de la base DVF, tous traités dans
 [`api/_lib/dvf.js`](api/_lib/dvf.js) — chacun fausserait le prix au m² d'un
@@ -294,7 +345,8 @@ simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 | --- | --- | --- |
 | Écran bâtiment | Photo aérienne, emprises BD TOPO® cliquables | Même écran, emprises OpenStreetMap — [`EstimationMonacoStep`](src/components/estimation/EstimationMonacoStep.jsx) |
 | Repérage libre | Vaut terrain : pas de fenêtre, contenance cadastrale | Ouvre la fenêtre de surface, comme un bâtiment |
-| Type de bien | Détecté (cadastre → BDNB → BD TOPO®) | Demandé : appartement ou maison / villa |
+| Type de bien | Détecté (cadastre → BDNB → BD TOPO®, arbitrage à défaut) | Demandé : appartement ou maison / villa |
+| Étage | Demandé aux appartements, coefficient 0,95 à 1,05 | Identique — même fenêtre, même barème |
 | Prix au m² | Médiane DVF du voisinage | Constante `MONACO_PRICE_PER_M2` — **57 500 €**, source [IMSEE](https://www.imsee.mc/), à réviser à la main |
 | Calcul | Médiane × surface, avec replis | Constante × surface déclarée, sans repli |
 | Fourchette finale | ± 5 % | ± 20 % (`MONACO_RANGE_PCT`) |
@@ -359,6 +411,42 @@ flou d'intensité fixe (voir [`PriceReveal`](src/components/estimation/PriceReve
 Ce premier chiffre suit le curseur, et c'est là tout l'intérêt : il donne
 l'ordre de grandeur sans donner le montant.
 
+### Étage
+
+**La seconde et dernière donnée saisie du parcours**, demandée dans la même
+fenêtre que la surface et aux seuls appartements — aucune base publique ne
+descend au logement, ni la BDNB ni la BD TOPO® ne connaissent que le bâtiment.
+Le champ apparaît quand la détection du type aboutit, quelques centaines de
+millisecondes après l'ouverture, et se déplie plutôt qu'il n'apparaît d'un coup.
+
+Le barème vit dans [`src/lib/etage.js`](src/lib/etage.js), partagé entre l'aperçu
+de la fenêtre et le calcul final — sans quoi le montant sauterait entre les deux
+écrans sans que rien ne l'explique :
+
+| Étage | Coefficient |
+| --- | --- |
+| Rez-de-chaussée | 0,95 |
+| 1er | 0,985 |
+| 2e (référence, valeur d'ouverture) | 1,00 |
+| 3e et au-delà | +0,8 point par étage, plafonné à 1,05 |
+
+**Onze points d'écart en tout**, et c'est volontaire. La décote du
+rez-de-chaussée (vis-à-vis, bruit, sécurité) va de 5 à 10 % selon les études : on
+retient la borne basse. La prime des étages élevés est plafonnée pour une raison
+précise — elle ne vaut qu'avec un ascenseur, dont **rien ne dit s'il existe**, et
+un cinquième sans ascenseur se vend moins cher qu'un deuxième, pas plus. Le
+plafond est le prix de cette ignorance assumée.
+
+La valeur d'ouverture est celle dont le coefficient vaut exactement 1 : un champ
+apparu tard et laissé tel quel ne déplace le montant ni dans un sens ni dans
+l'autre. Un étage absent — maison, terrain, détection non aboutie — vaut lui
+aussi coefficient 1.
+
+**Rien d'autre n'est demandé, et rien d'autre n'est deviné.** Ni vue, ni étage
+terminal, ni ascenseur, ni exposition : aucune source fiable n'existe à l'échelle
+d'un bien, et une estimation de ces éléments introduirait une fausse précision
+plutôt qu'une vraie amélioration.
+
 ### Sources cartographiques
 
 L'essentiel vient de la [Géoplateforme IGN](https://geoservices.ign.fr) —
@@ -395,11 +483,19 @@ Enchaînée dans [`src/lib/typeBien.js`](src/lib/typeBien.js) au moment où
 l'utilisateur sélectionne un bâtiment, pendant que la fenêtre s'ouvre.
 
 **Elle ne s'affiche nulle part** : le type déduit ne sert qu'au calcul
-d'estimation, et voyage avec la sélection jusqu'aux écrans suivants — avec la
-parcelle et la fiche BDNB obtenues au passage, que le moteur n'a alors plus à
-rechercher. Le
-correcteur manuel a donc été retiré de l'interface ; `MANUAL_TYPE_IDS` et
-`typeDetecte()` restent en place pour le jour où il refera surface.
+d'estimation — et à décider si la fenêtre demande un étage — puis voyage avec la
+sélection jusqu'aux écrans suivants, avec la parcelle et la fiche BDNB obtenues
+au passage, que le moteur n'a alors plus à rechercher. Le correcteur manuel a été
+retiré de l'interface ; `MANUAL_TYPE_IDS` et `typeDetecte()` restent en place
+pour le jour où il refera surface.
+
+**Elle tranche toujours.** Aucune branche ne renvoie de type indéterminé, aucune
+ne suspend le parcours à une précision demandée à l'utilisateur : il n'y a
+personne à qui la demander — le type ne lui est jamais montré — et un type
+indéterminé ne fait pas moins de dégâts qu'un type faux, puisqu'il aligne
+l'estimation sur une médiane tous logements confondus, c'est-à-dire sur le marché
+de personne. Entre deux réponses incertaines, la moins incertaine vaut mieux
+qu'aucune, **même à 51 %**.
 
 La chaîne :
 
@@ -409,12 +505,38 @@ La chaîne :
    et sans clé. `usage_principal_bdnb_open` et `nb_log` donnent le type.
 3. **Repli BD TOPO®** (`usage_1`, `nombre_de_logements`) quand la BDNB ne
    connaît pas le bâtiment — fréquent sur les constructions récentes.
+4. **Arbitrage** quand plus aucune base ne parle — voir plus bas.
 
-Un repérage libre (sans contour) sur une parcelle cadastrée vaut **terrain nu**.
-Rien ne lève jamais, et rien ne bloque : la fenêtre s'ouvre immédiatement et
-reste utilisable quoi qu'il advienne du réseau. Un type indéterminé remonte
-`null` plutôt qu'une valeur par défaut — l'écran suivant ne doit pas prendre un
-type pour acquis.
+Un repérage libre (sans contour) vaut **terrain**. Rien ne lève jamais hors
+annulation par l'utilisateur, et rien ne bloque : la fenêtre s'ouvre
+immédiatement et reste utilisable quoi qu'il advienne du réseau. Cadastre et
+BDNB sont chacun plafonnés à **4 secondes** — la BDNB n'a aucun contrat de
+service et il lui arrive de ne pas répondre du tout (constaté : plus de douze
+secondes sans un octet), ce qui immobilisait la détection, donc le champ étage
+qui en dépend, puis tout le budget du moteur derrière.
+
+**Confiance** — chaque réponse porte son degré (`CONFIANCES`) :
+
+| Degré | Quand |
+| --- | --- |
+| `haute` | La base *dit* la vocation : nomenclature explicite, ou logements réellement comptés |
+| `moyenne` | Présomption : vocation générique, comptage absent, immeuble mixte |
+| `nulle` | Aucune source — l'arbitrage a tranché seul |
+
+Elle ne conditionne **jamais** le parcours : elle qualifie la réponse sans la
+suspendre, part au journal du moteur (`typeConfiance`), et sert d'aiguillage
+interne — c'est l'absence de source, et elle seule, qui déclenche l'arbitrage.
+
+**L'arbitrage** (`arbitreTypeResidentiel`) somme des log-odds sur les seuls
+indices géométriques — gabarit du bâtiment (niveaux comptés ou hauteur mesurée,
+le plus parlant des deux) et emprise au sol — par-dessus une part de collectif
+dans le parc d'environ 41 %. La probabilité la plus élevée l'emporte, aussi
+faible que soit son avance, et redescend avec le type dans le journal.
+
+Retenir « le plus parlant des deux » n'est pas un raffinement : la BD TOPO®
+déclare volontiers **un étage sur un bâtiment de 27 m**, son `nombre_d_etages`
+valant 1 par défaut là où il n'a pas été levé. Une hauteur mesurée ne doit jamais
+se laisser annuler par un comptage absent.
 
 Trois pièges rencontrés, tous contournés dans le code :
 

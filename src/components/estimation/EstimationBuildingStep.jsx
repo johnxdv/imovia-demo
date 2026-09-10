@@ -34,9 +34,15 @@ const ATTENTE_CADASTRE_MS = 2500
  * cadastrale est déjà connue. L'écran d'analyse s'enchaîne alors directement,
  * dès que le cadastre a répondu.
  *
- * Ce type n'est plus affiché — il ne servira qu'au calcul de l'estimation.
- * `onEstimate` remonte donc la sélection enrichie du type retenu et de la
- * surface retenue, sans que l'utilisateur ait eu à s'en préoccuper.
+ * Ce type n'est plus affiché — mais il commande ce que la fenêtre demande :
+ * un appartement s'y voit réclamer son étage en plus de sa surface, une maison
+ * non (voir `BuildingConfirmModal` et `src/lib/etage.js`). La détection tranche
+ * toujours, y compris par arbitrage quand aucune base ne répond : le parcours
+ * n'a aucune branche « type indéterminé » où s'arrêter, et n'en demande jamais
+ * la levée à l'utilisateur.
+ *
+ * `onEstimate` remonte la sélection enrichie du type retenu, de la surface et
+ * de l'étage déclarés, sans que l'utilisateur ait eu à s'en préoccuper.
  */
 export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
   const [selection, setSelection] = useState(null)
@@ -94,12 +100,21 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   //
   // `surfaceM2` est la seule chose que l'utilisateur ait déclarée de tout le
   // parcours : elle l'emporte donc, côté moteur, sur toute surface reconstituée.
+  //
+  // Le second argument de la fenêtre — le type déclaré — ne concerne que la
+  // Principauté ; ici, c'est la détection qui le fournit.
   const startEstimate = useCallback(
-    (surfaceM2) => {
+    (surfaceM2, _typeDeclare, etage) => {
       onEstimate?.({
         ...selection,
         surfaceM2,
+        etage: etage ?? null,
         type: detection?.type ?? null,
+        // Comment le type a été obtenu, et à quel point il est sûr : le moteur
+        // n'en fait rien d'autre que de le journaliser, mais c'est ce journal
+        // qui dira, à l'usage, ce que vaut la détection sur le terrain.
+        typeSource: detection?.source ?? null,
+        typeConfiance: detection?.confiance ?? null,
         parcelle: detection?.parcelle ?? null,
         fiche: detection?.fiche ?? null,
       })
@@ -173,6 +188,7 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
           <BuildingConfirmModal
             key="surface"
             selection={selection}
+            type={detection?.type ?? null}
             onEstimate={startEstimate}
             onClose={() => setSelection(null)}
           />

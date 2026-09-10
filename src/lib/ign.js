@@ -178,6 +178,15 @@ export async function fetchBuildingAt(lat, lon, { signal } = {}) {
 const APICARTO_PARCELLE = 'https://apicarto.ign.fr/api/cadastre/parcelle'
 
 /**
+ * Délai au-delà duquel le cadastre est abandonné. Même raison que pour la BDNB
+ * (voir `src/lib/bdnb.js`) : la parcelle sert à rattacher le bâtiment, jamais à
+ * décider si le parcours continue. Sans parcelle, la détection se rabat sur les
+ * attributs BD TOPO® du contour cliqué, et le moteur retrouve la commune par le
+ * découpage administratif.
+ */
+const PARCELLE_TIMEOUT_MS = 4000
+
+/**
  * Parcelle cadastrale contenant un point. Sert à deux choses : rattacher le
  * bâtiment cliqué à un identifiant que la BDNB comprend (`idu`), et distinguer
  * un terrain nu — une parcelle sans aucune emprise bâtie — d'un simple clic
@@ -189,7 +198,11 @@ const APICARTO_PARCELLE = 'https://apicarto.ign.fr/api/cadastre/parcelle'
  */
 export async function fetchParcelle(lat, lon, { signal } = {}) {
   const geom = JSON.stringify({ type: 'Point', coordinates: [lon, lat] })
-  const response = await fetch(`${APICARTO_PARCELLE}?geom=${encodeURIComponent(geom)}`, { signal })
+  const timeout = AbortSignal.timeout(PARCELLE_TIMEOUT_MS)
+
+  const response = await fetch(`${APICARTO_PARCELLE}?geom=${encodeURIComponent(geom)}`, {
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  })
 
   if (!response.ok) {
     throw new Error(`API Carto cadastre — réponse ${response.status}`)

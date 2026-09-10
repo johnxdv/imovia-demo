@@ -6,21 +6,65 @@ import { departementsAround, distanceM } from './geo.js'
 /**
  * Paliers d'élargissement, du plus resserré au plus large.
  *
- * On part du voisinage immédiat sur les trois derniers millésimes, et on
- * n'élargit qu'à défaut d'échantillon suffisant. Rien de tout cela n'est dit à
- * l'utilisateur : le parcours est identique qu'il s'agisse d'un centre-ville
- * couvert par cent ventes ou d'un hameau qu'il a fallu chercher à quinze
- * kilomètres.
+ * On part du pâté de maisons, et l'on n'élargit qu'à défaut d'échantillon
+ * suffisant. Rien de tout cela n'est dit à l'utilisateur : le parcours est
+ * identique qu'il s'agisse d'un centre-ville couvert par cent ventes ou d'un
+ * hameau qu'il a fallu chercher à quinze kilomètres.
+ *
+ * **Le premier palier tient en 300 m, et c'est le cœur du réglage.** Il valait
+ * 1 km, avec cinq ventes pour seuil — deux conditions qu'une ville dense
+ * remplit toujours, et de très loin : à Lyon, un disque d'un kilomètre autour
+ * d'une adresse contient trois mille ventes réparties sur trois ou quatre
+ * quartiers. La médiane qui en sortait n'était pas celle de la rue, c'était
+ * celle de l'arrondissement. Relevé sur DVF (69, cinq millésimes) :
+ *
+ * | Adresse | 250 m | 1 km | écart |
+ * | --- | --- | --- | --- |
+ * | Lyon 3e — Part-Dieu | 4 078 €/m² | 5 082 €/m² | **+24,6 %** |
+ * | Lyon 8e — Mermoz | 3 351 €/m² | 3 467 €/m² | +3,4 % |
+ * | Lyon 6e — bd des Belges | 5 937 €/m² | 5 802 €/m² | −2,3 % |
+ * | Bordeaux — Chartrons | 5 145 €/m² | 4 780 €/m² | −7,1 % |
+ *
+ * Un quart de trop sur un T3 de la Part-Dieu, sept pour cent de moins sur un
+ * appartement des Chartrons : l'erreur ne va pas toujours dans le même sens, ce
+ * qui est bien pire qu'un biais — elle est imprévisible et ne se rattrape pas.
+ *
+ * Le seuil d'échantillon monte avec le rayon plutôt que de rester fixe : plus le
+ * disque est large, moins chaque vente dit de l'adresse, et plus il en faut pour
+ * que la médiane veuille dire quelque chose. À 300 m, quatre ventes du même
+ * pâté de maisons valent mieux que cinquante ventes de la commune entière.
+ *
+ * La profondeur d'historique, elle, ne se paie presque pas : cinq millésimes au
+ * lieu de trois font entrer une dérive de marché de quelques pour cent par an,
+ * là où élargir le rayon d'un kilomètre en fait entrer vingt-cinq d'un coup.
+ * C'est l'arbitrage retenu partout ici — **remonter dans le temps plutôt que
+ * s'éloigner dans l'espace**.
  */
 const LADDER = [
-  { radiusM: 1000, years: 3 },
-  { radiusM: 2000, years: 4 },
-  { radiusM: 5000, years: 5 },
-  { radiusM: 15000, years: 5 },
+  { radiusM: 300, years: 4, minSample: 4 },
+  { radiusM: 600, years: 5, minSample: 5 },
+  { radiusM: 1200, years: 5, minSample: 8 },
+  { radiusM: 3000, years: 5, minSample: 10 },
+  { radiusM: 8000, years: 5, minSample: 10 },
+  { radiusM: 15000, years: 5, minSample: 12 },
 ]
 
-/** En deçà, une vente atypique pèserait trop lourd sur la médiane. */
-const MIN_SAMPLE = 5
+/**
+ * Nombre de ventes retenues au plus, les plus proches d'abord.
+ *
+ * Le palier fixe une limite à ne pas dépasser ; ce plafond-ci fait le reste du
+ * travail. Dès qu'un rayon ramène plus de ventes qu'il n'en faut, seules les
+ * plus proches sont gardées — la médiane se recentre alors d'elle-même sur le
+ * quartier, sans qu'aucun palier ait eu à le prévoir. Dans les mêmes relevés
+ * lyonnais, les quarante ventes les plus proches tiennent en 70 m boulevard des
+ * Belges, en 180 m à Mermoz, et en 800 m dans le pavillonnaire d'Écully : le
+ * plafond se resserre exactement là où le tissu est dense, et se relâche là où
+ * il faut bien aller chercher plus loin.
+ *
+ * Quarante, parce qu'une médiane cesse de bouger bien avant — au-delà, on
+ * n'ajoute plus de la précision, seulement de la distance.
+ */
+const MAX_SAMPLE = 40
 
 /**
  * À partir de ce rayon, la zone de recherche peut déborder sur un département
@@ -55,11 +99,11 @@ const YEAR_SLACK = 1
 /**
  * Types DVF comparables à un type détecté sur la carte.
  *
- * Un type indéterminé — détection en échec, bâtiment inconnu des bases — est
- * rapproché de l'ensemble du résidentiel plutôt que d'être abandonné : mieux
- * vaut une médiane tous logements confondus que pas d'estimation du tout. Il
- * en va de même d'un local professionnel, dont les surfaces DVF sont trop
- * hétérogènes pour former un échantillon exploitable.
+ * Le cas d'un type indéterminé ne se présente plus — la détection tranche
+ * toujours, y compris par arbitrage (voir `src/lib/typeBien.js`). Il reste
+ * traité ici par sécurité, et pour le local professionnel, dont les surfaces
+ * DVF sont trop hétérogènes pour former un échantillon exploitable : mieux vaut
+ * une médiane tous logements confondus que pas d'estimation du tout.
  */
 export function comparableKinds(type) {
   if (type === 'maison') return ['maison']
@@ -81,6 +125,26 @@ export function median(values) {
   const middle = Math.floor(sorted.length / 2)
 
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
+}
+
+/**
+ * Les `limit` ventes les plus proches d'un point, distance comprise.
+ *
+ * Partagée avec l'aperçu de la fenêtre de surface (`api/prix-m2.js`) : les deux
+ * chiffres sont montrés au même utilisateur à quelques secondes d'intervalle, et
+ * n'auraient aucune raison de ne pas se ressembler.
+ */
+export function nearestSales(sales, lat, lon, radiusM, limit = MAX_SAMPLE) {
+  const inside = []
+
+  for (const sale of sales) {
+    const d = distanceM(lat, lon, sale.lat, sale.lon)
+    if (d <= radiusM) inside.push({ ...sale, distanceM: d })
+  }
+
+  inside.sort((a, b) => a.distanceM - b.distanceM)
+
+  return inside.slice(0, limit)
 }
 
 /**
@@ -139,22 +203,27 @@ export async function findComparables({ lat, lon, type, departement }, { signal 
 
     await ensureLoaded(rung.years)
 
-    sample = []
+    const candidates = []
     for (const sales of loaded.values()) {
       for (const sale of sales) {
-        if (!kinds.has(sale.kind)) continue
-        if (distanceM(lat, lon, sale.lat, sale.lon) > rung.radiusM) continue
-        sample.push(sale)
+        if (kinds.has(sale.kind)) candidates.push(sale)
       }
     }
 
-    if (sample.length >= MIN_SAMPLE) break
+    sample = nearestSales(candidates, lat, lon, rung.radiusM, MAX_SAMPLE)
+
+    if (sample.length >= rung.minSample) break
   }
 
   return {
     sales: sample,
     pricePerM2: median(sample.map((sale) => sale.pricePerM2)),
     radiusM: used.radiusM,
+    // Distance de la vente retenue la plus lointaine : c'est elle, et non le
+    // rayon du palier, qui dit sur quelle étendue la médiane a été prise. Le
+    // journal en a besoin — un palier à 15 km dont toutes les ventes tiennent
+    // en 600 m n'a rien d'une estimation diluée.
+    spanM: sample.length > 0 ? Math.round(sample[sample.length - 1].distanceM) : null,
     years: used.years,
     departements: [...departements],
   }
