@@ -84,6 +84,7 @@ export default function PropertyDetail() {
   } = property
 
   const sold = statut === 'vendu'
+  const sousCompromis = statut === 'sous-compromis'
   const backTo = typeTransaction === 'location' ? '/louer' : '/acheter'
   const transactionLabel = sold ? 'Vendu' : typeTransaction === 'location' ? 'À louer' : 'À vendre'
 
@@ -95,7 +96,7 @@ export default function PropertyDetail() {
     ['Surface', formatSurface(surface)],
     ['Pièces', formatNumber(pieces)],
     ['Chambres', formatNumber(chambres)],
-    ['Statut', sold ? 'Vendu' : 'Disponible'],
+    ['Statut', sold ? 'Vendu' : sousCompromis ? 'Sous compromis' : 'Disponible'],
   ]
 
   return (
@@ -122,9 +123,9 @@ export default function PropertyDetail() {
                 className={`h-full w-full object-cover ${sold ? 'grayscale-[0.3]' : ''}`}
               />
               <PlanFrame />
-              {sold ? (
+              {sold || sousCompromis ? (
                 <div className="absolute left-4 top-4 z-30">
-                  <Badge variant="brass">Vendu</Badge>
+                  <Badge variant="brass">{sold ? 'Vendu' : 'Sous compromis'}</Badge>
                 </div>
               ) : null}
             </div>

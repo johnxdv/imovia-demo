@@ -15,7 +15,7 @@ cartes, données techniques en monospace.
 - **Leaflet** (carte satellite de l'outil d'estimation, chargée à la demande)
 - **lucide-react** (icônes)
 - **react-router-dom** (routing SPA)
-- Données mockées en **JSON**, structurées pour un futur flux XML
+- Biens synchronisés depuis le **flux XML Modelo Office** (import « annule et remplace »)
 
 ## Démarrage local
 
@@ -84,6 +84,13 @@ Sans `RESEND_API_KEY` ni l'adresse du conseiller ciblé, la fonction répond une
 erreur générique côté client et journalise la cause précise côté serveur
 (`vercel logs`) — jamais dans la réponse HTTP.
 
+L'import du flux Modelo, lui, a besoin de l'adresse du flux — laquelle vaut
+jeton d'accès et n'est donc pas versionnée :
+
+| Variable           | Rôle                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `MODELO_FEED_URL`  | URL du flux XML Modelo Office. Secret de dépôt côté intégration continue, fichier `.env` en local (voir `.env.example`). Sans elle, `npm run sync:modelo` s'arrête en l'expliquant. |
+
 L'outil d'estimation, lui, n'a besoin d'aucune clé : toutes ses sources sont
 des services publics ouverts. Deux variables restent facultatives :
 
@@ -114,6 +121,13 @@ api/
     ├── geo.js              Distances, code département, sondage du pourtour
     └── reference.js        Repli hors couverture DVF (Alsace-Moselle, Mayotte)
 
+scripts/
+├── sync-modelo.mjs         Import du flux Modelo — « annule et remplace »
+├── check-api-imports.mjs   Contrôle de chargement des fonctions serverless
+└── _lib/
+    ├── xml.mjs             Lecture XML ordonnée, entités, balises absentes
+    └── modelo.mjs          Mapping `<bien>` Modelo → modèle Immovia
+
 src/
 ├── components/
 │   ├── layout/      Navbar, Footer, ScrollToTop
@@ -125,7 +139,7 @@ src/
 │   │                France et Monaco, curseur de surface et ses cinq silhouettes)
 │   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
-│   ├── properties.json   15 biens fictifs
+│   ├── properties.json   Biens diffusés — produit par `npm run sync:modelo`
 │   ├── team.js           Conseillers joignables individuellement (page Équipe)
 │   ├── projets.js        Natures de projet du formulaire conseiller
 │   ├── estimation.js     Étapes d'analyse, encarts d'attente, créneaux de rappel
@@ -149,35 +163,144 @@ src/
 └── pages/           Une page par route
 ```
 
-## Données & futur flux XML
+## Données & flux Modelo
 
 Les biens vivent dans [`src/data/properties.json`](src/data/properties.json).
-Chaque bien reprend les champs attendus dans le flux réel :
+**Ce fichier n'est plus écrit à la main** : il est entièrement produit par
+l'import du flux XML Modelo Office.
 
-| Champ JSON          | Signification                              |
-| ------------------- | ------------------------------------------ |
-| `reference`         | Référence du bien                          |
-| `titre`             | Titre commercial                           |
-| `typeBien`          | Type de bien (Appartement, Villa…)         |
-| `typeTransaction`   | `vente` \| `location`                      |
-| `prix`              | Prix (€ ; mensuel en location)             |
-| `ville`             | Ville                                      |
-| `codePostal`        | Code postal                                |
-| `surface`           | Surface habitable (m²)                     |
-| `pieces`            | Nombre de pièces                           |
-| `chambres`          | Nombre de chambres                         |
-| `dpe`               | Classe DPE (A→G)                           |
-| `ges`               | Classe GES (A→G)                           |
-| `descriptionCourte` | Accroche (une ligne)                       |
-| `descriptionLongue` | Description détaillée                       |
-| `photos`            | Liste de visuels                           |
-| `statut`            | `disponible` \| `vendu`                    |
+```bash
+npm run sync:modelo             # import réel
+npm run sync:modelo -- --essai  # affiche ce qui changerait, sans rien écrire
+```
 
-**Branchement du flux réel (hors périmètre actuel) :** il suffira de remplacer
-le contenu de `properties.json` par les données issues du flux XML transformé en
-JSON avec ces mêmes clés. Le champ `photos` accepte déjà des **URLs absolues**
-(la fonction `photoUrl` dans `src/lib/format.js` les renvoie telles quelles) ;
-dans le démonstrateur, ce sont des identifiants Unsplash optimisés à la volée.
+### Annule et remplace
+
+Chaque fichier servi par Modelo décrit l'état **complet** des annonces à
+diffuser à cet instant, jamais une liste de changements. L'import reconstruit
+donc `properties.json` intégralement, à partir du seul flux — d'où découlent,
+sans aucune logique de rapprochement :
+
+| Situation                                | Conséquence                                  |
+| ---------------------------------------- | -------------------------------------------- |
+| Bien nouveau dans le flux                | créé                                          |
+| Bien déjà connu                          | réécrit depuis le flux                        |
+| Bien absent du dernier flux              | retiré de la diffusion                        |
+| Balise disparue depuis le dernier import | le champ vaut `null`, jamais l'ancienne valeur |
+
+L'identifiant stable est `reference_technique`, jamais la référence affichable —
+celle-ci peut suivre un changement de négociateur. Le compte rendu affiché en
+fin d'import (« 2 créés, 14 mis à jour, 1 retiré ») ne sert qu'à rendre compte :
+il n'influe pas sur le contenu écrit.
+
+### Balises absentes, vides, à zéro
+
+Une balise absente, vide ou blanche vaut **donnée non renseignée**, jamais une
+erreur : le champ devient `null` et l'import continue. Un mandat incomplet côté
+agence ne fait jamais tomber les autres biens.
+
+`0` en revanche **est une valeur** et se conserve telle quelle : un `etage` à 0
+est un rez-de-chaussée, un `nb_terrasse` à 0 dit qu'il n'y en a pas. C'est à
+l'affichage de choisir de les taire.
+
+Trois anomalies sont signalées et écartées plutôt que publiées : un bien sans
+référence affichable (aucune URL possible), une référence en doublon (les deux
+biens se masqueraient l'un l'autre), et un flux répondant sans le moindre bien
+diffusable — ce dernier cas interrompt l'import et **conserve le catalogue en
+place**, un `--autoriser-flux-vide` étant nécessaire pour vider réellement le
+site. Même prudence sur une erreur HTTP ou une racine `<biens>` introuvable :
+mieux vaut l'état du dernier import réussi qu'une page « aucun bien ».
+
+### Valeurs brutes, jamais `_formatee`
+
+Le flux double la plupart des champs : `prix` (`99000.00`) et `prix_formatee`
+(`99000.00 €`). Le choix est fait **une fois pour toutes en faveur des valeurs
+brutes**, sur toute la ligne — le site formate déjà à la française via `Intl`
+([`src/lib/format.js`](src/lib/format.js)), là où les versions `_formatee`
+arrivent en notation anglo-saxonne et préfixées de leur libellé. Aucun champ ne
+mélange les deux sources.
+
+### Deux subtilités du flux
+
+**`<details_pieces>` n'est pas structuré.** Les balises `<piece>`, `<surface>`
+et `<niveau>` s'y succèdent à plat, sans regroupement : seul leur ordre
+d'apparition associe une surface à une pièce. Le parseur lit donc le XML en
+préservant l'ordre du document (`preserveOrder`) et réassocie les triplets
+lui-même. Un triplet incomplet laisse le champ manquant à `null` sans désaligner
+la suite de la liste.
+
+**Les entités HTML survivent aux CDATA.** La spécification XML interdit de les
+interpréter à l'intérieur d'un `CDATA` : « Salon S&eacute;jour » arrive
+littéralement. Elles sont décodées à la lecture
+([`scripts/_lib/xml.mjs`](scripts/_lib/xml.mjs)). Même logique pour les `<br>`
+de `description`, convertis en sauts de ligne réels — le site rend ces textes en
+`whitespace-pre-line`.
+
+### Ce que devient chaque champ
+
+L'import produit les clés historiques du modèle (celles que consomment déjà les
+composants), complétées par tout ce que transmet le flux. Le mapping intégral
+est dans [`scripts/_lib/modelo.mjs`](scripts/_lib/modelo.mjs) ; en voici les
+arbitrages qui ne vont pas de soi :
+
+| Clé Immovia         | Source Modelo                    | Arbitrage                                                            |
+| ------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| `reference`         | `reference_a_afficher`           | Compose les URLs `/bien/:reference`                                  |
+| `referenceTechnique`| `reference_technique`            | Clé stable du « annule et remplace », jamais affichée                |
+| `prix`              | `loyer` en location, `prix` sinon | Les deux champs bruts restent disponibles (`loyer`, `prixVente`)     |
+| `descriptionLongue` | `description_impression`         | Repli sur `description`. Voir la note ci-dessous                     |
+| `typeTransaction`   | `type_annonce`                   | « Viager » et « Vente à terme » rejoignent `vente`                   |
+| `statut`            | `etat`                           | 1 → `disponible`, 2 → `sous-compromis`, 3 → `vendu`                  |
+| `datePublication`   | `date_mise_en_ligne`             | Repli sur `date_creation`. Ordonne l'accueil et « Biens récents »    |
+| `photos`            | `images`                         | Triées par l'attribut `id`, qui porte l'ordre d'affichage voulu      |
+| `dateDisponibilite` | `date_disponibilite`             | `1970-01-01T01:00:00+01:00` (époque Unix) vaut « non saisie » → `null` |
+
+> **Pourquoi `description_impression` plutôt que `description`.** Le champ
+> `description` se termine par les mentions réglementaires en dur — honoraires,
+> copropriété, classes DPE, Géorisques. Or le site les regénère déjà à partir
+> des données (`InfosComplementaires`, `EnergyDiagnostic`) : les reprendre
+> afficherait deux fois les mêmes phrases. `description_impression` en est
+> exempte. Les deux textes restent accessibles sous `description` et
+> `descriptionImpression`.
+
+### Import périodique
+
+Modelo n'expose aucun webhook : le flux est interrogé sur horaire fixe par
+[`.github/workflows/sync-modelo.yml`](.github/workflows/sync-modelo.yml), qui
+commite `properties.json` sur `main` — c'est ce commit qui déclenche le
+redéploiement Vercel. Le site n'interroge jamais Modelo lui-même : il sert un
+fichier déjà construit, sans dépendance réseau au moment de la visite.
+
+L'horaire est `0 14 * * *` — **un seul passage par jour**, à la demande du
+client. `cron` s'exprimant en UTC et ignorant l'heure d'été, cela vaut 15 h à
+Paris en hiver, 16 h en été. L'onglet *Actions* permet de déclencher un import
+à la demande.
+
+> **Marge courte, assumée.** Le flux côté Modelo se régénère vers 14 h : ce
+> passage unique ne laisse donc qu'environ une heure après cette régénération,
+> alors que la documentation Modelo précise que les passerelles sont traitées
+> les unes après les autres et peuvent être mises à disposition en retard. Si
+> un bien nouvellement diffusé n'apparaît pas le jour même, c'est très
+> probablement la cause — il sera repris au passage du lendemain. Décaler
+> l'heure relève d'une décision du client.
+
+**Mise en service :** l'URL du flux vaut jeton d'accès, elle n'est pas
+versionnée. Déclarer le secret de dépôt `MODELO_FEED_URL` (*Settings → Secrets
+and variables → Actions*) ; en local, copier [`.env.example`](.env.example) en
+`.env` et y coller la même adresse.
+
+### Deux comportements à confirmer avec le client
+
+1. **Les biens vendus ou loués (`etat` 3) restent-ils visibles ?** Ils le sont
+   aujourd'hui, marqués « Vendu » — le site sait déjà les présenter ainsi
+   (pastille sur la carte et la fiche, rubrique dédiée dans le plan du site).
+   Basculer `RETIRER_LES_BIENS_VENDUS` à `true` dans
+   [`scripts/_lib/modelo.mjs`](scripts/_lib/modelo.mjs) les retire du fichier
+   produit, et donc du site, sans autre modification.
+2. **Les biens sous compromis (`etat` 2) restent listés**, marqués « Sous
+   compromis » : la vente n'est pas signée et l'usage de la profession est de
+   les montrer. La liste `STATUTS_DIFFUSES` de
+   [`src/lib/properties.js`](src/lib/properties.js) gouverne ce choix.
 
 ## Outil d'estimation
 

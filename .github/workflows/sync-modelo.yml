@@ -1,0 +1,73 @@
+# Import périodique du flux XML Modelo Office.
+#
+# Modelo n'expose aucun webhook : on interroge l'URL sur horaire fixe. Un seul
+# passage par jour, demandé par le client, à 15 h heure de Paris.
+#
+# `cron` s'exprime en UTC, sans heure d'été : `14` UTC vaut 15 h à Paris en
+# hiver, 16 h en été.
+#
+# ATTENTION — MARGE COURTE, VOLONTAIRE.
+# Le flux côté Modelo se régénère vers 14 h. Ce passage unique ne laisse donc
+# qu'environ une heure après cette régénération, alors que la documentation
+# Modelo précise que les passerelles sont traitées les unes après les autres
+# et peuvent être mises à disposition en retard.
+#
+# Conséquence à connaître : si un bien nouvellement diffusé n'apparaît pas sur
+# le site le jour même, c'est très probablement que le flux n'était pas encore
+# régénéré au moment du passage — il sera repris au passage du lendemain. Le
+# correctif serait de décaler l'heure, ce qui relève d'une décision du client
+# et n'a donc pas été fait ici.
+#
+# L'import réécrit `src/data/properties.json` et pousse le résultat sur `main`.
+# C'est ce commit qui déclenche le redéploiement Vercel : le site n'interroge
+# jamais Modelo lui-même, il sert un fichier déjà construit.
+
+name: Import du flux Modelo
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  # Permet de lancer un import à la demande depuis l'onglet Actions.
+  workflow_dispatch:
+
+# Deux imports simultanés se marcheraient dessus au moment du commit.
+concurrency:
+  group: sync-modelo
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Import « annule et remplace »
+        env:
+          MODELO_FEED_URL: ${{ secrets.MODELO_FEED_URL }}
+        run: npm run sync:modelo
+
+      - name: Publication des biens mis à jour
+        run: |
+          # Rien à publier si le flux n'a rien changé depuis le dernier import :
+          # un commit vide par passage polluerait l'historique et relancerait un
+          # déploiement Vercel pour rien.
+          if git diff --quiet -- src/data/properties.json; then
+            echo "Aucun changement — pas de commit."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/properties.json
+          git commit -m "Synchronise les biens depuis le flux Modelo"
+          git push

@@ -1,591 +1,156 @@
 [
   {
-    "reference": "IMV-2401",
-    "titre": "Appartement de réception, Triangle d'Or",
+    "reference": "VA1905-LUCASBELLA57510",
+    "referenceTechnique": "VA1905-COMPANY57204UQD",
+    "titre": "Appartement 4 pièces 92 m² Forbach",
+    "descriptionCourte": null,
+    "descriptionLongue": "IMMOVIA vous propose de découvrir cet agréable appartement entièrement rénové de 92 m².\n\nIl se compose d’une cuisine récente, entièrement équipée qui donne sur le salon-séjour avec un accès direct au balcon, de trois chambres, d’une salle de bains moderne avec espace buanderie ainsi que des toilettes séparées.\n\nLes + :\n✔️ Entièrement rénové\n✔️ Garage individuel\n✔️ Balcon\n✔️ Cave",
+    "description": "IMMOVIA vous propose de découvrir cet agréable appartement entièrement rénové de 92 m², idéalement situé.\n\nIl se compose d’une cuisine récente, entièrement équipée et semi-ouverte sur le salon-séjour, offrant un ensemble lumineux et convivial avec un accès direct au balcon.\n\nL’appartement dispose de trois chambres, d’une salle de bains moderne avec espace buanderie ainsi que des toilettes séparées.\n\nEntièrement rénové avec soin, le bien ne nécessite aucun travaux et offre un intérieur confortable avec de belles surfaces.\n\nUne cave ainsi qu’un garage individuel viennent compléter l’ensemble.\n\nLes + :\n Entièrement rénové\n Cuisine récente et équipée\n Garage individuel\n Balcon\n Cave\n\nÀ proximité des écoles, des commerces et des axes autoroutiers\n\n Intéressé(e) ? Contactez IMMOVIA en message privé ou par téléphone au 03 72 29 43 76\n\nHonoraires à la charge du vendeur.  Dans une copropriété de 24 lots. Quote-part moyenne du budget prévisionnel 2 840 €/an. Aucune procédure n'est en cours. Classe énergie D, Classe climat D Montant estimé des dépenses annuelles d'énergie pour un usage standard : entre 1620.00 € et 2230.00 € sur les années 2021, 2022 et 2023 (abonnements compris). Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : georisques.gouv.fr.",
+    "descriptionImpression": "IMMOVIA vous propose de découvrir cet agréable appartement entièrement rénové de 92 m².\n\nIl se compose d’une cuisine récente, entièrement équipée qui donne sur le salon-séjour avec un accès direct au balcon, de trois chambres, d’une salle de bains moderne avec espace buanderie ainsi que des toilettes séparées.\n\nLes + :\n✔️ Entièrement rénové\n✔️ Garage individuel\n✔️ Balcon\n✔️ Cave",
+    "accroche": null,
+    "pointsForts": null,
+    "commodites": null,
+    "ville": "Forbach",
+    "codePostal": "57600",
+    "pays": "France",
+    "codePays": "FR",
+    "quartier": null,
+    "secteur": null,
+    "latitude": null,
+    "longitude": null,
+    "typeAnnonce": "Vente",
+    "typeTransaction": "vente",
     "typeBien": "Appartement",
-    "typeTransaction": "vente",
-    "prix": 1290000,
-    "ville": "Bordeaux",
-    "codePostal": "33000",
-    "surface": 165,
-    "pieces": 5,
-    "chambres": 3,
-    "dpe": "C",
-    "ges": "C",
-    "descriptionCourte": "Moulures, cheminées et parquet d'origine au cœur du Triangle d'Or.",
-    "descriptionLongue": "Au deuxième étage d'un immeuble de pierre, cet appartement de 165 m² conserve ses moulures, ses cheminées en marbre et son parquet en point de Hongrie. La double réception traversante ouvre sur une enfilade lumineuse, prolongée par trois chambres au calme sur cour. Nous présentons un bien rare, à deux pas des allées de Tourny.",
-    "photos": [
-      "1493809842364-78817add7ffb",
-      "1502672260266-1c1ef2d93688",
-      "1522708323590-d24dbb6b0267",
-      "1484154218962-a197022b5858"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-07-02",
-    "honorairesCharge": "acquereur",
-    "copropriete": {
-      "nombreLots": 12,
-      "budgetPrevisionnelAnnuel": 980,
-      "procedureEnCours": true,
-      "procedureDescription": "une procédure concernant le ravalement de façade"
-    },
-    "energie": {
-      "depenseMin": 820,
-      "depenseMax": 1460,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 125,
-    "climateValue": 12
-  },
-  {
-    "reference": "IMV-2402",
-    "titre": "Villa contemporaine sous les pins",
-    "typeBien": "Villa",
-    "typeTransaction": "vente",
-    "prix": 2450000,
-    "ville": "Pyla-sur-Mer",
-    "codePostal": "33115",
-    "surface": 240,
-    "pieces": 7,
-    "chambres": 5,
-    "dpe": "B",
-    "ges": "A",
-    "descriptionCourte": "Baies toute hauteur, patio central et piscine miroir plein sud.",
-    "descriptionLongue": "Posée sur un terrain arboré de 1 200 m², cette villa de 240 m² joue sur de larges baies et un patio central. Les pièces de vie s'ouvrent sur une terrasse plein sud et une piscine miroir. Cinq chambres, dont une suite parentale de plain-pied. Nous organisons chaque visite sur rendez-vous.",
-    "photos": [
-      "1600585152220-90363fe7e115",
-      "1600607687939-ce8a6c25118c",
-      "1600566753086-00f18fb6b3ea",
-      "1580587771525-78b9dba3b914"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-08-11",
-    "honorairesCharge": "acquereur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 640,
-      "depenseMax": 1280,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 88,
-    "climateValue": 3
-  },
-  {
-    "reference": "IMV-2403",
-    "titre": "Maison d'architecte, presqu'île",
-    "typeBien": "Maison",
-    "typeTransaction": "vente",
-    "prix": 3200000,
-    "ville": "Lège-Cap-Ferret",
-    "codePostal": "33950",
-    "surface": 210,
-    "pieces": 6,
-    "chambres": 4,
-    "dpe": "B",
-    "ges": "B",
-    "descriptionCourte": "Bois, béton ciré et lignes franches, à cinq minutes de la plage.",
-    "descriptionLongue": "Signée par un architecte local, cette maison de 210 m² conjugue bois, béton ciré et grandes ouvertures cadrées sur le jardin de pins. Le séjour double hauteur dessert quatre chambres et un bureau. Terrain de 900 m², carport et cabane atelier. Nous accompagnons les acquéreurs jusqu'à la signature.",
-    "photos": [
-      "1568605114967-8130f3a36994",
-      "1600210492486-724fe5c67fb0",
-      "1600607688969-a5bfcd646154",
-      "1570129477492-45c003edd2be"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-06-18",
-    "honorairesCharge": "vendeur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 640,
-      "depenseMax": 1280,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 85,
-    "climateValue": 8
-  },
-  {
-    "reference": "IMV-2404",
-    "titre": "Échoppe rénovée avec jardin",
-    "typeBien": "Maison",
-    "typeTransaction": "vente",
-    "prix": 780000,
-    "ville": "Bordeaux",
-    "codePostal": "33200",
-    "surface": 120,
-    "pieces": 5,
-    "chambres": 3,
-    "dpe": "D",
-    "ges": "D",
-    "descriptionCourte": "Échoppe double de Caudéran, rénovée sans rien perdre de son âme.",
-    "descriptionLongue": "Cette échoppe double de 120 m² a été rénovée avec soin : pierre apparente, tomettes conservées et cuisine ouverte sur un jardin clos de 150 m². Trois chambres à l'étage et un cellier complètent l'ensemble. Un quartier résidentiel recherché de Caudéran, proche des écoles et des commerces.",
-    "photos": [
-      "1449844908441-8829872d2607",
-      "1560185007-cde436f6a4d0",
-      "1560448204-e02f11c3d0e2",
-      "1512918728675-ed5a9ecdebfd"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-08-30",
-    "honorairesCharge": "acquereur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 880,
-      "depenseMax": 1520,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 194,
-    "climateValue": 48
-  },
-  {
-    "reference": "IMV-2405",
-    "titre": "Loft d'angle aux Chartrons",
-    "typeBien": "Loft",
-    "typeTransaction": "vente",
-    "prix": 645000,
-    "ville": "Bordeaux",
-    "codePostal": "33300",
-    "surface": 98,
-    "pieces": 3,
-    "chambres": 2,
-    "dpe": "C",
-    "ges": "C",
-    "descriptionCourte": "Volumes ouverts, poutres métal et lumière du nord dans un ancien chai.",
-    "descriptionLongue": "Aménagé dans un ancien chai, ce loft de 98 m² offre une hauteur sous plafond de 3,60 m, des poutres métalliques d'origine et une verrière plein nord. L'espace de vie unique se prolonge par deux chambres en mezzanine. Cave et place de parking. Un adresse vivante, entre quais et marché des Chartrons.",
-    "photos": [
-      "1502005229762-cf1b2da7c5d6",
-      "1522199755839-a2bacb67c546",
-      "1560185893-a55cbc8c57e8",
-      "1507003211169-0a1dd7228f2d"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-05-27",
-    "honorairesCharge": "acquereur",
-    "copropriete": {
-      "nombreLots": 28,
-      "budgetPrevisionnelAnnuel": 1450,
-      "procedureEnCours": false,
-      "procedureDescription": null
-    },
-    "energie": {
-      "depenseMin": 490,
-      "depenseMax": 870,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 122,
-    "climateValue": 30
-  },
-  {
-    "reference": "IMV-2406",
-    "titre": "Appartement neuf, terrasse plein ciel",
-    "typeBien": "Appartement",
-    "typeTransaction": "vente",
-    "prix": 890000,
-    "ville": "Arcachon",
-    "codePostal": "33120",
-    "surface": 86,
-    "pieces": 4,
-    "chambres": 3,
-    "dpe": "A",
-    "ges": "A",
-    "descriptionCourte": "Livraison récente, terrasse de 30 m² tournée vers le bassin.",
-    "descriptionLongue": "Dans une résidence de standing livrée récemment, cet appartement de 86 m² profite d'une terrasse de 30 m² orientée sud-ouest, avec vue dégagée sur le bassin. Prestations soignées, isolation performante et stationnement en sous-sol. Trois chambres et une pièce de vie baignée de lumière. Ville d'Hiver à quelques pas.",
-    "photos": [
-      "1600585154526-990dced4db0d",
-      "1600566752229-250ed79470f8",
-      "1616594039964-ae9021a400a0",
-      "1583608205776-bfd35f0d9f83"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-09-01",
-    "honorairesCharge": "vendeur",
-    "copropriete": {
-      "nombreLots": 45,
-      "budgetPrevisionnelAnnuel": 2100,
-      "procedureEnCours": false,
-      "procedureDescription": null
-    },
-    "energie": {
-      "depenseMin": 180,
-      "depenseMax": 380,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 63,
-    "climateValue": 2
-  },
-  {
-    "reference": "IMV-2409",
-    "titre": "Propriété viticole et sa demeure",
-    "typeBien": "Propriété",
-    "typeTransaction": "vente",
-    "prix": 4800000,
-    "ville": "Saint-Émilion",
-    "codePostal": "33330",
-    "surface": 420,
-    "pieces": 12,
-    "chambres": 7,
-    "dpe": "G",
-    "ges": "F",
-    "descriptionCourte": "Demeure de caractère, chai fonctionnel et vignes en appellation.",
-    "descriptionLongue": "Au sein d'un domaine en appellation, cette demeure en pierre de 420 m² conserve ses volumes de réception, sa bibliothèque et sept chambres. La propriété comprend un chai fonctionnel, des dépendances et des parcelles de vignes conduites avec rigueur. Un ensemble cohérent, à visiter dans sa globalité. Nous étudions chaque projet avec discrétion.",
-    "photos": [
-      "1512917774080-9991f1c4c750",
-      "1600880292203-757bb62b4baf",
-      "1493809842364-78817add7ffb",
-      "1600121848594-d8644e57abab"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-04-14",
-    "honorairesCharge": "acquereur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 3100,
-      "depenseMax": 4200,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 448,
-    "climateValue": 92
-  },
-  {
-    "reference": "IMV-2410",
-    "titre": "Villa pieds dans l'eau",
-    "typeBien": "Villa",
-    "typeTransaction": "vente",
-    "prix": 5600000,
-    "ville": "Lège-Cap-Ferret",
-    "codePostal": "33950",
-    "surface": 300,
-    "pieces": 8,
-    "chambres": 6,
-    "dpe": "B",
-    "ges": "A",
-    "descriptionCourte": "Accès direct au bassin, ponton privatif et cabane ostréicole.",
-    "descriptionLongue": "Face au bassin, cette villa de 300 m² dispose d'un accès direct à l'eau, d'un ponton privatif et d'une cabane ostréicole restaurée. Les pièces de vie s'ouvrent de plain-pied sur une terrasse en ipé et un jardin planté d'essences locales. Six chambres réparties entre la maison principale et une annexe. Un emplacement exceptionnel, rarement disponible.",
-    "photos": [
-      "1613490493576-7fde63acd811",
-      "1600585154340-be6161a56a0c",
-      "1600607687939-ce8a6c25118c",
-      "1580587771525-78b9dba3b914"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-07-25",
-    "honorairesCharge": "acquereur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 640,
-      "depenseMax": 1280,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 84,
-    "climateValue": 3
-  },
-  {
-    "reference": "IMV-2411",
-    "titre": "Appartement meublé, Jardin Public",
-    "typeBien": "Appartement",
-    "typeTransaction": "location",
-    "prix": 2300,
-    "ville": "Bordeaux",
-    "codePostal": "33000",
+    "sousTypeBien": "T4",
     "surface": 92,
     "pieces": 4,
-    "chambres": 2,
-    "dpe": "C",
-    "ges": "C",
-    "descriptionCourte": "Meublé avec goût, vue sur le Jardin Public, disponible de suite.",
-    "descriptionLongue": "À deux pas du Jardin Public, cet appartement meublé de 92 m² se compose d'un séjour lumineux, d'une cuisine équipée et de deux chambres. Parquet, moulures et grandes fenêtres donnant sur les frondaisons. Loué avec ses équipements, il convient à un bail meublé classique. Charges et conditions détaillées sur demande.",
-    "photos": [
-      "1502672260266-1c1ef2d93688",
-      "1484154218962-a197022b5858",
-      "1522708323590-d24dbb6b0267",
-      "1560448204-e02f11c3d0e2"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-08-22",
-    "honorairesCharge": null,
-    "copropriete": {
-      "nombreLots": 9,
-      "budgetPrevisionnelAnnuel": 720,
-      "procedureEnCours": false,
-      "procedureDescription": null
-    },
-    "energie": {
-      "depenseMin": 460,
-      "depenseMax": 810,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 175,
-    "climateValue": 12
-  },
-  {
-    "reference": "IMV-2412",
-    "titre": "Maison familiale avec jardin",
-    "typeBien": "Maison",
-    "typeTransaction": "location",
-    "prix": 2750,
-    "ville": "Pessac",
-    "codePostal": "33600",
-    "surface": 140,
-    "pieces": 5,
-    "chambres": 4,
-    "dpe": "D",
-    "ges": "D",
-    "descriptionCourte": "Quatre chambres, jardin clos et garage, quartier résidentiel.",
-    "descriptionLongue": "Dans un quartier résidentiel calme de Pessac, cette maison de 140 m² propose un double séjour, une cuisine ouverte et quatre chambres à l'étage. Jardin clos de 400 m², garage et buanderie. Proche des transports et des établissements scolaires. Disponible pour un bail d'habitation classique, non meublé.",
-    "photos": [
-      "1600573472592-401b489a3cdc",
-      "1600210491369-e753d80a41f3",
-      "1560185893-a55cbc8c57e8",
-      "1512918728675-ed5a9ecdebfd"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-06-05",
-    "honorairesCharge": null,
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 1020,
-      "depenseMax": 1780,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 206,
-    "climateValue": 48
-  },
-  {
-    "reference": "IMV-2413",
-    "titre": "Studio de standing, Saint-Pierre",
-    "typeBien": "Studio",
-    "typeTransaction": "location",
-    "prix": 890,
-    "ville": "Bordeaux",
-    "codePostal": "33000",
-    "surface": 32,
-    "pieces": 1,
-    "chambres": 0,
-    "dpe": "D",
-    "ges": "D",
-    "descriptionCourte": "Rénové et meublé, en plein cœur du quartier Saint-Pierre.",
-    "descriptionLongue": "Au calme dans une rue piétonne du quartier Saint-Pierre, ce studio de 32 m² a été entièrement rénové : pierre apparente, kitchenette équipée et salle d'eau contemporaine. Vendu meublé, il conviendra à un étudiant ou à un actif. Idéalement placé entre la place du Parlement et les quais.",
-    "photos": [
-      "1560448204-e02f11c3d0e2",
-      "1560185007-cde436f6a4d0",
-      "1502005229762-cf1b2da7c5d6"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-08-28",
-    "honorairesCharge": null,
-    "copropriete": {
-      "nombreLots": 18,
-      "budgetPrevisionnelAnnuel": 1680,
-      "procedureEnCours": false,
-      "procedureDescription": null
-    },
-    "energie": {
-      "depenseMin": 660,
-      "depenseMax": 1160,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 234,
-    "climateValue": 38
-  },
-  {
-    "reference": "IMV-2408",
-    "titre": "Duplex avec vue sur le bassin",
-    "typeBien": "Duplex",
-    "typeTransaction": "location",
-    "prix": 2100,
-    "ville": "Andernos-les-Bains",
-    "codePostal": "33510",
-    "surface": 110,
-    "pieces": 4,
     "chambres": 3,
-    "dpe": "C",
-    "ges": "B",
-    "descriptionCourte": "Deux niveaux, terrasse d'angle et vue dégagée sur l'eau.",
-    "descriptionLongue": "Ce duplex de 110 m² occupe les deux derniers niveaux d'une petite copropriété. Le séjour ouvre sur une terrasse d'angle avec vue sur le bassin, tandis que trois chambres se répartissent à l'étage. Place de parking et local vélos. Disponible en location longue durée, non meublé.",
-    "photos": [
-      "1600585153490-76fb20a32601",
-      "1616486338812-3dadae4b4ace",
-      "1600566752355-35792bedcfea",
-      "1560185007-cde436f6a4d0"
-    ],
-    "statut": "disponible",
-    "datePublication": "2026-07-09",
-    "honorairesCharge": null,
-    "copropriete": {
-      "nombreLots": 12,
-      "budgetPrevisionnelAnnuel": 980,
-      "procedureEnCours": false,
-      "procedureDescription": null
+    "caracteristiques": {
+      "nbSdb": 1,
+      "nbSde": 0,
+      "wc": 1,
+      "ascenseur": false,
+      "surfaceJardin": 0,
+      "surfaceTerrain": null,
+      "piscine": false,
+      "cave": true,
+      "stationnementInterne": 1,
+      "stationnementExterne": 0,
+      "nbBalcon": 1,
+      "surfaceBalcon": 6.1,
+      "nbTerrasse": 0,
+      "surfaceTerrasse": 0,
+      "etage": 0,
+      "nbEtage": 0,
+      "vue": null,
+      "exposition": null,
+      "annee": 1960,
+      "ancienNeuf": null,
+      "cuisine": "Aménagée et équipée",
+      "typeChauffage": "Collectif",
+      "chauffages": [
+        "Gaz"
+      ],
+      "luxe": false
     },
-    "energie": {
-      "depenseMin": 550,
-      "depenseMax": 970,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 168,
-    "climateValue": 11
-  },
-  {
-    "reference": "IMV-2407",
-    "titre": "Maison de famille, Le Bouscat",
-    "typeBien": "Maison",
-    "typeTransaction": "vente",
-    "prix": 1150000,
-    "ville": "Le Bouscat",
-    "codePostal": "33110",
-    "surface": 185,
-    "pieces": 6,
-    "chambres": 4,
-    "dpe": "D",
-    "ges": "D",
-    "descriptionCourte": "Belle maison bourgeoise, volumes généreux et jardin planté.",
-    "descriptionLongue": "Cette maison bourgeoise de 185 m² a séduit par ses volumes, ses parquets et sa cheminée en pierre. Quatre chambres, un bureau et un jardin planté de 300 m². Sous-sol total et dépendance. Un quartier prisé du Bouscat, proche du parc de la Chêneraie.",
-    "photos": [
-      "1600596542815-ffad4c1539a9",
-      "1600607687920-4e2a09cf159d",
-      "1616137466211-f939a420be84",
-      "1615529182904-14819c35db37"
+    "detailPieces": [
+      {
+        "piece": "Cuisine",
+        "surface": 13.62,
+        "niveau": 0
+      },
+      {
+        "piece": "Couloir",
+        "surface": 7.52,
+        "niveau": 0
+      },
+      {
+        "piece": "Wc",
+        "surface": 1.18,
+        "niveau": 0
+      },
+      {
+        "piece": "Salle de bain",
+        "surface": 6.12,
+        "niveau": 0
+      },
+      {
+        "piece": "Salon Séjour",
+        "surface": 26.82,
+        "niveau": 0
+      },
+      {
+        "piece": "Chambre 1",
+        "surface": 9.45,
+        "niveau": 0
+      },
+      {
+        "piece": "Chambre 2",
+        "surface": 11.68,
+        "niveau": 0
+      },
+      {
+        "piece": "Chambre 3",
+        "surface": 15.46,
+        "niveau": 0
+      }
     ],
-    "statut": "vendu",
-    "datePublication": "2026-03-12",
+    "prix": 99000,
+    "prixVente": 99000,
+    "loyer": null,
+    "prixHorsHonorairesAcquereur": 99000,
+    "charges": 0,
+    "depotGarantie": 0,
+    "fraisNotaire": 0,
+    "taxeFonciere": 862,
+    "honorairesAcquereur": null,
+    "honorairesLocataire": null,
     "honorairesCharge": "vendeur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 1350,
-      "depenseMax": 2350,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 216,
-    "climateValue": 31
-  },
-  {
-    "reference": "IMV-2398",
-    "titre": "Villa moderne, quartier du Port",
-    "typeBien": "Villa",
-    "typeTransaction": "vente",
-    "prix": 1680000,
-    "ville": "La Teste-de-Buch",
-    "codePostal": "33260",
-    "surface": 195,
-    "pieces": 6,
-    "chambres": 4,
-    "dpe": "B",
-    "ges": "B",
-    "descriptionCourte": "Volumes contemporains et piscine, proche du port ostréicole.",
-    "descriptionLongue": "Cette villa de 195 m² proposait des volumes contemporains, une cuisine ouverte sur le séjour et quatre chambres de plain-pied. Jardin paysager de 700 m² avec piscine chauffée. Proche du port ostréicole et des pistes cyclables. Un bien que nous avons accompagné jusqu'à sa vente.",
-    "photos": [
-      "1600585154340-be6161a56a0c",
-      "1600566753086-00f18fb6b3ea",
-      "1600607688969-a5bfcd646154",
-      "1568605114967-8130f3a36994"
-    ],
-    "statut": "vendu",
-    "datePublication": "2026-02-20",
-    "honorairesCharge": "acquereur",
-    "copropriete": null,
-    "energie": {
-      "depenseMin": 600,
-      "depenseMax": 1200,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
-    },
-    "energyValue": 81,
-    "climateValue": 10
-  },
-  {
-    "reference": "IMV-2399",
-    "titre": "Appartement terrasse, Chartrons",
-    "typeBien": "Appartement",
-    "typeTransaction": "vente",
-    "prix": 1050000,
-    "ville": "Bordeaux",
-    "codePostal": "33300",
-    "surface": 130,
-    "pieces": 5,
-    "chambres": 3,
-    "dpe": "C",
-    "ges": "C",
-    "descriptionCourte": "Dernier étage, terrasse plein ciel et vue sur les toits.",
-    "descriptionLongue": "Au dernier étage d'un immeuble des Chartrons, cet appartement de 130 m² offrait une terrasse plein ciel et une vue dégagée sur les toits d'ardoise. Trois chambres, un séjour traversant et un stationnement sécurisé. Une adresse de choix, vendue par nos soins en quelques semaines.",
-    "photos": [
-      "1600607687939-ce8a6c25118c",
-      "1493809842364-78817add7ffb",
-      "1522199755839-a2bacb67c546",
-      "1502672260266-1c1ef2d93688"
-    ],
-    "statut": "vendu",
-    "datePublication": "2026-01-30",
-    "honorairesCharge": "acquereur",
+    "dpe": "D",
+    "energyValue": 202,
+    "ges": "D",
+    "climateValue": 35,
+    "dpeEtat": "Effectué",
+    "dpeDateRealisation": "2025-05-22",
+    "georisque": true,
     "copropriete": {
-      "nombreLots": 28,
-      "budgetPrevisionnelAnnuel": 1450,
+      "nombreLots": 24,
+      "budgetPrevisionnelAnnuel": 2840,
       "procedureEnCours": false,
       "procedureDescription": null
     },
     "energie": {
-      "depenseMin": 650,
-      "depenseMax": 1150,
-      "anneesReference": [
-        2021,
-        2022,
-        2023
-      ]
+      "depenseMin": 1620,
+      "depenseMax": 2230,
+      "anneesReference": null
     },
-    "energyValue": 154,
-    "climateValue": 20
+    "etat": 1,
+    "statut": "disponible",
+    "datePublication": "2026-09-07",
+    "dateCreation": "2026-08-13T13:59:42+02:00",
+    "dateModification": "2026-09-01T18:23:10+02:00",
+    "dateDisponibilite": null,
+    "contact": {
+      "nom": "Lucas BELLA",
+      "email": "contact@immo-via.com",
+      "telephone": "0372294376"
+    },
+    "negociateur": {
+      "nom": "BELLA",
+      "prenom": "Lucas",
+      "telephone": "0671016864",
+      "photo": "https://img.netty.immo/company57204uqd/assets/nego/001_l.jpg?cache=1785235610"
+    },
+    "photos": [
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903611_VA1905_1_original.jpg",
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903631_VA1905_2_original.jpg",
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903691_VA1905_5_original.jpg",
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903651_VA1905_3_original.jpg",
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903671_VA1905_4_original.jpg",
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903701_VA1905_6_original.jpg",
+      "https://img.netty.immo/product/company57204uqd/VA1905/17876903721_VA1905_7_original.jpg"
+    ],
+    "video": null,
+    "visiteVirtuelle": null
   }
 ]

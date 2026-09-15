@@ -9,6 +9,7 @@ export function PropertyCard({ property }) {
   const { reference, titre, typeBien, typeTransaction, prix, ville, surface, pieces, photos, statut } =
     property
   const sold = statut === 'vendu'
+  const sousCompromis = statut === 'sous-compromis'
   const cover = photos?.[0]
   const to = `/bien/${reference}`
   const transactionLabel = sold ? 'Vendu' : typeTransaction === 'location' ? 'À louer' : 'À vendre'
@@ -66,9 +67,9 @@ export function PropertyCard({ property }) {
       <PlanFrame />
 
       {/* Contrôles superposés (hors du lien) */}
-      {sold ? (
+      {sold || sousCompromis ? (
         <div className="absolute left-3 top-3 z-30">
-          <Badge variant="brass">Vendu</Badge>
+          <Badge variant="brass">{sold ? 'Vendu' : 'Sous compromis'}</Badge>
         </div>
       ) : null}
       <div className="absolute right-3 top-3 z-30">

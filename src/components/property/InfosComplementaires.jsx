@@ -1,5 +1,14 @@
 import { formatEuros } from '../../lib/format'
 
+// Qui supporte les honoraires, tel que le transmet Modelo. « Les deux » est
+// une valeur du flux à part entière : elle vise le partage vendeur/acquéreur.
+const CIBLES_HONORAIRES = {
+  vendeur: 'du vendeur',
+  acquereur: "de l'acquéreur",
+  locataire: 'du locataire',
+  'les-deux': 'partagée entre le vendeur et l’acquéreur',
+}
+
 /**
  * Bloc réglementaire « Informations complémentaires » — un paragraphe continu,
  * entièrement généré depuis les données du bien. Chaque props est
@@ -10,20 +19,20 @@ import { formatEuros } from '../../lib/format'
  * par le composant dédié `EnergyDiagnostic` (diagnostics réglementaires,
  * juste au-dessus) — pas de doublon ici.
  *
- * Prêt pour la passerelle Modelo (hors périmètre actuel) : il suffira de
- * fournir ces mêmes props depuis les données de synchronisation réelles.
+ * Les props viennent de la synchronisation Modelo (`npm run sync:modelo`),
+ * jamais des phrases réglementaires déjà présentes dans `description` : le
+ * flux les y répète, et les reprendre les afficherait deux fois.
  *
- * @param {'vendeur'|'acquereur'|null} honorairesCharge
+ * @param {'vendeur'|'acquereur'|'locataire'|'les-deux'|null} honorairesCharge
+ *   Valeurs issues du champ `honoraires_charges` du flux Modelo.
  * @param {{ nombreLots?: number, budgetPrevisionnelAnnuel?: number, procedureEnCours?: boolean, procedureDescription?: string|null }|null} copropriete
  *   `null`/absent pour un bien hors copropriété (maison individuelle, terrain…) : le bloc copropriété est alors masqué.
  */
 export function InfosComplementaires({ honorairesCharge, copropriete }) {
   const phrases = []
 
-  if (honorairesCharge === 'vendeur' || honorairesCharge === 'acquereur') {
-    const cible = honorairesCharge === 'vendeur' ? 'du vendeur' : "de l'acquéreur"
-    phrases.push(`Honoraires à la charge ${cible}.`)
-  }
+  const cible = CIBLES_HONORAIRES[honorairesCharge]
+  if (cible) phrases.push(`Honoraires à la charge ${cible}.`)
 
   const nombreLots = copropriete?.nombreLots
   if (copropriete && Number.isFinite(nombreLots) && nombreLots > 0) {

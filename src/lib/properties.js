@@ -1,8 +1,27 @@
 import data from '../data/properties.json'
 
-// Source unique de vérité pour les biens (données mockées, structure alignée
-// sur le futur flux XML).
+// Source unique de vérité pour les biens.
+//
+// `properties.json` est entièrement produit par l'import du flux Modelo
+// (`npm run sync:modelo`, voir `scripts/sync-modelo.mjs`) : il n'est jamais
+// modifié à la main, et chaque import le réécrit en entier.
 export const allProperties = data
+
+/**
+ * Statuts qui restent diffusés dans les listes. Ils viennent du champ `etat`
+ * du flux Modelo : 1 « sur le marché », 2 « sous compromis », 3 « vendu/loué »
+ * (traduction dans `scripts/_lib/modelo.mjs`).
+ *
+ * Un bien sous compromis reste affiché — la vente n'est pas signée et l'usage
+ * de la profession est de le montrer, marqué. Un bien vendu sort des listes et
+ * ne subsiste que dans `soldProperties()`.
+ */
+const STATUTS_DIFFUSES = ['disponible', 'sous-compromis']
+
+/** Le bien doit-il apparaître dans les listes (Acheter, Louer, accueil) ? */
+export function isDiffuse(property) {
+  return STATUTS_DIFFUSES.includes(property.statut)
+}
 
 export function getByReference(reference) {
   return allProperties.find((p) => p.reference === reference)
@@ -12,9 +31,7 @@ export function getByReference(reference) {
  * Biens disponibles pour une transaction donnée ('vente' | 'location').
  */
 export function availableFor(typeTransaction) {
-  return allProperties.filter(
-    (p) => p.typeTransaction === typeTransaction && p.statut === 'disponible',
-  )
+  return allProperties.filter((p) => p.typeTransaction === typeTransaction && isDiffuse(p))
 }
 
 export function soldProperties() {
@@ -30,7 +47,7 @@ export function soldProperties() {
  */
 export function latestAvailable(limit = 6) {
   return allProperties
-    .filter((p) => p.statut === 'disponible')
+    .filter(isDiffuse)
     .slice()
     .sort((a, b) => new Date(b.datePublication) - new Date(a.datePublication))
     .slice(0, limit)

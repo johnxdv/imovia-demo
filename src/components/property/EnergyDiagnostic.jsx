@@ -65,7 +65,7 @@ function Scale({ title, activeLetter, activeValue, unit }) {
 
 /**
  * Diagnostics énergétiques réglementaires (DPE + GES) — un seul composant,
- * entièrement piloté par des variables, prêt pour la passerelle Modelo.
+ * entièrement piloté par les données issues de la synchronisation Modelo.
  * Aucune classe n'est calculée ni déduite : uniquement les données transmises.
  *
  * @param {string|null} energyClass    Classe DPE A→G (ex. "E").
