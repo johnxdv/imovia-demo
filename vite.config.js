@@ -65,6 +65,8 @@ export default defineConfig({
   plugins: [react(), apiDevServer()],
   server: {
     host: true,
-    port: 5173,
+    // 5173 par défaut ; `PORT` permet de démarrer sur un port assigné quand
+    // celui-ci est déjà pris par un autre serveur de développement.
+    port: Number(process.env.PORT) || 5173,
   },
 })
