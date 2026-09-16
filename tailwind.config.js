@@ -26,7 +26,15 @@ export default {
         micro: '0.18em',
       },
       maxWidth: {
-        content: '1320px',
+        // Largeur de tout le site sur grand écran. Portée de 1320 à 1848 px
+        // (+40 %) à la demande du client : la mise en page tenait dans une
+        // bande étroite au milieu d'un 27 pouces, et le reste de l'écran ne
+        // servait à rien.
+        //
+        // Sans effet sous ~1900 px de fenêtre — la largeur disponible reste la
+        // contrainte la plus serrée — donc rien ne change sur tablette ni sur
+        // téléphone, où `container-page` se cale sur ses marges (px-5 / px-8).
+        content: '1848px',
       },
       transitionTimingFunction: {
         plan: 'cubic-bezier(0.22, 1, 0.36, 1)',
@@ -74,31 +82,30 @@ export default {
           '60%': { opacity: '1', transform: 'scale(1.02)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
-        // Icône qui pousse du sol puis y retourne, en boucle. `scaleY` déforme
-        // depuis `transform-origin: bottom` (posé côté composant) : l'icône
-        // grandit depuis sa base plutôt que de se redimensionner sur son centre.
-        'grow-from-ground': {
-          '0%, 100%': { opacity: '0', transform: 'translateY(55%) scaleY(0.45)' },
-          '18%': { opacity: '1', transform: 'translateY(0%) scaleY(1.08)' },
-          '26%': { transform: 'translateY(0%) scaleY(0.96)' },
-          '34%': { transform: 'translateY(0%) scaleY(1)' },
-          '78%': { opacity: '1', transform: 'translateY(0%) scaleY(1)' },
-          '94%': { opacity: '0', transform: 'translateY(30%) scaleY(0.7)' },
-        },
-        // Rotation d'icônes superposées : chaque copie n'est visible que sur un
-        // quart du cycle, décalée par un délai négatif — les quatre fenêtres se
-        // succèdent sans blanc ni superposition perceptible.
-        'icon-rotate': {
-          '0%, 100%': { opacity: '0', transform: 'scale(0.85)' },
-          '3%': { opacity: '1', transform: 'scale(1)' },
-          '20%': { opacity: '1', transform: 'scale(1)' },
-          '25%': { opacity: '0', transform: 'scale(0.85)' },
-        },
         // Clignotement du bâtiment armé sur la carte, en attente du second
         // geste de confirmation — opacité seule, appliquée au `<path>` SVG.
         'building-blink': {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.4' },
+        },
+        // Dérive des formes de fond du panneau de conversation. Amplitude
+        // volontairement faible : le mouvement doit se remarquer sans jamais
+        // se regarder. Trois temps inégaux — la boucle ne revient pas sur ses
+        // pas, elle tourne.
+        'bubble-drift': {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) scale(1)' },
+          '33%': { transform: 'translate3d(12px, -20px, 0) scale(1.07)' },
+          '66%': { transform: 'translate3d(-14px, -9px, 0) scale(0.95)' },
+        },
+        // Mise en alerte de la mention « Prix soumis à expertise ». Pulsation
+        // progressive plutôt que clignotement : un saut net d'opacité fait
+        // daté, et la fréquence d'un vrai clignotant est un risque connu pour
+        // les personnes photosensibles. L'opacité basse reste franchement
+        // lisible — c'est elle qui subsiste sous `prefers-reduced-motion`,
+        // où le filet CSS global fige l'animation.
+        'alert-pulse': {
+          '0%, 100%': { opacity: '0.72', textShadow: '0 0 0 rgba(185, 28, 28, 0)' },
+          '50%': { opacity: '1', textShadow: '0 0 14px rgba(185, 28, 28, 0.5)' },
         },
       },
       animation: {
@@ -116,9 +123,11 @@ export default {
         // jamais en phase, le motif ne se laisse pas mémoriser.
         'figure-forming': 'figure-forming 2.3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spark-twinkle': 'spark-twinkle 3.1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'grow-from-ground': 'grow-from-ground 4.8s cubic-bezier(0.4, 0, 0.2, 1) infinite',
-        'icon-rotate': 'icon-rotate 8s linear infinite',
         'building-blink': 'building-blink 0.9s ease-in-out infinite',
+        // Durée posée au cas par cas côté composant (17 à 31 s) : une valeur
+        // unique remettrait toutes les formes en phase.
+        'bubble-drift': 'bubble-drift 24s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'alert-pulse': 'alert-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

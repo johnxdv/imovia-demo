@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Loader2, MapPin } from 'lucide-react'
+import { Loader2, MapPin } from 'lucide-react'
 // Leaflet et la carte ne servent qu'ici : les charger à la demande évite
 // d'alourdir de ~150 ko toutes les autres pages du site. Le module est
 // préchargé dès l'étape adresse (voir la page Estimer), si bien que le repli
@@ -9,7 +9,8 @@ const BuildingMap = lazy(() =>
   import('./BuildingMap').then((module) => ({ default: module.BuildingMap })),
 )
 import { BuildingConfirmModal } from './BuildingConfirmModal'
-import { detectPropertyType } from '../../lib/typeBien'
+import { StepBackLink } from './StepBackLink'
+import { detectPropertyType, typeImmediat } from '../../lib/typeBien'
 
 /**
  * Délai au-delà duquel un repérage libre part sans attendre le cadastre.
@@ -41,6 +42,13 @@ const ATTENTE_CADASTRE_MS = 2500
  * n'a aucune branche « type indéterminé » où s'arrêter, et n'en demande jamais
  * la levée à l'utilisateur.
  *
+ * **La fenêtre n'attend pas le réseau pour savoir quoi demander.** Le type
+ * affiché est celui de `typeImmediat`, lu dans les attributs déjà arrivés avec
+ * le polygone cliqué : le champ étage est là dès l'ouverture, là où la chaîne
+ * cadastre → BDNB le faisait attendre deux secondes. Celle-ci reprend la main
+ * dès qu'elle aboutit, et c'est sa réponse — la mieux établie — qui descend au
+ * moteur.
+ *
  * `onEstimate` remonte la sélection enrichie du type retenu, de la surface et
  * de l'étage déclarés, sans que l'utilisateur ait eu à s'en préoccuper.
  */
@@ -56,6 +64,12 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // que la lire sans attendre sa réponse, pour savoir s'il faut ouvrir la
   // fenêtre ou passer outre.
   const isBuilding = selection?.kind === 'batiment'
+
+  // Type montré à la fenêtre : la déduction locale tant que la chaîne réseau
+  // n'a pas répondu, la sienne dès qu'elle est là. Recalculé à chaque rendu
+  // plutôt que mémorisé — c'est une lecture d'attributs et deux exponentielles,
+  // moins cher que la comparaison de dépendances qui l'éviterait.
+  const typeAffiche = detection?.type ?? typeImmediat(selection)
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {
@@ -140,24 +154,13 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   }, [selection, isBuilding, detection, startEstimate])
 
   return (
-    <div className="w-full max-w-3xl">
-      <button
-        type="button"
-        onClick={onBack}
-        className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink"
-      >
-        <ArrowLeft
-          className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
-          strokeWidth={1.75}
-          aria-hidden="true"
-        />
-        Modifier l’adresse
-      </button>
+    <div className="w-full max-w-3xl lg:max-w-[67rem]">
+      <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
-      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem] lg:text-[2.5rem]">
         Cliquez sur votre bien
       </h1>
-      <p className="mx-auto mt-4 max-w-md text-center text-[0.95rem] leading-relaxed text-ink/55">
+      <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60 lg:max-w-lg lg:text-[1.15rem]">
         Sur la vue aérienne, sélectionnez le bâtiment concerné.
       </p>
 
@@ -188,7 +191,7 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
           <BuildingConfirmModal
             key="surface"
             selection={selection}
-            type={detection?.type ?? null}
+            type={typeAffiche}
             onEstimate={startEstimate}
             onClose={() => setSelection(null)}
           />
@@ -204,7 +207,7 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
  */
 function MapPlaceholder() {
   return (
-    <div className="flex h-[62vh] max-h-[560px] min-h-[340px] w-full items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)] sm:h-[480px]">
+    <div className="flex h-[65vh] max-h-[588px] min-h-[357px] w-full items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)] sm:h-[552px]">
       <span
         role="status"
         className="inline-flex items-center gap-3 font-mono text-[0.62rem] uppercase tracking-micro text-stone/60"

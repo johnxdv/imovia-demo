@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Building2, Check, Home, LandPlot, Lightbulb, Loader2, TreeDeciduous } from 'lucide-react'
+import { Check, Lightbulb, Loader2 } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
+import { tirageScenes } from '../../data/inkScenes'
 import { EASE } from '../../lib/motion'
-import { GrowingIcons } from '../ui/GrowingIcons'
+import { InkScene } from './InkScene'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
 
@@ -11,23 +12,12 @@ const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
 const FACT_ROTATE_MS = 4000
 
 /**
- * Icônes qui se succèdent dans la pastille centrale — un bien vu sous quatre
- * échelles plutôt qu'une étincelle générique. `delay` négatif décale chaque
- * copie d'un quart du cycle de `animate-icon-rotate` (8 s) : les fenêtres de
- * visibilité s'enchaînent sans blanc ni recouvrement.
+ * Durée de tracé d'une scène. Les deux s'enchaînent — la droite démarre quand
+ * la gauche s'achève — et couvrent ensemble les douze secondes de l'analyse
+ * (`ANALYSIS_STEPS`). Les trois durées sont donc liées : allonger une étape
+ * d'analyse sans toucher à celle-ci laisserait l'écran fini avant le calcul.
  */
-const ROTATING_ICONS = [
-  { Icon: Home, delay: 0 },
-  { Icon: Building2, delay: -2 },
-  { Icon: TreeDeciduous, delay: -4 },
-  { Icon: LandPlot, delay: -6 },
-]
-
-/** Décor : immeuble et maison qui poussent du sol, même principe qu'à l'étape adresse. */
-const GROUND_ICONS = [
-  { Icon: Building2, delay: 0 },
-  { Icon: Home, delay: -2 },
-]
+const SCENE_S = TOTAL_MS / 2000
 
 /**
  * Écran 2 — analyse simulée.
@@ -40,6 +30,13 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   const [completed, setCompleted] = useState(0)
   const [barFilled, setBarFilled] = useState(false)
   const reduce = useReducedMotion()
+
+  // Tirage à l'initialisation, jamais recalculé : les scènes doivent tenir les
+  // douze secondes sans changer en cours de route. Passer la fonction à
+  // `useState` plutôt que son résultat — `useState(tirageScenes())` tirerait à
+  // chaque rendu et jetterait le tirage, ce qui ne se verrait pas ici mais
+  // reviendrait à faire tourner l'aléatoire pour rien à chaque étape cochée.
+  const [scenes] = useState(tirageScenes)
 
   // Avancement local remonté à la barre globale : les 3 étapes de l'analyse
   // sont son seul repère fiable — la grande barre ci-dessous se remplit en
@@ -92,35 +89,29 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   const progress = Math.round((completed / ANALYSIS_STEPS.length) * 100)
 
   return (
-    <div className="w-full max-w-lg">
-      {/* Icône centrale : halo qui respire, repris de l'écran d'accueil de
-          l'outil pour que l'attente reste dans le même univers. Le pictogramme
-          change au fil du cycle plutôt que de rester fixe : maison, immeuble,
-          arbre puis terrain — les échelles du bien passées en revue. */}
-      <div className="relative mx-auto h-20 w-20">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -inset-3 animate-cta-breath rounded-full bg-brass/40 blur-2xl"
-        />
-        <span className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-ink via-ink to-ink/70 shadow-lg shadow-ink/25">
-          {ROTATING_ICONS.map(({ Icon, delay }, index) => (
-            <Icon
-              key={index}
-              className="absolute h-9 w-9 animate-icon-rotate text-brass"
-              style={{ animationDelay: `${delay}s` }}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
-          ))}
-        </span>
+    <div className="w-full max-w-lg lg:max-w-[45rem]">
+      {/* Séquence d'ouverture : deux scènes tirées au sort, tracées à l'encre
+          l'une après l'autre — la gauche pendant la première moitié de
+          l'analyse, la droite pendant la seconde. Elles remplacent la pastille
+          et les pictogrammes qui occupaient ce haut d'écran : une plume qui
+          court tient l'attente mieux qu'une icône qui tourne.
+
+          Le cadre des deux emplacements est posé une fois pour toutes
+          (`aspect-[15/14]`) : la droite tient sa place vide pendant six
+          secondes plutôt que de pousser la page quand elle démarre. */}
+      <div className="grid grid-cols-2 gap-4 sm:gap-6">
+        {scenes.map((scene, index) => (
+          <InkScene
+            key={`${scene.id}-${index}`}
+            scene={scene}
+            delay={index * SCENE_S}
+            duration={SCENE_S}
+            className="aspect-[15/14] w-full text-ink/70"
+          />
+        ))}
       </div>
 
-      {/* Décor : immeuble et maison qui poussent du sol, même principe qu'à
-          l'étape adresse — la construction du dossier prend forme pendant
-          l'attente. */}
-      <GrowingIcons icons={GROUND_ICONS} className="mt-5 h-8 text-ink/20" iconClassName="h-6 w-6" />
-
-      <h1 className="mt-6 text-center font-display text-[1.8rem] font-semibold leading-tight text-ink sm:text-[2.25rem]">
+      <h1 className="mt-7 text-center font-display text-[1.8rem] font-semibold leading-tight text-ink sm:text-[2.25rem] lg:text-[2.6rem]">
         Analyse personnalisée en cours…
       </h1>
 
@@ -191,7 +182,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
 
               <span
                 className={[
-                  'text-[0.95rem] leading-snug transition-colors duration-500',
+                  'font-display text-[0.98rem] leading-snug transition-colors duration-500',
                   isDone ? 'text-ink/70' : isCurrent ? 'text-ink' : 'text-ink/35',
                 ].join(' ')}
               >
@@ -222,7 +213,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reduce ? 0.15 : 0.35, ease: EASE }}
-              className="mt-1.5 block text-[0.95rem] leading-relaxed text-ink/65"
+              className="mt-1.5 block font-display text-[0.98rem] leading-relaxed text-ink/65"
             >
               {fact}
             </motion.span>

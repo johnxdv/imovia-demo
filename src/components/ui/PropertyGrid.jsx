@@ -17,7 +17,10 @@ export function PropertyGrid({
     )
   }
 
-  const cols = columns === 2 ? 'md:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'
+  // Une colonne de plus au-delà de 1536 px : la page ayant été élargie de
+  // 40 %, s'en tenir à trois colonnes reviendrait à étirer les cartes — une
+  // photo de bien n'y gagne rien, et la grille perdrait son rythme.
+  const cols = columns === 2 ? 'md:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
 
   return (
     <RevealGroup className={`grid grid-cols-1 gap-x-6 gap-y-12 ${cols}`}>

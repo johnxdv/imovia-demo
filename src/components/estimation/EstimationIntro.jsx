@@ -18,7 +18,7 @@ const stats = [
  */
 export function EstimationIntro({ onStart }) {
   return (
-    <div className="relative w-full max-w-md">
+    <div className="relative w-full max-w-md lg:max-w-[39rem]">
       {/* Halo diffus de la carte — seule l'opacité est animée. */}
       <span
         aria-hidden="true"
@@ -41,11 +41,11 @@ export function EstimationIntro({ onStart }) {
           <GrowthArrowIcon className="h-8 w-8 animate-sparkle-shimmer text-brass" />
         </div>
 
-        <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+        <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem] lg:text-[2.5rem]">
           Estimez votre bien gratuitement
         </h1>
 
-        <p className="mx-auto mt-4 max-w-sm text-center text-[0.95rem] leading-relaxed text-ink/55">
+        <p className="mx-auto mt-4 max-w-sm text-center font-display text-[1.02rem] leading-relaxed text-ink/60 lg:max-w-md lg:text-[1.15rem]">
           Obtenez une estimation personnalisée de votre bien en quelques secondes.
         </p>
 
@@ -74,7 +74,7 @@ export function EstimationIntro({ onStart }) {
           >
             <Shine width="w-1/6" tint="via-brass/40" />
 
-            <span className="relative inline-flex items-center gap-2.5 font-mono text-[0.85rem] uppercase tracking-micro text-white">
+            <span className="relative inline-flex items-center gap-2.5 font-display text-[1.05rem] font-semibold tracking-[0.06em] text-white">
               Commencer l’estimation
               <ArrowRight
                 className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:translate-x-1"

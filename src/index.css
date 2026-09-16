@@ -194,6 +194,59 @@
   filter: drop-shadow(0 0 3px theme('colors.brass'));
 }
 
+/* Marqueur d'adresse de la carte d'estimation — logo de l'agence au-dessus
+   d'une goutte de localisation. Hors `@layer` et écrit à la main pour la même
+   raison que les règles Leaflet ci-dessus : ce balisage est posé par un
+   `divIcon` à l'exécution (voir `marqueurAdresse` dans `BuildingMap.jsx`), il
+   n'apparaît dans aucun fichier scanné par Tailwind. */
+.imv-marqueur {
+  /* `divIcon` arrive avec un fond blanc et une bordure par défaut : remis à
+     zéro, sans quoi le marqueur serait un carré blanc sur la photo. */
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.imv-marqueur__plaque {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.5rem;
+  background: rgba(16, 20, 28, 0.82);
+  border: 1px solid rgba(245, 227, 188, 0.35);
+  box-shadow: 0 6px 16px -6px rgba(16, 20, 28, 0.8);
+  backdrop-filter: blur(2px);
+}
+
+.imv-marqueur__plaque img {
+  display: block;
+  height: 1.05rem;
+  width: auto;
+}
+
+/* La goutte : remplie en Ink pour rester lisible sur les toitures claires,
+   cernée d'or clair pour les fonds sombres — aucun des deux ne suffit seul sur
+   une orthophoto, dont on ne maîtrise pas ce qu'il y a dessous. */
+.imv-marqueur__pin {
+  width: 2.75rem;
+  height: 3.8rem;
+  filter: drop-shadow(0 4px 10px rgba(16, 20, 28, 0.7));
+}
+
+.imv-marqueur__pin path {
+  fill: #10141c;
+  stroke: #f5e3bc;
+  stroke-width: 2.2;
+}
+
+.imv-marqueur__pin circle {
+  fill: #b08d57;
+}
+
 /* Respect strict de prefers-reduced-motion (filet de sécurité côté CSS ;
    les animations Framer Motion sont par ailleurs neutralisées via useReducedMotion). */
 @media (prefers-reduced-motion: reduce) {
@@ -208,4 +261,54 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* Dessin à l'encre — tracé progressif, hors de tout `@layer`.
+   Même raison que les règles Leaflet ci-dessus : le minutage de chaque trait
+   est posé en style inline par le composant (`--ink-t`, `--ink-d`), et ces deux
+   règles sont l'infrastructure sur laquelle s'appuient toutes les scènes du
+   parcours — la maison de l'étape adresse comme les dix scènes de l'analyse.
+
+   `pathLength="1"` est ce qui rend le procédé praticable : il normalise la
+   longueur de n'importe quel tracé à 1, si bien qu'un seul jeu d'images-clés
+   suffit du plus petit meneau à la ligne d'horizon. Sans lui, il faudrait
+   mesurer chaque `<path>` en JavaScript (`getTotalLength`) et écrire son
+   `stroke-dasharray` à la main — une mesure par trait, au montage, sur des
+   centaines de tracés.
+
+   Sous `prefers-reduced-motion`, le filet global ramène la durée à zéro :
+   `forwards` fige alors chaque trait sur son image finale, et le dessin
+   s'affiche achevé plutôt que de ne jamais se tracer. */
+@keyframes imv-ink-trait {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes imv-ink-aplat {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: var(--ink-o, 1);
+  }
+}
+
+.imv-ink-trait {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  /* Départ lent, fin franche : la plume attaque doucement et quitte le papier
+     d'un coup — une courbe linéaire donnerait un tracé de traceur, pas de main. */
+  animation: imv-ink-trait var(--ink-d, 0.5s) cubic-bezier(0.35, 0, 0.15, 1)
+    var(--ink-t, 0s) forwards;
+}
+
+/* Aplats (eau, vitrages) : ils ne se tracent pas, ils se posent — un lavis
+   arrive d'un bloc là où un trait court. */
+.imv-ink-aplat {
+  opacity: 0;
+  animation: imv-ink-aplat var(--ink-d, 0.5s) ease-out var(--ink-t, 0s) forwards;
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, Check, MapPin } from 'lucide-react'
+import { Check, MapPin } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
+import { StepBackLink } from './StepBackLink'
 import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
@@ -70,19 +71,8 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
 
   if (!started) {
     return (
-      <div className="w-full max-w-lg">
-        <button
-          type="button"
-          onClick={onBack}
-          className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink"
-        >
-          <ArrowLeft
-            className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
-            strokeWidth={1.75}
-            aria-hidden="true"
-          />
-          Modifier ma sélection
-        </button>
+      <div className="w-full max-w-lg lg:max-w-[45rem]">
+        <StepBackLink onClick={onBack}>Modifier ma sélection</StepBackLink>
 
         <motion.div
           initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
@@ -93,7 +83,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
           <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
         </motion.div>
 
-        <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+        <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem] lg:text-[2.5rem]">
           Votre estimation est prête
         </h1>
 
@@ -127,7 +117,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
             <p className="mt-7 font-display text-lg font-semibold text-ink sm:text-xl">
               Résultats détaillés disponibles
             </p>
-            <p className="mx-auto mt-3 max-w-sm text-[0.9rem] leading-relaxed text-ink/55">
+            <p className="mx-auto mt-3 max-w-sm font-display text-[1rem] leading-relaxed text-ink/60">
               Un expert va finaliser votre étude et vous présenter les meilleures options
               pour votre projet.
             </p>
@@ -141,7 +131,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-6 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
               >
                 <Shine width="w-1/5" tint="via-brass/40" />
-                <span className="relative font-mono text-[0.72rem] uppercase tracking-micro text-white">
+                <span className="relative font-display text-[1rem] font-semibold tracking-[0.05em] text-white">
                   Voir mon estimation
                 </span>
               </button>
@@ -153,19 +143,8 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
   }
 
   return (
-    <div className="w-full max-w-6xl">
-      <button
-        type="button"
-        onClick={onBack}
-        className="group mb-6 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink"
-      >
-        <ArrowLeft
-          className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
-          strokeWidth={1.75}
-          aria-hidden="true"
-        />
-        Modifier ma sélection
-      </button>
+    <div className="w-full max-w-6xl lg:max-w-[101rem]">
+      <StepBackLink onClick={onBack}>Modifier ma sélection</StepBackLink>
 
       {/* Bascule en deux colonnes à partir du gabarit tablette (768 px) : en
           deçà, la conversation a besoin de toute la largeur pour rester
@@ -195,7 +174,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
               </div>
 
               {!finished && (
-                <p className="mx-auto mt-5 max-w-xs text-[0.85rem] leading-relaxed text-ink/55">
+                <p className="mx-auto mt-5 max-w-xs font-display text-[0.95rem] leading-relaxed text-ink/60">
                   Un expert va finaliser votre étude et vous présenter les meilleures options
                   pour votre projet.
                 </p>
@@ -238,8 +217,17 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 </div>
               </div>
 
-              <p className="mx-auto mt-3 max-w-xs text-center text-[0.7rem] leading-relaxed text-ink/40">
-                Prix soumis à expertise, hors estimation du terrain
+              {/* Mention d'alerte. Elle reste petite — l'attention vient de la
+                  couleur et de la pulsation, pas du corps de texte : une
+                  mention grossie ferait concurrence au montant juste
+                  au-dessus, alors qu'elle doit seulement le nuancer.
+                  Pulsation douce plutôt que clignotement : voir
+                  `alert-pulse` dans `tailwind.config.js`. */}
+              <p
+                role="note"
+                className="mx-auto mt-3 max-w-xs animate-alert-pulse text-center font-mono text-[0.72rem] font-semibold uppercase leading-relaxed tracking-micro text-red-700"
+              >
+                Prix soumis à expertise
               </p>
             </motion.div>
           )}

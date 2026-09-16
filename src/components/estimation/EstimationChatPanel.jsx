@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { CALLBACK_SLOTS } from '../../data/estimation'
+import { ChatAmbience } from '../ui/ChatAmbience'
 import { GoldFrame } from '../ui/GoldFrame'
 import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 import { EASE } from '../../lib/motion'
@@ -84,7 +85,7 @@ function Bubble({ role, text }) {
       {isUser ? null : <AssistantAvatar />}
       <div
         className={[
-          'max-w-[80%] whitespace-pre-line rounded-2xl px-4 py-3 text-[0.92rem] leading-relaxed sm:max-w-[75%] sm:text-base',
+          'max-w-[80%] whitespace-pre-line rounded-2xl px-4 py-3 font-display text-[1rem] leading-relaxed sm:max-w-[75%] sm:text-[1.08rem]',
           isUser
             ? 'rounded-br-sm bg-ink text-white'
             : 'rounded-bl-sm border border-ink/10 bg-stone text-ink',
@@ -239,7 +240,12 @@ export function EstimationChatPanel({ onDone, onProgress }) {
       <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
 
       <div className="relative flex h-[26rem] flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_22px_54px_-18px_rgba(16,20,28,0.3)] sm:h-[32rem] lg:h-[36rem]">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+        {/* Fond animé — posé dans le panneau, derrière les bulles. Le calque est
+            en `absolute` et le contenu en `relative` : l'ordre de peinture ne
+            dépend d'aucun z-index à tenir à jour. */}
+        <ChatAmbience />
+
+        <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <div className="flex flex-col gap-4">
             <AnimatePresence initial={false}>
               {messages.map((m) => (
@@ -251,7 +257,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
         </div>
 
         {currentQuestion ? (
-          <div className="shrink-0 border-t border-ink/10 bg-stone/60 px-5 py-4 sm:px-8">
+          <div className="relative shrink-0 border-t border-ink/10 bg-stone/60 px-5 py-4 backdrop-blur-sm sm:px-8">
             {currentQuestion.type === 'choice' ? (
               <div className="grid grid-cols-2 gap-3">
                 {currentQuestion.options.map((slot) => (
@@ -259,7 +265,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
                     key={slot.id}
                     type="button"
                     onClick={() => submitChoice(slot)}
-                    className="touch-manipulation rounded-xl border border-ink/15 bg-white px-4 py-4 text-center text-[0.85rem] font-medium text-ink/75 transition-colors duration-200 ease-plan hover:border-ink/40 hover:text-ink"
+                    className="touch-manipulation rounded-xl border border-ink/15 bg-white px-4 py-4 text-center font-display text-[0.98rem] font-semibold tracking-[0.02em] text-ink/75 transition-colors duration-200 ease-plan hover:border-ink/40 hover:text-ink"
                   >
                     {slot.label}
                   </button>
@@ -282,7 +288,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? 'chat-input-error' : undefined}
                     // 16 px minimum : en deçà, iOS zoome automatiquement sur le champ.
-                    className="min-w-0 flex-1 bg-transparent py-2 text-base text-ink placeholder:text-ink/35 focus:outline-none"
+                    className="min-w-0 flex-1 bg-transparent py-2 font-display text-base text-ink placeholder:text-ink/35 focus:outline-none"
                   />
                   <button
                     type="submit"

@@ -136,13 +136,16 @@ src/
 │   ├── home/        Hero + barre de recherche
 │   ├── property/    PropertyListing (Acheter / Louer, avec filtres)
 │   ├── estimation/  Parcours d'estimation (accueil, adresse, carte bâtiment
-│   │                France et Monaco, curseur de surface et ses cinq silhouettes)
+│   │                France et Monaco, curseur de surface et ses cinq
+│   │                silhouettes, InkScene — le tracé à l'encre)
 │   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
 │   ├── properties.json   Biens diffusés — produit par `npm run sync:modelo`
 │   ├── team.js           Conseillers joignables individuellement (page Équipe)
 │   ├── projets.js        Natures de projet du formulaire conseiller
 │   ├── estimation.js     Étapes d'analyse, encarts d'attente, créneaux de rappel
+│   ├── inkScenes.js      Dessins à l'encre : la demeure de l'étape adresse,
+│   │                     et le pool de dix scènes de l'écran d'analyse
 │   └── agency.js         Coordonnées, réseaux, carte
 ├── lib/
 │   ├── properties.js     Accès + filtrage des biens
@@ -311,7 +314,11 @@ sans navigation d'URL entre les étapes :
 2. **Adresse** — autocomplétion sur l'[API Adresse (BAN)](https://adresse.data.gouv.fr/api-doc/adresse),
    service public gratuit et sans clé. Choisir une proposition suffit : les
    coordonnées viennent de la réponse elle-même, et l'écran enchaîne seul.
-3. **Bâtiment** — photo aérienne, emprises bâties cliquables. Sélectionner un
+   Derrière le titre, une demeure d'architecte se trace à l'encre en six
+   secondes (`INK_VILLA`, voir « Dessins à l'encre » plus bas).
+3. **Bâtiment** — photo aérienne, emprises bâties cliquables, l'adresse
+   géocodée signalée par un marqueur au logo de l'agence (voir « Repère de
+   l'adresse sur la carte » plus bas). Sélectionner un
    bâtiment ouvre une **fenêtre modale** « Votre surface habitable », par-dessus
    la page assombrie et floutée : un curseur de 10 à 800 m², une silhouette qui
    change de gabarit avec lui, et un montant d'aperçu qui suit le geste (voir
@@ -329,9 +336,14 @@ sans navigation d'URL entre les étapes :
    la seule source de surface.
 4. **Analyse** — enchaînement de trois étapes, barre de progression, encart
    d'attente. Le calcul réel démarre au lancement de cet écran et tourne
-   derrière l'animation (voir « Moteur d'estimation » plus bas).
+   derrière l'animation (voir « Moteur d'estimation » plus bas). En tête
+   d'écran, deux scènes tirées au sort se tracent l'une après l'autre — six
+   secondes chacune, soit exactement la durée de l'analyse.
 5. **Résultat** — montant flouté, adresse rappelée, invitation à laisser ses
-   coordonnées.
+   coordonnées. La conversation de capture se tient sur un fond de formes qui
+   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)), et la
+   fourchette finale est suivie de la mention **« Prix soumis à expertise »**,
+   en rouge et en pulsation douce.
 
 ### Ce qui reste à brancher
 
@@ -478,7 +490,7 @@ simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 monégasque va, selon le quartier et les sources, de ~38 000 € à plus de
 100 000 €/m². Une moyenne unique ne peut pas prétendre au resserrement d'une
 médiane de ventes voisines. Le reste de l'écran de résultat est identique,
-mention « Prix soumis à expertise, hors estimation du terrain » comprise.
+mention « Prix soumis à expertise » comprise.
 
 **La détection ne peut pas se lire dans la réponse de la BAN**, qui ne connaît
 aucune adresse monégasque : interrogée sur « Monte-Carlo, Monaco », elle répond
@@ -612,6 +624,17 @@ au passage, que le moteur n'a alors plus à rechercher. Le correcteur manuel a �
 retiré de l'interface ; `MANUAL_TYPE_IDS` et `typeDetecte()` restent en place
 pour le jour où il refera surface.
 
+**Elle n'immobilise rien.** Le seul usage *visible* du type — faut-il demander
+son étage ? — n'attend pas le réseau : `typeImmediat()` répond sur-le-champ, à
+partir des attributs BD TOPO® déjà arrivés avec le polygone cliqué et du gabarit
+du bâtiment. La chaîne complète, elle, enchaîne cadastre puis BDNB, deux
+allers-retours en série qui prennent **environ deux secondes** ; faire attendre
+le champ étage tout ce temps, c'était le tenir sur une précision dont il n'a
+pas besoin. La chaîne reprend la main dès qu'elle aboutit, et c'est sa réponse —
+la mieux établie — qui descend au moteur. Les deux s'accordent dans l'immense
+majorité des cas : la BDNB affine un nombre de logements, elle contredit
+rarement une vocation déclarée.
+
 **Elle tranche toujours.** Aucune branche ne renvoie de type indéterminé, aucune
 ne suspend le parcours à une précision demandée à l'utilisateur : il n'y a
 personne à qui la demander — le type ne lui est jamais montré — et un type
@@ -679,6 +702,88 @@ L'API BDNB plafonne par ailleurs ses réponses à **10 lignes**, quel que soit l
 `limit` demandé — sans conséquence ici, une parcelle dépassant rarement ce
 nombre de bâtiments.
 
+### Dessins à l'encre
+
+Le parcours est illustré par un seul système de dessin : **du trait noir sur
+fond clair, tracé progressivement, sans un seul aplat de couleur**. Trois
+pièces, et rien d'autre à connaître.
+
+| Pièce | Rôle |
+| --- | --- |
+| [`src/index.css`](src/index.css) (`.imv-ink-trait`) | Le procédé : deux règles `@keyframes`, un `stroke-dashoffset` qui se résorbe |
+| [`InkScene`](src/components/estimation/InkScene.jsx) | Le minutage : répartit les traits d'une scène sur la durée demandée |
+| [`src/data/inkScenes.js`](src/data/inkScenes.js) | Les dessins : une `viewBox` et une liste de tracés, dans l'ordre de la main |
+
+**`pathLength="1"` est ce qui rend le procédé praticable.** Il normalise la
+longueur de n'importe quel tracé à 1, si bien qu'un seul jeu d'images-clés
+suffit du plus petit meneau à la ligne d'horizon. Sans lui, il faudrait mesurer
+chaque `<path>` en JavaScript (`getTotalLength`) et écrire son
+`stroke-dasharray` à la main — une mesure par trait, au montage, sur les
+quelque deux cent cinquante tracés du lot.
+
+**Les dessins sont des données, pas du JSX.** L'ordre du tableau *est* l'ordre
+du tracé : le sol avant les murs, les murs avant les menuiseries, le décor en
+dernier. Écrits en composants, c'était onze fichiers à relire pour changer une
+règle de style, et autant d'endroits où l'ordre de tracé pouvait diverger du
+minutage.
+
+Le registre est tenu, pas décoratif : volumes rectilignes, dalles en débord,
+baies toute hauteur, refends marqués — **des angles droits, jamais d'arrondi
+contemporain**. Les seules courbes de tout le fichier sont végétales, ou les
+poivrières du château, qui n'est pas une maison d'architecte et n'a pas à en
+prendre les lignes.
+
+#### Où ils apparaissent
+
+| Écran | Ce qui s'y trace | Durée |
+| --- | --- | --- |
+| Adresse | `INK_VILLA` — une demeure d'architecte, derrière le titre | 6 s, une fois |
+| Analyse | Deux scènes tirées parmi dix, gauche puis droite | 6 s + 6 s |
+| Curseur de surface | [`HouseIllustration`](src/components/estimation/HouseIllustration.jsx) — cinq paliers, en fondu | aucune, voir plus bas |
+
+L'écran d'analyse tire **deux scènes distinctes** parmi les dix du pool
+(`tirageScenes`) : la gauche se trace pendant la première moitié de l'analyse,
+la droite pendant la seconde. Quarante-cinq paires possibles — relancer trois
+fois une estimation donne trois écrans différents. Les trois durées sont liées
+(`SCENE_S = TOTAL_MS / 2000`) : allonger une étape d'`ANALYSIS_STEPS` sans
+toucher à celle-ci laisserait l'écran fini avant le calcul.
+
+Les silhouettes du curseur, elles, **ne se tracent pas** : elles doivent
+répondre au doigt, pas se dérouler. Un tracé progressif relancé à chaque cran
+ne montrerait jamais qu'un début de maison — d'où un fondu enchaîné entre cinq
+dessins montés en permanence.
+
+Sous `prefers-reduced-motion`, le filet CSS global ramène les durées à zéro :
+`animation-fill-mode: forwards` fige alors chaque trait sur son image finale, et
+le dessin **s'affiche achevé** plutôt que de ne jamais se tracer.
+
+Reste, hors de ce système, [`ChatAmbience`](src/components/ui/ChatAmbience.jsx) :
+quelques formes qui dérivent derrière les bulles de la conversation, sur 17 à
+31 secondes. Volontairement pauvre en détail — c'est le seul endroit du parcours
+où l'utilisateur écrit, et un décor qui attire l'œil y coûterait une saisie.
+
+### Repère de l'adresse sur la carte
+
+Le marqueur de l'étape bâtiment est un `divIcon` (`marqueurAdresse` dans
+[`BuildingMap`](src/components/estimation/BuildingMap.jsx)) : une goutte de
+localisation surmontée du logo de l'agence, la pointe posée sur la coordonnée
+géocodée.
+
+Une pastille de cinq pixels s'y perdait : sur une orthophoto, un petit disque
+coloré se confond avec une voiture, un velux, une tache de toiture. Or c'est
+**le point de repère de l'utilisateur** — ce à partir de quoi il identifie son
+bien parmi les emprises voisines.
+
+Le logo est posé sur une plaque sombre plutôt qu'à même la photo : il est blanc,
+et une orthophoto n'a aucune couleur garantie sous lui — un toit en zinc clair
+ou une allée de gravier le feraient disparaître. Même raison pour la goutte,
+remplie en Ink et cernée d'or clair : ni l'un ni l'autre ne suffit seul sur un
+fond qu'on ne maîtrise pas.
+
+L'habillage vit dans [`src/index.css`](src/index.css) (`.imv-marqueur`), hors
+de tout `@layer` : Leaflet pose ce balisage à l'exécution, il n'apparaît dans
+aucun fichier scanné par Tailwind.
+
 ### Points d'attention
 
 - Les orthophotos s'arrêtent au **zoom 19** (~20 cm/pixel). Au-delà, Leaflet
@@ -691,8 +796,19 @@ nombre de bâtiments.
   bascule sur un repérage libre : un clic n'importe où sur la photo vaut
   sélection. L'utilisateur n'est jamais bloqué.
 - **Sans survol** (tactile), un premier appui présélectionne, un second confirme.
+- Le marqueur d'adresse réutilise [`src/assets/logo.png`](src/assets/logo.png),
+  le logo déjà en place dans la navbar — **le fichier annoncé comme « à
+  transmettre séparément » n'a pas été reçu**. Le remplacer suffit : aucune
+  dimension n'est écrite en dur, la plaque se cale sur la hauteur de l'image.
 - Leaflet et la carte sont dans un **chunk séparé**, chargé seulement à
   l'étape 3 (amorcé dès l'étape adresse) : les autres pages n'en portent rien.
+- Le retour en arrière ([`StepBackLink`](src/components/estimation/StepBackLink.jsx))
+  passe en haut à gauche de la fenêtre au-delà de 1024 px et reste dans le flux
+  en deçà : la colonne du parcours étant centrée et étroite, un retour aligné
+  sur son bord gauche flottait au milieu de l'écran sans se rattacher à rien.
+  Le `lg:fixed` tient pour la même raison que le positionnement de la fenêtre
+  de surface — Framer Motion laisse `transform: none` sur l'étape au repos,
+  donc aucun ancêtre transformé ne vient le requalifier en `absolute`.
 - Les cinq silhouettes du curseur de surface sont **montées en permanence** et
   superposées : franchir un palier ne fait que changer des opacités, rien n'est
   monté ni démonté. C'est ce qui permet de traverser toute l'échelle d'un geste
@@ -731,6 +847,23 @@ Typographies : **Fraunces** (titres), **Inter** (texte), **IBM Plex Mono**
 Élément signature : le composant [`PlanDivider`](src/components/ui/PlanDivider.jsx)
 trace une fine ligne Brass au scroll ; [`PlanFrame`](src/components/ui/PlanFrame.jsx)
 pose les repères d'angle façon plan sur les cartes et les visuels.
+
+**Largeur sur grand écran.** `maxWidth.content` vaut 1848 px — la valeur
+d'origine (1320) majorée de 40 %, à la demande du client : la mise en page
+tenait dans une bande étroite au milieu d'un 27 pouces. Les écrans du parcours
+d'estimation suivent le même facteur par des variantes `lg:` (l'étape adresse
+passe de `max-w-2xl` à `59rem`, la carte de `max-w-3xl` à `67rem`, etc.), et
+les grilles de biens gagnent une quatrième colonne au-delà de 1536 px plutôt
+que d'étirer les cartes. **Rien ne change sous ~1024 px** : la largeur
+disponible y reste la contrainte la plus serrée, et le mobile est intouché.
+
+**Voix typographique du parcours d'estimation.** **Fraunces** n'y est plus
+réservée aux titres : les questions posées à l'utilisateur, les
+sous-titres et les libellés de CTA y passent aussi. IBM Plex Mono reste la voix
+des étiquettes techniques (kickers, bornes du curseur, retours en arrière) ;
+Inter, celle des blocs de texte longs. Le serif en capitales espacées d'un
+bouton se lit comme une adresse gravée, là où le mono passait pour une
+interface d'outil.
 
 ## Accessibilité & performance
 

@@ -11,6 +11,7 @@ import {
 import { OSM_ATTRIBUTION, fetchMonacoBuildings } from '../../lib/osm'
 import { BUILDINGS_RADIUS_M, boundingBox, footprintAreaM2 } from '../../lib/geo'
 import { useMediaQuery } from '../../lib/useMediaQuery'
+import logoUrl from '../../assets/logo.png'
 
 // Zoom d'ouverture : à ce niveau l'orthophoto est à sa résolution native (~20 cm
 // par pixel) et un bâtiment isolé tient dans la carte — échelle de la parcelle,
@@ -53,6 +54,43 @@ const ACTIVE_STYLE = {
  * tient tout entier dedans : le parcours monégasque partage donc ce fond.
  */
 const ORTHO_COVERAGE = L.latLngBounds([-22.5, -63.5], [51.5, 56])
+
+/**
+ * Repère de l'adresse géocodée — le point de référence de l'utilisateur sur la
+ * photo aérienne, celui à partir duquel il repère son bien.
+ *
+ * Une pastille de cinq pixels s'y perdait : sur une orthophoto, un petit disque
+ * coloré se confond avec une voiture, un velux, une tache de toiture. D'où un
+ * vrai marqueur — goutte de trente-six pixels, pointe posée sur la coordonnée —
+ * surmonté du logo de l'agence.
+ *
+ * **Le logo est posé sur une plaque sombre plutôt qu'à même la photo** : il est
+ * blanc, et une orthophoto n'a aucune couleur garantie sous lui — un toit en
+ * zinc clair ou une allée de gravier le feraient disparaître. La plaque assure
+ * le contraste quel que soit ce qu'il y a dessous.
+ *
+ * Le dessin passe par un `divIcon` et non par une image : il faut deux couches
+ * (la plaque et la goutte) et une ombre portée qui les détache toutes deux du
+ * fond. L'habillage vit dans `src/index.css` — Leaflet pose ce balisage à
+ * l'exécution, hors de portée des utilitaires Tailwind.
+ *
+ * `iconAnchor` place la pointe exactement sur la coordonnée : c'est la pointe
+ * qui désigne, pas le centre de l'icône.
+ */
+const MARQUEUR_L = 140
+const MARQUEUR_H = 96
+
+const marqueurAdresse = () =>
+  L.divIcon({
+    className: 'imv-marqueur',
+    html: `<span class="imv-marqueur__plaque"><img src="${logoUrl}" alt="" /></span>
+<svg class="imv-marqueur__pin" viewBox="0 0 36 50" aria-hidden="true">
+  <path d="M18 49 C18 49 33 29 33 18 A15 15 0 1 0 3 18 C3 29 18 49 18 49 Z" />
+  <circle cx="18" cy="18" r="5.5" />
+</svg>`,
+    iconSize: [MARQUEUR_L, MARQUEUR_H],
+    iconAnchor: [MARQUEUR_L / 2, MARQUEUR_H],
+  })
 
 const featureIdOf = (layer) => layer?.feature?.id ?? null
 
@@ -141,14 +179,13 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect, monac
       .on('load', () => setTilesReady(true))
       .addTo(map)
 
-    // Repère de l'adresse géocodée — non interactif : il oriente sans capter le clic.
-    L.circleMarker([lat, lon], {
-      radius: 5,
-      color: '#10141C',
-      weight: 2,
-      fillColor: '#B08D57',
-      fillOpacity: 1,
+    // Repère de l'adresse géocodée — non interactif : il oriente sans capter le
+    // clic, et ne doit surtout pas masquer l'emprise bâtie qu'il surplombe.
+    L.marker([lat, lon], {
+      icon: marqueurAdresse(),
       interactive: false,
+      keyboard: false,
+      zIndexOffset: 400,
     }).addTo(map)
 
     map.on('click', (event) => {
@@ -380,7 +417,7 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect, monac
         ref={containerRef}
         role="application"
         aria-label={`Vue satellite de ${addressLabel}. Sélectionnez le bâtiment concerné.`}
-        className="relative z-0 h-[62vh] max-h-[560px] min-h-[340px] w-full sm:h-[480px]"
+        className="relative z-0 h-[65vh] max-h-[588px] min-h-[357px] w-full sm:h-[552px]"
       />
 
       {/* Chargement du fond : voile plein plutôt qu'un damier gris en formation. */}

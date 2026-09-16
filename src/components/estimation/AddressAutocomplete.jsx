@@ -131,7 +131,7 @@ export function AddressAutocomplete({
     <div className="relative">
       <div className="relative">
         <MapPin
-          className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink/35 sm:left-5"
+          className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink/35 sm:left-6 sm:h-6 sm:w-6"
           strokeWidth={1.75}
           aria-hidden="true"
         />
@@ -154,12 +154,16 @@ export function AddressAutocomplete({
           aria-autocomplete="list"
           aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
           // 16 px minimum : en deçà, iOS zoome automatiquement sur le champ.
-          className="w-full rounded-xl border border-ink/15 bg-white py-4 pl-12 pr-12 text-base text-ink shadow-sm shadow-ink/5 outline-none transition-colors duration-300 ease-plan placeholder:text-ink/40 focus:border-ink/40 sm:py-5 sm:pl-14 sm:pr-14 sm:text-lg"
+          // Le champ est délibérément plus haut et plus large que les autres
+          // saisies du site : c'est le seul geste de cet écran, et il se
+          // détache maintenant d'un décor animé — un champ discret s'y
+          // dissoudrait. L'ombre portée, elle, le décolle du dessin.
+          className="w-full rounded-2xl border border-ink/15 bg-white py-5 pl-14 pr-14 text-[1.05rem] text-ink shadow-md shadow-ink/10 outline-none transition-colors duration-300 ease-plan placeholder:text-ink/40 focus:border-ink/40 sm:py-6 sm:pl-16 sm:pr-16 sm:text-xl"
         />
 
         {loading ? (
           <Loader2
-            className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-ink/35 sm:right-5"
+            className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-ink/35 sm:right-6 sm:h-6 sm:w-6"
             strokeWidth={1.75}
             aria-hidden="true"
           />
@@ -174,7 +178,7 @@ export function AddressAutocomplete({
           role="listbox"
           aria-label="Suggestions d’adresses"
           onMouseDown={(event) => event.preventDefault()}
-          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-ink/10 bg-white shadow-xl shadow-ink/10"
+          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-xl shadow-ink/10"
         >
           {suggestions.map((suggestion, index) => (
             <li key={suggestion.id || suggestion.label} role="none">
@@ -199,7 +203,7 @@ export function AddressAutocomplete({
       ) : null}
 
       {showEmpty ? (
-        <p className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3.5 text-base text-ink/55 shadow-xl shadow-ink/10 sm:px-5">
+        <p className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 flex items-center gap-3 rounded-2xl border border-ink/10 bg-white px-4 py-3.5 text-base text-ink/55 shadow-xl shadow-ink/10 sm:px-5">
           <SearchX className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} aria-hidden="true" />
           Aucune adresse ne correspond à cette recherche.
         </p>

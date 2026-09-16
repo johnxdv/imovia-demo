@@ -51,10 +51,10 @@ export function EstimationResultConfirmation({ contact, onClose }) {
           Merci {contact?.prenom}&nbsp;!
         </h2>
 
-        <p className="mt-4 text-[1.05rem] leading-relaxed text-ink/70">
+        <p className="mt-4 font-display text-[1.12rem] leading-relaxed text-ink/70">
           Votre demande a été enregistrée.
         </p>
-        <p className="mt-1.5 text-[0.95rem] leading-relaxed text-ink/55">
+        <p className="mt-1.5 font-display text-[1.02rem] leading-relaxed text-ink/60">
           Un expert vous contactera {slot?.phrase}.
         </p>
 

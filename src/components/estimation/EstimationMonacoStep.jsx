@@ -1,12 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Loader2, MapPin } from 'lucide-react'
+import { Loader2, MapPin } from 'lucide-react'
 // Même chargement à la demande que côté français : Leaflet ne sert qu'ici, et
 // le module est préchargé dès l'étape adresse (voir la page Estimer).
 const BuildingMap = lazy(() =>
   import('./BuildingMap').then((module) => ({ default: module.BuildingMap })),
 )
 import { BuildingConfirmModal } from './BuildingConfirmModal'
+import { StepBackLink } from './StepBackLink'
 
 /**
  * Étape 3 — variante monégasque : repérage du bien, puis déclaration de son
@@ -83,24 +84,13 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
   )
 
   return (
-    <div className="w-full max-w-3xl">
-      <button
-        type="button"
-        onClick={onBack}
-        className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink"
-      >
-        <ArrowLeft
-          className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
-          strokeWidth={1.75}
-          aria-hidden="true"
-        />
-        Modifier l’adresse
-      </button>
+    <div className="w-full max-w-3xl lg:max-w-[67rem]">
+      <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
-      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem] lg:text-[2.5rem]">
         Cliquez sur votre bien
       </h1>
-      <p className="mx-auto mt-4 max-w-md text-center text-[0.95rem] leading-relaxed text-ink/55">
+      <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60 lg:max-w-lg lg:text-[1.15rem]">
         Sur la vue aérienne, sélectionnez le bâtiment concerné.
       </p>
 
@@ -149,7 +139,7 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
  */
 function MapPlaceholder() {
   return (
-    <div className="flex h-[62vh] max-h-[560px] min-h-[340px] w-full items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)] sm:h-[480px]">
+    <div className="flex h-[65vh] max-h-[588px] min-h-[357px] w-full items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)] sm:h-[552px]">
       <span
         role="status"
         className="inline-flex items-center gap-3 font-mono text-[0.62rem] uppercase tracking-micro text-stone/60"

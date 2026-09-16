@@ -290,6 +290,38 @@ function closestByFootprint(candidates, areaM2) {
 }
 
 /**
+ * Type déduit **sans aucun appel réseau**, à partir des seuls attributs déjà
+ * présents dans la sélection.
+ *
+ * Il n'y a rien à attendre pour répondre à la seule question que l'interface ait
+ * à poser tout de suite — *faut-il demander son étage ?* — : le polygone
+ * cliqué arrive de la carte avec ses attributs BD TOPO®, et le gabarit du
+ * bâtiment est connu dès le clic. La chaîne complète, elle, passe par le
+ * cadastre puis la BDNB, deux allers-retours en série qui prennent **environ
+ * deux secondes** ; faire attendre le champ étage tout ce temps était le tenir
+ * sur une précision dont il n'a pas besoin.
+ *
+ * Ce n'est pas la réponse retenue pour le calcul : `detectPropertyType` la
+ * remplace dès qu'elle aboutit, et c'est celle-là qui descend au moteur. Les
+ * deux s'accordent dans l'immense majorité des cas — la BDNB affine un nombre
+ * de logements, elle contredit rarement une vocation déclarée.
+ *
+ * Renvoie `terrain` pour un repérage libre, par la même règle que la chaîne
+ * complète : un clic hors emprise ne désigne rien d'autre.
+ */
+export function typeImmediat(selection) {
+  if (!selection) return null
+  if (selection.kind !== 'batiment') return 'terrain'
+
+  const { properties, areaM2 } = selection
+
+  return (
+    fromBdTopo(properties)?.type ??
+    arbitreTypeResidentiel(indices(null, properties, areaM2)).type
+  )
+}
+
+/**
  * Déduit le type du bien à partir de la sélection faite sur la carte.
  *
  * Chaîne : parcelle cadastrale sous le point (API Carto) → fiches BDNB de
