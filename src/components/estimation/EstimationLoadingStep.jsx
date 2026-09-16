@@ -4,7 +4,6 @@ import { Check, Lightbulb, Loader2 } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
 import { tirageScenes } from '../../data/inkScenes'
 import { EASE } from '../../lib/motion'
-import { InkMorphLoop } from './InkMorphLoop'
 import { InkScene } from './InkScene'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
@@ -90,16 +89,35 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   const progress = Math.round((completed / ANALYSIS_STEPS.length) * 100)
 
   return (
-    <div className="w-full max-w-[26.9rem]">
-      {/* Séquence d'ouverture : deux scènes tirées au sort, tracées à l'encre
-          l'une après l'autre — la gauche pendant la première moitié de
-          l'analyse, la droite pendant la seconde. Elles remplacent la pastille
-          et les pictogrammes qui occupaient ce haut d'écran : une plume qui
-          court tient l'attente mieux qu'une icône qui tourne.
+    <div className="w-full max-w-lg">
+      {/* Deux scènes tirées au sort, tracées à l'encre l'une après l'autre — la
+          gauche pendant la première moitié de l'analyse, la droite pendant la
+          seconde. Elles remplacent la pastille et les pictogrammes qui
+          occupaient jadis cet écran : une plume qui court tient l'attente mieux
+          qu'une icône qui tourne.
 
-          Le cadre des deux emplacements est posé une fois pour toutes
-          (`aspect-[15/14]`) : la droite tient sa place vide pendant six
-          secondes plutôt que de pousser la page quand elle démarre.
+          **Elles flanquent l'écran, à partir du gabarit `xl`.** C'est là, et
+          pas au-dessus du titre, qu'elles ont la place d'être grandes : douze
+          secondes d'attente sur un grand écran, ce sont deux colonnes de vide
+          de part et d'autre de la carte de progression, et c'est ce vide
+          qu'elles occupent. Le seuil est `xl` et non `lg` : à 1024 px, 27 % de
+          la fenêtre de chaque côté viendraient mordre sur la colonne centrale.
+
+          En dessous, il n'y a pas de côtés — elles reprennent leur place dans
+          le flux, côte à côte au-dessus du titre. C'est la même grille : les
+          deux scènes passent simplement en `fixed` au point de rupture, et la
+          grille qu'elles laissent derrière elles retombe à zéro de hauteur.
+
+          `fixed` tient ici pour la même raison que dans
+          [`StepBackLink`](./StepBackLink.jsx) : au repos, Framer Motion laisse
+          `transform: none` sur l'étape, donc aucun ancêtre transformé ne vient
+          requalifier le `fixed`. Pendant la transition d'étape il se cale sur
+          le conteneur animé — qui occupe toute la largeur de la section et se
+          centre à la même hauteur, si bien que l'écart ne se voit pas.
+
+          Le cadre est posé une fois pour toutes (`aspect-[15/14]`) : la droite
+          tient sa place vide pendant six secondes plutôt que de pousser la page
+          quand elle démarre.
 
           Monochromes, à l'encre pleine (`text-ink`) : le parcours ne connaît
           qu'une couleur de trait, et un gris intermédiaire ferait lire un
@@ -111,18 +129,16 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
             scene={scene}
             delay={index * SCENE_S}
             duration={SCENE_S}
-            className="aspect-[15/14] w-full text-ink"
+            className={[
+              'aspect-[15/14] w-full text-ink',
+              'xl:fixed xl:top-1/2 xl:w-[27vw] xl:max-w-[34rem] xl:-translate-y-1/2',
+              index === 0 ? 'xl:left-[2vw]' : 'xl:right-[2vw]',
+            ].join(' ')}
           />
         ))}
       </div>
 
-      {/* Et, juste au-dessus du titre, une vignette qui boucle : maison,
-          immeuble, château, jardin avec piscine. Délibérément minuscule — elle
-          occupe le regard le temps du calcul sans disputer la vedette aux deux
-          grandes scènes, qui restent le sujet de ce haut d'écran. */}
-      <InkMorphLoop className="mx-auto mt-6 h-16 w-20 text-ink" />
-
-      <h1 className="mt-7 text-center font-display text-[1.51rem] font-semibold leading-tight text-ink sm:text-[1.89rem]">
+      <h1 className="mt-7 text-center font-display text-[1.8rem] font-semibold leading-tight text-ink sm:text-[2.25rem]">
         Analyse personnalisée en cours…
       </h1>
 

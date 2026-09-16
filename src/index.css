@@ -235,7 +235,9 @@
 
 .imv-marqueur__logo img {
   display: block;
-  height: 1.05rem;
+  /* L'inscription se lit sans avoir à couvrir la toiture qu'elle désigne : la
+     goutte, juste dessous, porte déjà le repérage. */
+  height: 0.85rem;
   width: auto;
 }
 

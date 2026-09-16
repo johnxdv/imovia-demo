@@ -3,14 +3,14 @@ import { Check } from 'lucide-react'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import { InkScene } from './InkScene'
 import { StepBackLink } from './StepBackLink'
-import { INK_TOUR } from '../../data/inkScenes'
+import { INK_MAISONNETTE } from '../../data/inkScenes'
 
 /**
- * Durée du tracé de la demeure, en secondes — plafond posé par la maquette.
+ * Durée du tracé de la maison, en secondes — plafond posé par la maquette.
  * Au-delà, le dessin courrait encore quand l'utilisateur a déjà saisi son
  * adresse ; en deçà, la plume ne se voit plus courir.
  */
-const TRACE_S = 6
+const TRACE_S = 5
 
 /**
  * Délai entre le choix dans la liste et le passage à la carte. Assez court pour
@@ -28,12 +28,10 @@ const HANDOFF_DELAY_MS = 550
  * coordonnées ne peut pas être cartographiée — cas théorique avec la BAN, mais
  * l'écran reste alors sur la confirmation plutôt que d'ouvrir une carte vide.
  *
- * Derrière le titre, une tour d'habitation se trace à l'encre en six secondes
- * ([`INK_TOUR`](../../data/inkScenes.js)) — et elle monte : le sol d'abord, les
- * arêtes ensuite, puis les planchers l'un après l'autre jusqu'au couronnement.
- * Une seule image, tracée une seule fois : rien ne boucle sur cet écran, rien
- * ne clignote — c'est un écran de saisie, et tout mouvement répété y
- * disputerait l'attention au champ.
+ * En tête d'écran, une petite maison se trace à l'encre
+ * ([`INK_MAISONNETTE`](../../data/inkScenes.js)). Une seule image, tracée une
+ * seule fois : rien ne boucle sur cet écran, rien ne clignote — c'est un écran
+ * de saisie, et tout mouvement répété y disputerait l'attention au champ.
  */
 export function EstimationAddressStep({ onBack, onConfirm }) {
   const [address, setAddress] = useState(null)
@@ -49,68 +47,63 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
   }, [address, mappable, onConfirm])
 
   return (
-    <div className="relative w-full max-w-[35.3rem]">
-      {/* La tour monte derrière le titre et sa base tombe sous le champ : c'est
-          le fond de l'écran, pas une vignette posée dessous.
+    <div className="w-full max-w-2xl">
+      {onBack ? <StepBackLink onClick={onBack}>Retour</StepBackLink> : null}
 
-          **Une hauteur fixe, et non `h-full`.** Le bloc grandit quand la
-          pastille « Adresse confirmée » apparaît, et une tour calée sur lui
-          grandirait avec — le dessin se remettrait à l'échelle sous les yeux de
-          l'utilisateur au moment précis où son attention est ailleurs. Une
-          hauteur posée une fois pour toutes, largeur déduite des proportions de
-          la `viewBox`, et la base reste au même endroit quoi qu'il arrive
-          au-dessous.
+      {/* **Dans le flux, au-dessus du titre — et non en fond derrière lui.**
+          Les versions précédentes posaient le dessin en absolu sur toute la
+          hauteur du bloc : il passait alors derrière le champ de saisie, et
+          derrière la liste de suggestions qui en déborde, au moment précis où
+          l'utilisateur a besoin de les lire. Aucun réglage de hauteur ne rend
+          ça sûr — le bloc change de taille quand la pastille « Adresse
+          confirmée » apparaît, et le titre ne se replie pas au même endroit
+          selon le gabarit. Le remettre dans le flux, lui, le garantit par
+          construction : ce qui suit commence là où il finit.
 
-          Non clippée à dessein : la liste de suggestions déborde du même
-          conteneur, un `overflow-hidden` ici la couperait. Le contenu qui suit
-          est en `z-10`, l'ordre de peinture ne dépend ainsi d'aucun contexte
-          d'empilement extérieur. */}
+          Les proportions viennent de la `viewBox` (`aspect-[200/102]`), si
+          bien qu'une seule largeur suffit à le dimensionner partout. */}
       <InkScene
-        scene={INK_TOUR}
+        scene={INK_MAISONNETTE}
         duration={TRACE_S}
-        rough={6}
-        className="absolute left-1/2 top-0 z-0 h-[25rem] w-[12.6rem] -translate-x-1/2 text-ink opacity-[0.3] sm:h-[28rem] sm:w-[14.1rem]"
+        rough={3.2}
+        className="mx-auto mb-5 aspect-[200/102] w-[11rem] text-ink/60 sm:w-[13.5rem]"
       />
 
-      <div className="relative z-10">
-        {onBack ? <StepBackLink onClick={onBack}>Retour</StepBackLink> : null}
+      <h1 className="text-center font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]">
+        Où se situe votre bien&nbsp;?
+      </h1>
+      <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60">
+        Commencez à saisir l’adresse, puis choisissez-la dans la liste.
+      </p>
 
-        <h1 className="text-center font-display text-[1.47rem] font-semibold leading-tight text-ink sm:text-[1.76rem]">
-          Où se situe votre bien&nbsp;?
-        </h1>
-        <p className="mx-auto mt-4 max-w-[23.5rem] text-center font-display text-[0.86rem] leading-relaxed text-ink/60">
-          Commencez à saisir l’adresse, puis choisissez-la dans la liste.
-        </p>
-
-        <div className="mt-8 lg:mt-10">
-          <AddressAutocomplete onSelect={setAddress} autoFocus />
-        </div>
-
-        {address ? (
-          <div
-            role="status"
-            className="mt-6 flex items-start gap-3 rounded-xl border border-bottle/20 bg-white/80 px-4 py-4 text-left shadow-sm shadow-ink/5 sm:px-5"
-          >
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bottle">
-              <Check className="h-3 w-3 text-white" strokeWidth={3} aria-hidden="true" />
-            </span>
-            <span>
-              <span className="block font-mono text-[0.62rem] uppercase tracking-micro text-bottle">
-                Adresse confirmée
-              </span>
-              <span className="mt-1.5 block font-display text-[0.98rem] leading-relaxed text-ink/75">
-                {address.label}
-              </span>
-            </span>
-          </div>
-        ) : null}
-
-        {address && !mappable ? (
-          <p role="status" className="mt-4 text-center font-display text-base text-ink/50">
-            Cette adresse n’est pas localisable sur la carte. Essayez une adresse voisine.
-          </p>
-        ) : null}
+      <div className="mt-8 lg:mt-10">
+        <AddressAutocomplete onSelect={setAddress} autoFocus />
       </div>
+
+      {address ? (
+        <div
+          role="status"
+          className="mt-6 flex items-start gap-3 rounded-xl border border-bottle/20 bg-white/80 px-4 py-4 text-left shadow-sm shadow-ink/5 sm:px-5"
+        >
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bottle">
+            <Check className="h-3 w-3 text-white" strokeWidth={3} aria-hidden="true" />
+          </span>
+          <span>
+            <span className="block font-mono text-[0.62rem] uppercase tracking-micro text-bottle">
+              Adresse confirmée
+            </span>
+            <span className="mt-1.5 block font-display text-[0.98rem] leading-relaxed text-ink/75">
+              {address.label}
+            </span>
+          </span>
+        </div>
+      ) : null}
+
+      {address && !mappable ? (
+        <p role="status" className="mt-4 text-center font-display text-base text-ink/50">
+          Cette adresse n’est pas localisable sur la carte. Essayez une adresse voisine.
+        </p>
+      ) : null}
     </div>
   )
 }

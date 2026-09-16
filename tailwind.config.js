@@ -28,17 +28,16 @@ export default {
       maxWidth: {
         // Largeur de tout le site sur grand écran.
         //
-        // L'élargissement à 1848 px (+40 %) est repris : la bande occupait
-        // tout le 27 pouces et la mise en page se lisait trop large. Ramenée
-        // à 1109 px, soit 40 % de moins que ces 1848 px — et donc un peu en
-        // deçà des 1320 px d'origine, ce qui est bien ce qui est demandé.
+        // Valeur d'origine, retrouvée après deux allers-retours : élargie à
+        // 1848 px (+40 %), la bande occupait tout le 27 pouces et se lisait
+        // trop large ; resserrée à 1109 px (−40 %), le site paraissait trop
+        // fin sur toutes les pages. Les 1320 px d'origine sont le bon
+        // réglage — ne pas y retoucher sans une raison mesurée.
         //
-        // Ce facteur 0,6 est le même partout : les écrans du parcours
-        // d'estimation, qui portaient leurs propres largeurs élargies au `lg`,
-        // sont revenus à une seule largeur, à 0,84 de leur valeur d'avant le
-        // +40 % (1,4 × 0,6). Une seule échelle, donc, du téléphone au grand
-        // écran, plutôt qu'un palier qui se rétrécissait en s'élargissant.
-        content: '1109px',
+        // Les écrans du parcours d'estimation avaient porté leurs propres
+        // largeurs pendant ces deux passes ; ils sont eux aussi revenus à
+        // leurs valeurs de base, sans surcharge par point de rupture.
+        content: '1320px',
       },
       transitionTimingFunction: {
         plan: 'cubic-bezier(0.22, 1, 0.36, 1)',

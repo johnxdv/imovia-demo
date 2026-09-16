@@ -255,7 +255,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: reduce ? 0 : 8, scale: reduce ? 1 : 0.98 }}
         transition={{ duration: reduce ? 0.15 : 0.34, ease: EASE }}
-        className="relative my-auto w-full max-w-[20.2rem] outline-none"
+        className="relative my-auto w-full max-w-sm outline-none"
       >
         <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
 
@@ -286,7 +286,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
                       aria-pressed={active}
                       onClick={() => setMonacoType(id)}
                       className={[
-                        'flex-1 touch-manipulation rounded-lg px-3 py-2.5 font-display text-[0.82rem] font-semibold uppercase tracking-[0.06em] transition-colors duration-300 ease-plan',
+                        'flex-1 touch-manipulation rounded-lg px-3 py-2.5 font-display text-[0.88rem] font-semibold uppercase tracking-[0.06em] transition-colors duration-300 ease-plan',
                         active
                           ? 'bg-ink text-white shadow-sm shadow-ink/20'
                           : 'text-ink/50 hover:text-ink',
@@ -402,13 +402,11 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
             </div>
           </div>
 
-          {/* Le libellé passe en capitales comme tous les boutons du site, et
-              tient sur deux lignes dans le panneau resserré : trente-quatre
-              caractères capitalisés ne rentrent pas sur une seule sans descendre
-              le corps à dix pixels, ce qui est trop petit pour l'action
-              principale de l'écran. Deux lignes bien interlignées valent mieux
-              qu'une ligne illisible. */}
-          <div className="relative mx-auto mt-6 max-w-[19rem]">
+          {/* Trente-quatre caractères en capitales : c'est le libellé le plus
+              long du parcours, et il dicte à lui seul le corps du texte et les
+              gouttières de ce bouton. Élargir le panneau ou rallonger le
+              libellé demande de revérifier qu'il tient toujours sur une ligne. */}
+          <div className="relative mx-auto mt-6 max-w-[20rem]">
             <GoldFrame className="-inset-[2px] rounded-[0.87rem]" />
 
             <button
@@ -416,10 +414,10 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
               onClick={() =>
                 onEstimate(surface, monaco ? monacoType : null, estAppartement ? etage : null)
               }
-              className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-5 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
+              className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-4 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
             >
               <Shine width="w-1/5" tint="via-brass/40" />
-              <span className="relative font-display text-[0.72rem] font-semibold uppercase leading-[1.4] tracking-[0.07em] text-white">
+              <span className="relative font-display text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-white">
                 Obtenir une estimation instantanée
               </span>
             </button>

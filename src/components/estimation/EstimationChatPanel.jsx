@@ -265,7 +265,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
                     key={slot.id}
                     type="button"
                     onClick={() => submitChoice(slot)}
-                    className="touch-manipulation rounded-xl border border-ink/15 bg-white px-4 py-4 text-center font-display text-[0.82rem] font-semibold uppercase tracking-[0.05em] text-ink/75 transition-colors duration-200 ease-plan hover:border-ink/40 hover:text-ink"
+                    className="touch-manipulation rounded-xl border border-ink/15 bg-white px-4 py-4 text-center font-display text-[0.88rem] font-semibold uppercase tracking-[0.05em] text-ink/75 transition-colors duration-200 ease-plan hover:border-ink/40 hover:text-ink"
                   >
                     {slot.label}
                   </button>

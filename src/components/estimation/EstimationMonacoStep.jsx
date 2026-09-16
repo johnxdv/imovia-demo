@@ -84,13 +84,13 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
   )
 
   return (
-    <div className="w-full max-w-[40.3rem]">
+    <div className="w-full max-w-3xl">
       <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
-      <h1 className="text-center font-display text-[1.34rem] font-semibold leading-tight text-ink sm:text-[1.68rem]">
+      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem]">
         Cliquez sur votre bien
       </h1>
-      <p className="mx-auto mt-4 max-w-[23.5rem] text-center font-display text-[0.86rem] leading-relaxed text-ink/60">
+      <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60">
         Sur la vue aérienne, sélectionnez le bâtiment concerné.
       </p>
 

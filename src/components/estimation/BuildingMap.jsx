@@ -82,7 +82,7 @@ const ORTHO_COVERAGE = L.latLngBounds([-22.5, -63.5], [51.5, 56])
  * tout le vide qu'on y laisserait décalerait la pointe d'autant.
  */
 const MARQUEUR_L = 140
-const MARQUEUR_H = 64
+const MARQUEUR_H = 61
 
 const marqueurAdresse = () =>
   L.divIcon({
