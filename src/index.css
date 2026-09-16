@@ -199,7 +199,14 @@
    raison que les règles Leaflet ci-dessus : ce balisage est posé par un
    `divIcon` à l'exécution (voir `marqueurAdresse` dans `BuildingMap.jsx`), il
    n'apparaît dans aucun fichier scanné par Tailwind. */
-.imv-marqueur {
+/* Sélecteur doublé de la classe de Leaflet, et pas seulement `.imv-marqueur` :
+   `leaflet.css` pose `display: block` sur `.leaflet-marker-icon`, à égalité de
+   spécificité et chargée après la feuille de l'application — c'est donc elle
+   qui l'emportait. Le marqueur retombait en bloc : le logo, dont la plaque est
+   elle-même un conteneur flexible, restait centré, mais la goutte se calait à
+   gauche de la boîte. D'où un ensemble qui paraissait décentré vers la droite,
+   et surtout une pointe qui ne tombait pas sur la coordonnée. */
+.leaflet-marker-icon.imv-marqueur {
   /* `divIcon` arrive avec un fond blanc et une bordure par défaut : remis à
      zéro, sans quoi le marqueur serait un carré blanc sur la photo. */
   background: none;
@@ -207,22 +214,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  /* Le contenu est calé par le bas : la pointe de la goutte doit tomber sur la
+     coordonnée, et le moindre jeu laissé sous elle l'en écarterait d'autant. */
+  justify-content: flex-end;
+  gap: 0.3rem;
 }
 
-.imv-marqueur__plaque {
+/* Le logo est posé à même la photo, sans plaque derrière lui. Il est blanc, et
+   une orthophoto n'a aucune couleur garantie dessous : ce sont trois ombres
+   portées qui s'en chargent désormais — une au ras des lettres, une courte qui
+   le détache, une plus diffuse qui assombrit le fond alentour. Un cerne, donc,
+   là où il y avait un rectangle sombre. */
+.imv-marqueur__logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.5rem;
-  background: rgba(16, 20, 28, 0.82);
-  border: 1px solid rgba(245, 227, 188, 0.35);
-  box-shadow: 0 6px 16px -6px rgba(16, 20, 28, 0.8);
-  backdrop-filter: blur(2px);
+  filter: drop-shadow(0 0 1px rgba(16, 20, 28, 1)) drop-shadow(0 1px 2px rgba(16, 20, 28, 0.95))
+    drop-shadow(0 0 7px rgba(16, 20, 28, 0.85));
 }
 
-.imv-marqueur__plaque img {
+.imv-marqueur__logo img {
   display: block;
   height: 1.05rem;
   width: auto;
@@ -230,11 +241,12 @@
 
 /* La goutte : remplie en Ink pour rester lisible sur les toitures claires,
    cernée d'or clair pour les fonds sombres — aucun des deux ne suffit seul sur
-   une orthophoto, dont on ne maîtrise pas ce qu'il y a dessous. */
+   une orthophoto, dont on ne maîtrise pas ce qu'il y a dessous.
+   Réduite de 30 % : elle désigne le bien, elle n'a pas à le recouvrir. */
 .imv-marqueur__pin {
-  width: 2.75rem;
-  height: 3.8rem;
-  filter: drop-shadow(0 4px 10px rgba(16, 20, 28, 0.7));
+  width: 1.925rem;
+  height: 2.66rem;
+  filter: drop-shadow(0 3px 7px rgba(16, 20, 28, 0.7));
 }
 
 .imv-marqueur__pin path {

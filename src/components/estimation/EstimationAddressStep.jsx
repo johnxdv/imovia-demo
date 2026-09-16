@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import { InkScene } from './InkScene'
 import { StepBackLink } from './StepBackLink'
-import { INK_VILLA } from '../../data/inkScenes'
+import { INK_TOUR } from '../../data/inkScenes'
 
 /**
  * Durée du tracé de la demeure, en secondes — plafond posé par la maquette.
@@ -28,10 +28,12 @@ const HANDOFF_DELAY_MS = 550
  * coordonnées ne peut pas être cartographiée — cas théorique avec la BAN, mais
  * l'écran reste alors sur la confirmation plutôt que d'ouvrir une carte vide.
  *
- * Derrière le titre, une demeure d'architecte se trace à l'encre en six
- * secondes ([`INK_VILLA`](../../data/inkScenes.js)). Une seule image, tracée
- * une seule fois : rien ne boucle sur cet écran, rien ne clignote — c'est un
- * écran de saisie, et tout mouvement répété y disputerait l'attention au champ.
+ * Derrière le titre, une tour d'habitation se trace à l'encre en six secondes
+ * ([`INK_TOUR`](../../data/inkScenes.js)) — et elle monte : le sol d'abord, les
+ * arêtes ensuite, puis les planchers l'un après l'autre jusqu'au couronnement.
+ * Une seule image, tracée une seule fois : rien ne boucle sur cet écran, rien
+ * ne clignote — c'est un écran de saisie, et tout mouvement répété y
+ * disputerait l'attention au champ.
  */
 export function EstimationAddressStep({ onBack, onConfirm }) {
   const [address, setAddress] = useState(null)
@@ -47,30 +49,36 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
   }, [address, mappable, onConfirm])
 
   return (
-    <div className="relative w-full max-w-2xl lg:max-w-[59rem]">
-      {/* La demeure monte derrière le titre et sa ligne de sol tombe sous le
-          champ : c'est le fond de l'écran, pas une vignette posée dessous.
-          Le bloc prend les proportions exactes de la `viewBox`
-          (`aspect-[400/148]`), si bien que le dessin le remplit au pixel près
-          et que la même règle tient du téléphone au 27 pouces — sans hauteur
-          ni décalage à régler par point de rupture.
+    <div className="relative w-full max-w-[35.3rem]">
+      {/* La tour monte derrière le titre et sa base tombe sous le champ : c'est
+          le fond de l'écran, pas une vignette posée dessous.
+
+          **Une hauteur fixe, et non `h-full`.** Le bloc grandit quand la
+          pastille « Adresse confirmée » apparaît, et une tour calée sur lui
+          grandirait avec — le dessin se remettrait à l'échelle sous les yeux de
+          l'utilisateur au moment précis où son attention est ailleurs. Une
+          hauteur posée une fois pour toutes, largeur déduite des proportions de
+          la `viewBox`, et la base reste au même endroit quoi qu'il arrive
+          au-dessous.
+
           Non clippée à dessein : la liste de suggestions déborde du même
           conteneur, un `overflow-hidden` ici la couperait. Le contenu qui suit
           est en `z-10`, l'ordre de peinture ne dépend ainsi d'aucun contexte
           d'empilement extérieur. */}
       <InkScene
-        scene={INK_VILLA}
+        scene={INK_TOUR}
         duration={TRACE_S}
-        className="absolute inset-x-0 top-0 z-0 aspect-[400/148] w-full text-ink opacity-[0.2]"
+        rough={6}
+        className="absolute left-1/2 top-0 z-0 h-[25rem] w-[12.6rem] -translate-x-1/2 text-ink opacity-[0.3] sm:h-[28rem] sm:w-[14.1rem]"
       />
 
       <div className="relative z-10">
         {onBack ? <StepBackLink onClick={onBack}>Retour</StepBackLink> : null}
 
-        <h1 className="text-center font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem] lg:text-[2.6rem]">
+        <h1 className="text-center font-display text-[1.47rem] font-semibold leading-tight text-ink sm:text-[1.76rem]">
           Où se situe votre bien&nbsp;?
         </h1>
-        <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60 lg:max-w-lg lg:text-[1.15rem]">
+        <p className="mx-auto mt-4 max-w-[23.5rem] text-center font-display text-[0.86rem] leading-relaxed text-ink/60">
           Commencez à saisir l’adresse, puis choisissez-la dans la liste.
         </p>
 

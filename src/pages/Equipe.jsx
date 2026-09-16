@@ -59,7 +59,7 @@ export default function Equipe() {
                     <button
                       type="button"
                       onClick={() => setActiveAdvisor(m)}
-                      className="inline-flex items-center gap-2 font-mono text-xs text-stone/50 transition-colors hover:text-brass"
+                      className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-micro text-stone/50 transition-colors hover:text-brass"
                     >
                       <Mail className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
                       Envoyer un e-mail

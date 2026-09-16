@@ -1,3 +1,5 @@
+import { InkRoughen, useInkFilterId } from './InkTexture'
+
 /**
  * Scène à l'encre de Chine — un dessin qui se trace trait par trait.
  *
@@ -7,10 +9,11 @@
  * calcul qui reste, le minutage.
  *
  * **Pourquoi les dessins sont des données et non du JSX.** Dix scènes de vingt
- * tracés, plus la maison de l'étape adresse : écrites en composants, c'est onze
- * fichiers à relire pour changer une règle de style, et autant d'endroits où
- * l'ordre de tracé peut diverger du minutage. En données, l'ordre du tableau
- * *est* l'ordre du dessin, et la cadence se calcule une fois pour toutes ici.
+ * tracés, plus la tour de l'étape adresse et les quatre états de la boucle de
+ * métamorphose : écrites en composants, c'est quinze fichiers à relire pour
+ * changer une règle de style, et autant d'endroits où l'ordre de tracé peut
+ * diverger du minutage. En données, l'ordre du tableau *est* l'ordre du
+ * dessin, et la cadence se calcule une fois pour toutes ici.
  *
  * La cadence, justement : les tracés se répartissent sur toute la durée
  * demandée, chacun couvrant `TRAIT_S`. Le dernier commence donc à
@@ -20,6 +23,10 @@
  * Tout passe par `stroke-dashoffset` et `opacity` — composite GPU, aucun
  * reflow. Voir `imv-ink-trait` dans `src/index.css` pour le procédé
  * (`pathLength="1"`) et son comportement sous `prefers-reduced-motion`.
+ *
+ * Le dessin entier passe enfin sous le filtre « main levée »
+ * ([`InkRoughen`](./InkTexture.jsx)) : c'est lui qui fait la différence
+ * entre un dessin à l'encre et une grille de segments alignés au pixel.
  */
 
 /** Durée de tracé d'un trait. Assez lent pour qu'on voie la plume courir. */
@@ -40,15 +47,23 @@ const TRAIT_WIDTH = 1.6
  * d'analyse ; `xMidYMax` cale la scène par le bas, ce que demande un décor
  * posé derrière du texte — c'est la ligne de sol, et non le centre du dessin,
  * qui doit tomber à un endroit précis de la page.
+ *
+ * `rough` est l'amplitude du tremblé, **exprimée dans les unités de la
+ * `viewBox` de la scène** et non en pixels. Une scène de 300 unités de large et
+ * une vignette de 140 n'attendent donc pas la même valeur : c'est la part de la
+ * largeur du dessin qui compte, pas sa taille à l'écran. En pratique, entre 3 et
+ * 6 selon le cadrage — au-delà, le dessin se défait.
  */
 export function InkScene({
   scene,
   delay = 0,
   duration = 6,
   align = 'xMidYMid',
+  rough = 5,
   className = '',
 }) {
   const { viewBox, traits } = scene
+  const filterId = useInkFilterId()
 
   // Le dernier trait doit finir avec le compte, pas commencer avec : c'est
   // `duration − TRAIT_S` qu'on répartit, pas `duration`. Une scène d'un seul
@@ -68,37 +83,45 @@ export function InkScene({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        {traits.map(({ d, w, o, aplat }, index) => {
-          const style = {
-            '--ink-t': `${delay + index * pas}s`,
-            '--ink-d': `${TRAIT_S}s`,
-            '--ink-o': o ?? 1,
-          }
+        <InkRoughen id={filterId} scale={rough} />
 
-          // Un aplat n'a pas de tracé à dérouler : il se pose d'un bloc, et
-          // c'est son opacité qui monte. Le `fill-rule` évité — toutes les
-          // formes remplies des scènes sont des contours simples.
-          return aplat ? (
-            <path
-              key={index}
-              d={d}
-              className="imv-ink-aplat"
-              style={style}
-              fill="currentColor"
-              stroke="none"
-            />
-          ) : (
-            <path
-              key={index}
-              d={d}
-              pathLength="1"
-              className="imv-ink-trait"
-              style={style}
-              strokeWidth={w ?? TRAIT_WIDTH}
-              strokeOpacity={o ?? 1}
-            />
-          )
-        })}
+        {/* Le filtre est posé sur le groupe et non sur chaque trait : une seule
+            passe de bruit pour tout le dessin, et surtout un champ de
+            déplacement continu — appliqué trait par trait, chacun serait tremblé
+            dans son propre repère et les angles ne se rejoindraient plus. */}
+        <g filter={`url(#${filterId})`}>
+          {traits.map(({ d, w, o, aplat }, index) => {
+            const style = {
+              '--ink-t': `${delay + index * pas}s`,
+              '--ink-d': `${TRAIT_S}s`,
+              '--ink-o': o ?? 1,
+            }
+
+            // Un aplat n'a pas de tracé à dérouler : il se pose d'un bloc, et
+            // c'est son opacité qui monte. Le `fill-rule` évité — toutes les
+            // formes remplies des scènes sont des contours simples.
+            return aplat ? (
+              <path
+                key={index}
+                d={d}
+                className="imv-ink-aplat"
+                style={style}
+                fill="currentColor"
+                stroke="none"
+              />
+            ) : (
+              <path
+                key={index}
+                d={d}
+                pathLength="1"
+                className="imv-ink-trait"
+                style={style}
+                strokeWidth={w ?? TRAIT_WIDTH}
+                strokeOpacity={o ?? 1}
+              />
+            )
+          })}
+        </g>
       </svg>
     </div>
   )

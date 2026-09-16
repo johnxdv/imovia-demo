@@ -71,7 +71,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
 
   if (!started) {
     return (
-      <div className="w-full max-w-lg lg:max-w-[45rem]">
+      <div className="w-full max-w-[26.9rem]">
         <StepBackLink onClick={onBack}>Modifier ma sélection</StepBackLink>
 
         <motion.div
@@ -83,7 +83,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
           <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
         </motion.div>
 
-        <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem] lg:text-[2.5rem]">
+        <h1 className="mt-7 text-center font-display text-[1.43rem] font-semibold leading-tight text-ink sm:text-[1.68rem]">
           Votre estimation est prête
         </h1>
 
@@ -110,19 +110,19 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
               <PriceReveal
                 formatted={formatted ?? '— €'}
                 revealStage={0}
-                className="whitespace-nowrap font-display text-[clamp(2.75rem,15vw,4.25rem)] font-semibold leading-none text-ink sm:text-[6.5rem]"
+                className="whitespace-nowrap font-display text-[clamp(2.2rem,13vw,3.4rem)] font-semibold leading-none text-ink sm:text-[3.9rem]"
               />
             </div>
 
             <p className="mt-7 font-display text-lg font-semibold text-ink sm:text-xl">
               Résultats détaillés disponibles
             </p>
-            <p className="mx-auto mt-3 max-w-sm font-display text-[1rem] leading-relaxed text-ink/60">
+            <p className="mx-auto mt-3 max-w-[19.5rem] text-balance font-display text-[0.78rem] leading-relaxed text-ink/60">
               Un expert va finaliser votre étude et vous présenter les meilleures options
               pour votre projet.
             </p>
 
-            <div className="relative mx-auto mt-7 max-w-[15rem]">
+            <div className="relative mx-auto mt-7 max-w-[17rem]">
               <GoldFrame className="-inset-[2px] rounded-[0.87rem]" />
 
               <button
@@ -131,7 +131,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-6 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
               >
                 <Shine width="w-1/5" tint="via-brass/40" />
-                <span className="relative font-display text-[1rem] font-semibold tracking-[0.05em] text-white">
+                <span className="relative font-display text-[0.82rem] font-semibold uppercase tracking-[0.07em] text-white">
                   Voir mon estimation
                 </span>
               </button>
@@ -143,7 +143,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
   }
 
   return (
-    <div className="w-full max-w-6xl lg:max-w-[101rem]">
+    <div className="w-full max-w-[60.5rem]">
       <StepBackLink onClick={onBack}>Modifier ma sélection</StepBackLink>
 
       {/* Bascule en deux colonnes à partir du gabarit tablette (768 px) : en
@@ -169,12 +169,12 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 <PriceReveal
                   formatted={formatted ?? '— €'}
                   revealStage={finished ? 5 : revealStage}
-                  className="whitespace-nowrap font-display text-[clamp(2.5rem,13vw,3.5rem)] font-semibold leading-none text-ink md:text-[3.25rem]"
+                  className="whitespace-nowrap font-display text-[clamp(2.1rem,11vw,2.95rem)] font-semibold leading-none text-ink md:text-[2.75rem]"
                 />
               </div>
 
               {!finished && (
-                <p className="mx-auto mt-5 max-w-xs font-display text-[0.95rem] leading-relaxed text-ink/60">
+                <p className="mx-auto mt-5 max-w-[15rem] font-display text-[0.75rem] leading-relaxed text-ink/60">
                   Un expert va finaliser votre étude et vous présenter les meilleures options
                   pour votre projet.
                 </p>

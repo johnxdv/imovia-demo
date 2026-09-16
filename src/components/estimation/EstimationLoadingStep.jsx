@@ -4,6 +4,7 @@ import { Check, Lightbulb, Loader2 } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
 import { tirageScenes } from '../../data/inkScenes'
 import { EASE } from '../../lib/motion'
+import { InkMorphLoop } from './InkMorphLoop'
 import { InkScene } from './InkScene'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
@@ -89,7 +90,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   const progress = Math.round((completed / ANALYSIS_STEPS.length) * 100)
 
   return (
-    <div className="w-full max-w-lg lg:max-w-[45rem]">
+    <div className="w-full max-w-[26.9rem]">
       {/* Séquence d'ouverture : deux scènes tirées au sort, tracées à l'encre
           l'une après l'autre — la gauche pendant la première moitié de
           l'analyse, la droite pendant la seconde. Elles remplacent la pastille
@@ -98,7 +99,11 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
 
           Le cadre des deux emplacements est posé une fois pour toutes
           (`aspect-[15/14]`) : la droite tient sa place vide pendant six
-          secondes plutôt que de pousser la page quand elle démarre. */}
+          secondes plutôt que de pousser la page quand elle démarre.
+
+          Monochromes, à l'encre pleine (`text-ink`) : le parcours ne connaît
+          qu'une couleur de trait, et un gris intermédiaire ferait lire un
+          dessin délavé plutôt qu'un dessin à l'encre. */}
       <div className="grid grid-cols-2 gap-4 sm:gap-6">
         {scenes.map((scene, index) => (
           <InkScene
@@ -106,12 +111,18 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
             scene={scene}
             delay={index * SCENE_S}
             duration={SCENE_S}
-            className="aspect-[15/14] w-full text-ink/70"
+            className="aspect-[15/14] w-full text-ink"
           />
         ))}
       </div>
 
-      <h1 className="mt-7 text-center font-display text-[1.8rem] font-semibold leading-tight text-ink sm:text-[2.25rem] lg:text-[2.6rem]">
+      {/* Et, juste au-dessus du titre, une vignette qui boucle : maison,
+          immeuble, château, jardin avec piscine. Délibérément minuscule — elle
+          occupe le regard le temps du calcul sans disputer la vedette aux deux
+          grandes scènes, qui restent le sujet de ce haut d'écran. */}
+      <InkMorphLoop className="mx-auto mt-6 h-16 w-20 text-ink" />
+
+      <h1 className="mt-7 text-center font-display text-[1.51rem] font-semibold leading-tight text-ink sm:text-[1.89rem]">
         Analyse personnalisée en cours…
       </h1>
 

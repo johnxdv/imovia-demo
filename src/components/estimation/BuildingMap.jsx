@@ -61,29 +61,33 @@ const ORTHO_COVERAGE = L.latLngBounds([-22.5, -63.5], [51.5, 56])
  *
  * Une pastille de cinq pixels s'y perdait : sur une orthophoto, un petit disque
  * coloré se confond avec une voiture, un velux, une tache de toiture. D'où un
- * vrai marqueur — goutte de trente-six pixels, pointe posée sur la coordonnée —
- * surmonté du logo de l'agence.
+ * vrai marqueur — une goutte d'une trentaine de pixels de large, pointe posée
+ * sur la coordonnée — surmontée du logo de l'agence.
  *
- * **Le logo est posé sur une plaque sombre plutôt qu'à même la photo** : il est
- * blanc, et une orthophoto n'a aucune couleur garantie sous lui — un toit en
- * zinc clair ou une allée de gravier le feraient disparaître. La plaque assure
- * le contraste quel que soit ce qu'il y a dessous.
+ * **Le logo est posé à même la photo, sans plaque derrière lui.** Il est blanc,
+ * et une orthophoto n'a aucune couleur garantie sous lui — un toit en zinc
+ * clair ou une allée de gravier le feraient disparaître. Ce sont des ombres
+ * portées qui s'en chargent (voir `.imv-marqueur__logo` dans `src/index.css`) :
+ * elles assombrissent le fond au ras des lettres, sans le rectangle sombre qui
+ * couvrait jusqu'ici un bout de la vue aérienne.
  *
  * Le dessin passe par un `divIcon` et non par une image : il faut deux couches
- * (la plaque et la goutte) et une ombre portée qui les détache toutes deux du
+ * (le logo et la goutte) et des ombres portées qui les détachent toutes deux du
  * fond. L'habillage vit dans `src/index.css` — Leaflet pose ce balisage à
  * l'exécution, hors de portée des utilitaires Tailwind.
  *
  * `iconAnchor` place la pointe exactement sur la coordonnée : c'est la pointe
- * qui désigne, pas le centre de l'icône.
+ * qui désigne, pas le centre de l'icône. La hauteur de la boîte suit donc au
+ * plus juste celle du contenu (logo + gouttière + goutte réduite de 30 %) :
+ * tout le vide qu'on y laisserait décalerait la pointe d'autant.
  */
 const MARQUEUR_L = 140
-const MARQUEUR_H = 96
+const MARQUEUR_H = 64
 
 const marqueurAdresse = () =>
   L.divIcon({
     className: 'imv-marqueur',
-    html: `<span class="imv-marqueur__plaque"><img src="${logoUrl}" alt="" /></span>
+    html: `<span class="imv-marqueur__logo"><img src="${logoUrl}" alt="" /></span>
 <svg class="imv-marqueur__pin" viewBox="0 0 36 50" aria-hidden="true">
   <path d="M18 49 C18 49 33 29 33 18 A15 15 0 1 0 3 18 C3 29 18 49 18 49 Z" />
   <circle cx="18" cy="18" r="5.5" />

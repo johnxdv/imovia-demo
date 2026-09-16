@@ -255,7 +255,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: reduce ? 0 : 8, scale: reduce ? 1 : 0.98 }}
         transition={{ duration: reduce ? 0.15 : 0.34, ease: EASE }}
-        className="relative my-auto w-full max-w-sm outline-none lg:max-w-[33.5rem]"
+        className="relative my-auto w-full max-w-[20.2rem] outline-none"
       >
         <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
 
@@ -286,7 +286,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
                       aria-pressed={active}
                       onClick={() => setMonacoType(id)}
                       className={[
-                        'flex-1 touch-manipulation rounded-lg px-3 py-2.5 font-display text-[0.95rem] font-semibold tracking-[0.03em] transition-colors duration-300 ease-plan',
+                        'flex-1 touch-manipulation rounded-lg px-3 py-2.5 font-display text-[0.82rem] font-semibold uppercase tracking-[0.06em] transition-colors duration-300 ease-plan',
                         active
                           ? 'bg-ink text-white shadow-sm shadow-ink/20'
                           : 'text-ink/50 hover:text-ink',
@@ -402,6 +402,12 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
             </div>
           </div>
 
+          {/* Le libellé passe en capitales comme tous les boutons du site, et
+              tient sur deux lignes dans le panneau resserré : trente-quatre
+              caractères capitalisés ne rentrent pas sur une seule sans descendre
+              le corps à dix pixels, ce qui est trop petit pour l'action
+              principale de l'écran. Deux lignes bien interlignées valent mieux
+              qu'une ligne illisible. */}
           <div className="relative mx-auto mt-6 max-w-[19rem]">
             <GoldFrame className="-inset-[2px] rounded-[0.87rem]" />
 
@@ -413,7 +419,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
               className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-5 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
             >
               <Shine width="w-1/5" tint="via-brass/40" />
-              <span className="relative font-display text-[0.98rem] font-semibold tracking-[0.05em] text-white">
+              <span className="relative font-display text-[0.72rem] font-semibold uppercase leading-[1.4] tracking-[0.07em] text-white">
                 Obtenir une estimation instantanée
               </span>
             </button>
@@ -428,7 +434,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
           <button
             type="button"
             onClick={onClose}
-            className="group mt-4 inline-flex touch-manipulation items-center gap-1.5 text-[0.8rem] text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
+            className="group mt-4 inline-flex touch-manipulation items-center gap-1.5 font-mono text-[0.68rem] uppercase tracking-micro text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
           >
             <ArrowLeft
               className="h-3.5 w-3.5 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
