@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { AddressAutocomplete } from './AddressAutocomplete'
-import { InkScene } from './InkScene'
+import { MaisonArchitecte } from './MaisonArchitecte'
 import { StepBackLink } from './StepBackLink'
-import { INK_MAISONNETTE } from '../../data/inkScenes'
 
 /**
  * Durée du tracé de la maison, en secondes — plafond posé par la maquette.
@@ -28,10 +27,11 @@ const HANDOFF_DELAY_MS = 550
  * coordonnées ne peut pas être cartographiée — cas théorique avec la BAN, mais
  * l'écran reste alors sur la confirmation plutôt que d'ouvrir une carte vide.
  *
- * En tête d'écran, une petite maison se trace à l'encre
- * ([`INK_MAISONNETTE`](../../data/inkScenes.js)). Une seule image, tracée une
- * seule fois : rien ne boucle sur cet écran, rien ne clignote — c'est un écran
- * de saisie, et tout mouvement répété y disputerait l'attention au champ.
+ * En tête d'écran, une villa d'architecte se trace à l'encre
+ * ([`MaisonArchitecte`](./MaisonArchitecte.jsx)) — piscine et pins de luxe
+ * compris. Une seule image, tracée une seule fois : rien ne boucle sur cet
+ * écran, rien ne clignote — c'est un écran de saisie, et tout mouvement répété
+ * y disputerait l'attention au champ.
  */
 export function EstimationAddressStep({ onBack, onConfirm }) {
   const [address, setAddress] = useState(null)
@@ -60,16 +60,18 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
           selon le gabarit. Le remettre dans le flux, lui, le garantit par
           construction : ce qui suit commence là où il finit.
 
-          Les proportions viennent de la `viewBox` (`aspect-[200/102]`), si
-          bien qu'une seule largeur suffit à le dimensionner partout. */}
-      <InkScene
-        scene={INK_MAISONNETTE}
-        duration={TRACE_S}
-        rough={3.2}
-        className="mx-auto mb-5 aspect-[200/102] w-[11rem] text-ink/60 sm:w-[13.5rem]"
+          Les proportions viennent de la `viewBox` (`aspect-[300/152]`), si
+          bien qu'une seule largeur suffit à le dimensionner partout. Elle a été
+          reprise d'un cran (11 → 12,5 rem) : le dessin est devenu une villa
+          détaillée là où il était une maisonnette de dix-huit traits, et une
+          baie à meneaux ou une couronne de pin ne se lisent plus en dessous de
+          cette taille. */}
+      <MaisonArchitecte
+        duree={TRACE_S}
+        className="mx-auto mb-5 aspect-[300/152] w-[12.5rem] text-ink/60 sm:w-[15.25rem]"
       />
 
-      <h1 className="text-center font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]">
+      <h1 className="titre-etape text-center text-[1.75rem] leading-tight text-ink sm:text-[2.1rem]">
         Où se situe votre bien&nbsp;?
       </h1>
       <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60">

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { CALLBACK_SLOTS } from '../../data/estimation'
-import { ChatAmbience } from '../ui/ChatAmbience'
 import { GoldFrame } from '../ui/GoldFrame'
 import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 import { EASE } from '../../lib/motion'
@@ -240,11 +239,6 @@ export function EstimationChatPanel({ onDone, onProgress }) {
       <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
 
       <div className="relative flex h-[26rem] flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_22px_54px_-18px_rgba(16,20,28,0.3)] sm:h-[32rem] lg:h-[36rem]">
-        {/* Fond animé — posé dans le panneau, derrière les bulles. Le calque est
-            en `absolute` et le contenu en `relative` : l'ordre de peinture ne
-            dépend d'aucun z-index à tenir à jour. */}
-        <ChatAmbience />
-
         <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <div className="flex flex-col gap-4">
             <AnimatePresence initial={false}>

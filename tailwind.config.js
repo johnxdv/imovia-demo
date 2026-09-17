@@ -91,15 +91,6 @@ export default {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.4' },
         },
-        // Dérive des formes de fond du panneau de conversation. Amplitude
-        // volontairement faible : le mouvement doit se remarquer sans jamais
-        // se regarder. Trois temps inégaux — la boucle ne revient pas sur ses
-        // pas, elle tourne.
-        'bubble-drift': {
-          '0%, 100%': { transform: 'translate3d(0, 0, 0) scale(1)' },
-          '33%': { transform: 'translate3d(12px, -20px, 0) scale(1.07)' },
-          '66%': { transform: 'translate3d(-14px, -9px, 0) scale(0.95)' },
-        },
         // Mise en alerte de la mention « Prix soumis à expertise ». Pulsation
         // progressive plutôt que clignotement : un saut net d'opacité fait
         // daté, et la fréquence d'un vrai clignotant est un risque connu pour
@@ -127,9 +118,6 @@ export default {
         'figure-forming': 'figure-forming 2.3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spark-twinkle': 'spark-twinkle 3.1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'building-blink': 'building-blink 0.9s ease-in-out infinite',
-        // Durée posée au cas par cas côté composant (17 à 31 s) : une valeur
-        // unique remettrait toutes les formes en phase.
-        'bubble-drift': 'bubble-drift 24s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'alert-pulse': 'alert-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },

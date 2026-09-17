@@ -57,6 +57,29 @@
     @apply mx-auto w-full max-w-content px-5 sm:px-8 lg:px-12;
   }
 
+  /* Titres d'étape du parcours d'estimation — de « Où se situe votre bien ? »
+     jusqu'à la confirmation finale.
+
+     Ils quittent la Fraunces du reste du site pour la Prata de Barnes, avec le
+     geste qui va avec : l'interlettrage de 0.025em que le site de la marque
+     pose sur son `body` et laisse hériter partout. C'est ce très léger
+     desserrage — et non une graisse ou une couleur — qui fait l'allure ; il est
+     donc écrit ici une fois, plutôt que répété par titre.
+
+     Prata ne se décline qu'en une graisse. La graisse est donc verrouillée à
+     400 et la synthèse refusée : sans ce verrou, un `font-semibold` oublié sur
+     un titre ferait fabriquer au navigateur un faux gras — des lettres
+     épaissies mécaniquement, empattements compris, ce qu'une romane de ce
+     dessin ne supporte pas.
+
+     La classe ne porte ni taille ni couleur : chaque écran garde les siennes. */
+  .titre-etape {
+    font-family: 'Prata', Georgia, serif;
+    font-weight: 400;
+    font-synthesis-weight: none;
+    letter-spacing: 0.025em;
+  }
+
   /* Étiquette technique (kicker) — mono, espacée, façon légende de plan. */
   .eyebrow {
     @apply font-mono text-[0.7rem] uppercase tracking-micro text-brass;
@@ -281,7 +304,8 @@
    Même raison que les règles Leaflet ci-dessus : le minutage de chaque trait
    est posé en style inline par le composant (`--ink-t`, `--ink-d`), et ces deux
    règles sont l'infrastructure sur laquelle s'appuient toutes les scènes du
-   parcours — la maison de l'étape adresse comme les dix scènes de l'analyse.
+   parcours — la villa de l'étape adresse, les six planches de l'analyse et les
+   cinq paliers du curseur de surface (voir `src/components/estimation/encre.jsx`).
 
    `pathLength="1"` est ce qui rend le procédé praticable : il normalise la
    longueur de n'importe quel tracé à 1, si bien qu'un seul jeu d'images-clés

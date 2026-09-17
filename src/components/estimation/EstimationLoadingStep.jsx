@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Check, Lightbulb, Loader2 } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
-import { tirageScenes } from '../../data/inkScenes'
 import { EASE } from '../../lib/motion'
-import { InkScene } from './InkScene'
+import { SceneAnalyse, useTirageScenes } from './ScenesAnalyse'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
 
@@ -31,12 +30,9 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   const [barFilled, setBarFilled] = useState(false)
   const reduce = useReducedMotion()
 
-  // Tirage à l'initialisation, jamais recalculé : les scènes doivent tenir les
-  // douze secondes sans changer en cours de route. Passer la fonction à
-  // `useState` plutôt que son résultat — `useState(tirageScenes())` tirerait à
-  // chaque rendu et jetterait le tirage, ce qui ne se verrait pas ici mais
-  // reviendrait à faire tourner l'aléatoire pour rien à chaque étape cochée.
-  const [scenes] = useState(tirageScenes)
+  // Tirage figé à l'initialisation : les planches doivent tenir les douze
+  // secondes sans changer en cours de route (voir `useTirageScenes`).
+  const scenes = useTirageScenes()
 
   // Avancement local remonté à la barre globale : les 3 étapes de l'analyse
   // sont son seul repère fiable — la grande barre ci-dessous se remplit en
@@ -115,30 +111,46 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
           le conteneur animé — qui occupe toute la largeur de la section et se
           centre à la même hauteur, si bien que l'écart ne se voit pas.
 
-          Le cadre est posé une fois pour toutes (`aspect-[15/14]`) : la droite
-          tient sa place vide pendant six secondes plutôt que de pousser la page
-          quand elle démarre.
+          **Le format est debout, et non plus carré.** Les planches étaient en
+          `aspect-[15/14]` sur 27 vw : larges, basses, et par conséquent vides
+          en haut et en bas de leur colonne. Une colonne de bord d'écran est
+          haute — c'est un format portrait qu'elle demande, et c'est lui qui
+          permet de composer en plans superposés plutôt que d'étaler un seul
+          plan sur toute la largeur. D'où `aspect-[300/420]`, et une largeur
+          ramenée de 27 à 21 vw : moins large, plus haut, à surface comparable.
+
+          Le cadre est posé une fois pour toutes : la droite tient sa place vide
+          pendant six secondes plutôt que de pousser la page quand elle démarre.
 
           Monochromes, à l'encre pleine (`text-ink`) : le parcours ne connaît
           qu'une couleur de trait, et un gris intermédiaire ferait lire un
-          dessin délavé plutôt qu'un dessin à l'encre. */}
-      <div className="grid grid-cols-2 gap-4 sm:gap-6">
+          dessin délavé plutôt qu'un dessin à l'encre.
+
+          La planche de droite est retournée (`miroir`) : la pointe y court de
+          droite à gauche, et la scène se penche vers la carte de progression
+          comme celle de gauche s'y penche. */}
+      <div className="grid grid-cols-2 justify-items-center gap-4 sm:gap-6">
         {scenes.map((scene, index) => (
-          <InkScene
-            key={`${scene.id}-${index}`}
+          <SceneAnalyse
+            key={index}
             scene={scene}
-            delay={index * SCENE_S}
-            duration={SCENE_S}
+            miroir={index === 1}
+            duree={SCENE_S}
+            decalage={index * SCENE_S}
             className={[
-              'aspect-[15/14] w-full text-ink',
-              'xl:fixed xl:top-1/2 xl:w-[27vw] xl:max-w-[34rem] xl:-translate-y-1/2',
+              // Dans le flux, c'est la **hauteur** qui est fixée et la largeur
+              // qui s'en déduit : un format debout à qui l'on donne toute la
+              // largeur d'une demi-colonne deviendrait deux fois plus haut que
+              // le titre qu'il annonce.
+              'aspect-[300/420] h-[12rem] w-auto text-ink sm:h-[14.5rem]',
+              'xl:fixed xl:top-1/2 xl:h-auto xl:w-[21vw] xl:max-w-[26rem] xl:-translate-y-1/2',
               index === 0 ? 'xl:left-[2vw]' : 'xl:right-[2vw]',
             ].join(' ')}
           />
         ))}
       </div>
 
-      <h1 className="mt-7 text-center font-display text-[1.8rem] font-semibold leading-tight text-ink sm:text-[2.25rem]">
+      <h1 className="titre-etape mt-7 text-center text-[1.8rem] leading-tight text-ink sm:text-[2.25rem]">
         Analyse personnalisée en cours…
       </h1>
 

@@ -266,7 +266,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
 
           <h2
             id="surface-habitable-titre"
-            className="mt-5 font-display text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.1rem]"
+            className="titre-etape mt-5 text-[1.75rem] leading-tight text-ink sm:text-[2.1rem]"
           >
             Votre surface habitable
           </h2>

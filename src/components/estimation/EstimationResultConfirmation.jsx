@@ -47,7 +47,7 @@ export function EstimationResultConfirmation({ contact, onClose }) {
           <Check className="h-8 w-8 text-bottle" strokeWidth={2.5} aria-hidden="true" />
         </span>
 
-        <h2 className="mt-6 font-display text-[1.5rem] font-semibold leading-tight text-ink sm:text-[1.75rem]">
+        <h2 className="titre-etape mt-6 text-[1.5rem] leading-tight text-ink sm:text-[1.75rem]">
           Merci {contact?.prenom}&nbsp;!
         </h2>
 

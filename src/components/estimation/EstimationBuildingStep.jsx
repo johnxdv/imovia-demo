@@ -157,7 +157,7 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
     <div className="w-full max-w-3xl">
       <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
-      <h1 className="text-center font-display text-[1.6rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+      <h1 className="titre-etape text-center text-[1.6rem] leading-tight text-ink sm:text-[2rem]">
         Cliquez sur votre bien
       </h1>
       <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60">

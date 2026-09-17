@@ -83,7 +83,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
           <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
         </motion.div>
 
-        <h1 className="mt-7 text-center font-display text-[1.7rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+        <h1 className="titre-etape mt-7 text-center text-[1.7rem] leading-tight text-ink sm:text-[2rem]">
           Votre estimation est prête
         </h1>
 
