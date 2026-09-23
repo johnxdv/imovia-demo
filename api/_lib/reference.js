@@ -104,6 +104,46 @@ const HORS_COUVERTURE = {
  */
 const NATIONAL = { maison: 2200, appartement: 3100, terrain: 90 }
 
+/**
+ * Majoration appliquée au prix au m² des seules zones hors couverture DVF,
+ * quelle que soit la source retenue dans la cascade ci-dessous — pool, table
+ * départementale ou filet national.
+ *
+ * Demandée par l'agence, qui juge le niveau de ces références en retrait du
+ * marché qu'elle constate. Ce n'est pas une correction mesurée : c'est un
+ * réglage commercial. La ramener à 1 le neutralise partout.
+ *
+ * Elle vit ici, et non dans l'un des deux handlers, parce qu'ils s'en servent
+ * tous les deux : l'estimation et l'aperçu du curseur montrent deux chiffres
+ * au même utilisateur à quelques secondes d'intervalle, et un réglage présent
+ * d'un côté seulement les faisait diverger de dix pour cent.
+ */
+export const MAJORATION_HORS_DVF = 1.10
+
+/**
+ * Applique la majoration à un résultat de `prixReference`, si et seulement si
+ * le département est hors couverture DVF.
+ *
+ * La majoration suit le département, pas la source : elle vaut pour le pool
+ * comme pour la table départementale. Un département couvert par DVF qui
+ * retombe sur la référence après une panne n'y a pas droit — son marché est
+ * connu, c'est seulement la mesure du jour qui a manqué.
+ *
+ * `source` n'est jamais modifié : il continue de dire d'où vient le chiffre.
+ * Le prix d'avant majoration est conservé à part, sans quoi il deviendrait
+ * impossible de vérifier une référence du pool ou de juger du réglage.
+ */
+export function majoreHorsDvf(resultat, departement) {
+  const majoree = estHorsCouvertureDvf(departement)
+
+  return {
+    ...resultat,
+    pricePerM2: majoree ? resultat.pricePerM2 * MAJORATION_HORS_DVF : resultat.pricePerM2,
+    pricePerM2Base: resultat.pricePerM2,
+    majorationAppliquee: majoree,
+  }
+}
+
 /** Départements dont on sait qu'aucune vente ne sera jamais trouvée dans DVF. */
 export function estHorsCouvertureDvf(departement) {
   return Object.prototype.hasOwnProperty.call(HORS_COUVERTURE, String(departement))

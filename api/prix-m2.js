@@ -19,7 +19,7 @@
 import { comparableKinds, median, nearestSales } from './_lib/comparables.js'
 import { candidateYears, loadDepartementYear } from './_lib/dvf.js'
 import { communeAtPoint, departementFromInsee } from './_lib/geo.js'
-import { estHorsCouvertureDvf, prixReference } from './_lib/reference.js'
+import { estHorsCouvertureDvf, majoreHorsDvf, prixReference } from './_lib/reference.js'
 
 /**
  * Budget total. Court à dessein : l'aperçu accompagne la lecture de la
@@ -127,7 +127,17 @@ export default async function handler(req, res) {
         ? await apercuDvf({ lat, lon, type, departement }, { signal }).catch(() => null)
         : null
 
-    const { pricePerM2, source } = dvf ?? prixReference({ codeInsee, departement, type, lat, lon })
+    // La majoration des zones hors DVF s'applique ici comme dans l'estimation,
+    // par la même fonction — sans quoi le curseur annoncerait dix pour cent de
+    // moins que le montant calculé quelques secondes plus tard.
+    //
+    // L'appliquer après le `??` est sans danger pour l'aperçu DVF : `apercuDvf`
+    // n'est appelée que pour les départements couverts, pour lesquels
+    // `majoreHorsDvf` ne majore rien.
+    const { pricePerM2, source } = majoreHorsDvf(
+      dvf ?? prixReference({ codeInsee, departement, type, lat, lon }),
+      departement,
+    )
 
     res.setHeader('Cache-Control', 'no-store')
     return res.status(200).json({ ok: true, pricePerM2: Math.round(pricePerM2), source })
@@ -135,6 +145,8 @@ export default async function handler(req, res) {
     // Aucun repli n'a pu aboutir — la référence nationale reste préférable à
     // une fenêtre sans aperçu.
     console.error('[prix-m2] Aperçu abandonné —', error?.message ?? error)
+    // Département inconnu à ce stade : le filet national s'applique tel quel,
+    // sans majoration — on ne sait pas si l'on est en zone hors DVF.
     const { pricePerM2, source } = prixReference({ codeInsee: null, departement: null, type })
     return res.status(200).json({ ok: true, pricePerM2, source })
   } finally {
