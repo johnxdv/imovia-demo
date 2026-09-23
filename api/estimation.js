@@ -76,6 +76,21 @@ const TYPES_CONNUS = new Set(['maison', 'appartement', 'terrain', 'local'])
 
 const typeRecu = (value) => (TYPES_CONNUS.has(value) ? value : null)
 
+/**
+ * Majoration appliquée au prix au m² des seules zones hors couverture DVF
+ * (57, 67, 68, 976), quelle que soit la source retenue dans la cascade —
+ * pool, table départementale ou filet national.
+ *
+ * Demandée par l'agence, qui juge le niveau de ces références en retrait du
+ * marché qu'elle constate. Ce n'est donc pas une correction mesurée : c'est un
+ * réglage commercial, et il est isolé ici pour rester lisible et réversible.
+ * Le ramener à 1 le neutralise sans rien toucher d'autre.
+ *
+ * Elle ne s'applique jamais à un prix issu de DVF : là où de vraies mutations
+ * existent, la médiane n'a pas à être corrigée. Voir `resolvePricePerM2`.
+ */
+const MAJORATION_HORS_DVF = 1.10
+
 /** Bornes du montant renvoyé — au-delà, le calcul relève de la donnée aberrante. */
 const PRICE_RANGE = [15000, 20000000]
 
@@ -96,11 +111,28 @@ function badRequest(res, message) {
  * cascade jusqu'à ce qu'il y en ait une.
  */
 async function resolvePricePerM2({ lat, lon, type, departement, codeInsee }, { signal }) {
-  const reference = () => ({
-    ...prixReference({ codeInsee, departement, type, lat, lon }),
-    count: 0,
-    radiusM: null,
-  })
+  // Seul point de sortie des prix de référence — les trois chemins qui y
+  // mènent passent par ici, donc la majoration s'applique en une seule ligne.
+  const reference = () => {
+    const base = prixReference({ codeInsee, departement, type, lat, lon })
+
+    // La majoration suit le département, pas la source : elle vaut pour le
+    // pool comme pour la table départementale. Un département couvert par DVF
+    // qui retombe ici sur panne n'y a pas droit — son marché est connu, c'est
+    // seulement la mesure du jour qui a manqué.
+    const majoree = estHorsCouvertureDvf(departement)
+
+    return {
+      ...base,
+      pricePerM2: majoree ? base.pricePerM2 * MAJORATION_HORS_DVF : base.pricePerM2,
+      // Le prix avant majoration reste disponible : sans lui, impossible de
+      // vérifier une référence du pool ni de juger du réglage à l'usage.
+      pricePerM2Base: base.pricePerM2,
+      majorationAppliquee: majoree,
+      count: 0,
+      radiusM: null,
+    }
+  }
 
   // Départements sans aucune donnée DVF (Alsace-Moselle, Mayotte) : inutile de
   // dérouler l'élargissement, il ne trouvera rien.
@@ -325,6 +357,10 @@ export default async function handler(req, res) {
       // pertinent, et pour repérer un secteur qui mériterait son propre point.
       pointNom: prix.pointNom ?? null,
       pointDistanceM: prix.pointDistanceM ?? null,
+      // `source` continue de dire d'où vient le chiffre ; la majoration est un
+      // champ à part, pour qu'on puisse toujours remonter au prix brut.
+      pricePerM2Base: prix.pricePerM2Base != null ? Math.round(prix.pricePerM2Base) : null,
+      majorationAppliquee: prix.majorationAppliquee ?? false,
       comparables: prix.count,
       radiusM: prix.radiusM ?? null,
       // Étendue réellement couverte par les ventes retenues, qui est ce qui
