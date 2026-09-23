@@ -127,7 +127,7 @@ export default async function handler(req, res) {
         ? await apercuDvf({ lat, lon, type, departement }, { signal }).catch(() => null)
         : null
 
-    const { pricePerM2, source } = dvf ?? prixReference({ codeInsee, departement, type })
+    const { pricePerM2, source } = dvf ?? prixReference({ codeInsee, departement, type, lat, lon })
 
     res.setHeader('Cache-Control', 'no-store')
     return res.status(200).json({ ok: true, pricePerM2: Math.round(pricePerM2), source })

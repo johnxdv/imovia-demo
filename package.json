@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Site vitrine — agence immobilière Imovia (démonstrateur)",
+  "description": "Site vitrine \u2014 agence immobili\u00e8re Imovia (d\u00e9monstrateur)",
   "scripts": {
     "dev": "vite",
     "build": "npm run check:api && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "check:api": "node scripts/check-api-imports.mjs",
-    "sync:modelo": "node --env-file-if-exists=.env scripts/sync-modelo.mjs"
+    "sync:modelo": "node --env-file-if-exists=.env scripts/sync-modelo.mjs",
+    "points:reference": "node scripts/points-reference.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.5.4",

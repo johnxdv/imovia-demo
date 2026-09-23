@@ -97,7 +97,7 @@ function badRequest(res, message) {
  */
 async function resolvePricePerM2({ lat, lon, type, departement, codeInsee }, { signal }) {
   const reference = () => ({
-    ...prixReference({ codeInsee, departement, type }),
+    ...prixReference({ codeInsee, departement, type, lat, lon }),
     count: 0,
     radiusM: null,
   })
@@ -318,6 +318,13 @@ export default async function handler(req, res) {
       departement,
       pricePerM2: Math.round(prix.pricePerM2),
       source: prix.source,
+      // Renseignés par les seuls étages « pool » de `reference.js` : quel point
+      // de référence a servi, et à quelle distance. Sans eux, un
+      // `reference-point-proche` dans le journal ne dirait pas d'où vient le
+      // prix — or c'est exactement ce qu'il faut savoir pour juger s'il est
+      // pertinent, et pour repérer un secteur qui mériterait son propre point.
+      pointNom: prix.pointNom ?? null,
+      pointDistanceM: prix.pointDistanceM ?? null,
       comparables: prix.count,
       radiusM: prix.radiusM ?? null,
       // Étendue réellement couverte par les ventes retenues, qui est ce qui
