@@ -4,6 +4,7 @@ import { Check, MapPin } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { StepBackLink } from './StepBackLink'
 import { PriceReveal } from './PriceReveal'
+import { PriceStamp } from './PriceStamp'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { formatEuros, priceRange } from '../../lib/format'
@@ -114,6 +115,15 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
               />
             </div>
 
+            {/* Ce que le montant ne couvre pas. La précision est posée sous le
+                chiffre dès cet écran et sans condition : elle vaut pour toute
+                estimation, secteur couvert par DVF comme secteur de référence
+                majoré — la distinction se joue côté serveur et ne remonte
+                jamais jusqu'ici (voir `api/estimation.js`). */}
+            <p className="mt-4 font-mono text-[0.6rem] uppercase tracking-micro text-ink/40">
+              Prix hors estimation du terrain
+            </p>
+
             <p className="mt-7 font-display text-lg font-semibold text-ink sm:text-xl">
               Résultats détaillés disponibles
             </p>
@@ -165,13 +175,36 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 Estimation de votre bien
               </p>
 
-              <div className="mt-4 flex items-center justify-center">
+              {/* `relative` : le tampon ne se glisse pas à côté du montant,
+                  il se pose dessus — c'est le recouvrement qui fait le visa.
+
+                  La hauteur ne s'ouvre qu'à la révélation, et elle s'ouvre en
+                  500 ms, soit le temps que le tampon met à descendre : la
+                  carte fait la place pendant la chute, plutôt que de sauter
+                  d'un coup. Tenir cette réserve en permanence laisserait le
+                  montant flotter dans un vide de 11 rem pendant toute la
+                  conversation ; ne pas la tenir du tout ferait retomber le
+                  tampon sur la mention qui suit (voir `PriceStamp`). */}
+              <div
+                className={`relative mt-4 flex items-center justify-center transition-[min-height] duration-500 ease-plan ${
+                  finished ? 'min-h-[9rem] sm:min-h-[11rem]' : 'min-h-0'
+                }`}
+              >
                 <PriceReveal
                   formatted={formatted ?? '— €'}
                   revealStage={finished ? 5 : revealStage}
                   className="whitespace-nowrap font-display text-[clamp(2.5rem,13vw,3.5rem)] font-semibold leading-none text-ink md:text-[3.25rem]"
                 />
+
+                {/* Même bascule que le déflouttage intégral : le tampon est
+                    monté à l'instant où `finished` passe à vrai, et sa frappe
+                    tombe sur la fin du fondu (voir `PriceStamp`). */}
+                {finished && <PriceStamp />}
               </div>
+
+              <p className="mt-3 font-mono text-[0.6rem] uppercase tracking-micro text-ink/40">
+                Prix hors estimation du terrain
+              </p>
 
               {!finished && (
                 <p className="mx-auto mt-5 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
@@ -216,19 +249,6 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                   </div>
                 </div>
               </div>
-
-              {/* Mention d'alerte. Elle reste petite — l'attention vient de la
-                  couleur et de la pulsation, pas du corps de texte : une
-                  mention grossie ferait concurrence au montant juste
-                  au-dessus, alors qu'elle doit seulement le nuancer.
-                  Pulsation douce plutôt que clignotement : voir
-                  `alert-pulse` dans `tailwind.config.js`. */}
-              <p
-                role="note"
-                className="mx-auto mt-3 max-w-xs animate-alert-pulse text-center font-mono text-[0.72rem] font-semibold uppercase leading-relaxed tracking-micro text-red-700"
-              >
-                Prix soumis à expertise
-              </p>
             </motion.div>
           )}
         </div>

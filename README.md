@@ -341,9 +341,16 @@ sans navigation d'URL entre les étapes :
    secondes chacune, soit exactement la durée de l'analyse.
 5. **Résultat** — montant flouté, adresse rappelée, invitation à laisser ses
    coordonnées. La conversation de capture se tient sur un fond de formes qui
-   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)), et la
-   fourchette finale est suivie de la mention **« Prix soumis à expertise »**,
-   en rouge et en pulsation douce.
+   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)). À l'instant
+   où le flou se lève, un **tampon encreur « Prix soumis à expertise »**
+   ([`PriceStamp`](src/components/estimation/PriceStamp.jsx)) est abattu sur le
+   montant et y reste : il descend en survol, frappe, rebondit, puis se fige de
+   travers. Le montant se lit dans la bande vide du cachet, entre ses deux
+   lignes — c'est cette disposition, et non un simple recouvrement, qui laisse
+   les deux lisibles. La mention portait jusqu'ici une ligne rouge pulsée sous
+   la fourchette ; elle a été reprise par le tampon plutôt que doublée.
+   Sous le montant, sur tous les écrans de résultat et toutes les zones,
+   la précision **« Prix hors estimation du terrain »**.
 
 ### Ce qui reste à brancher
 
@@ -490,7 +497,8 @@ simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 monégasque va, selon le quartier et les sources, de ~38 000 € à plus de
 100 000 €/m². Une moyenne unique ne peut pas prétendre au resserrement d'une
 médiane de ventes voisines. Le reste de l'écran de résultat est identique,
-mention « Prix soumis à expertise » comprise.
+tampon « Prix soumis à expertise » et mention « Prix hors estimation du
+terrain » compris.
 
 **La détection ne peut pas se lire dans la réponse de la BAN**, qui ne connaît
 aucune adresse monégasque : interrogée sur « Monte-Carlo, Monaco », elle répond

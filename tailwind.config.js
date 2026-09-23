@@ -91,16 +91,6 @@ export default {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.4' },
         },
-        // Mise en alerte de la mention « Prix soumis à expertise ». Pulsation
-        // progressive plutôt que clignotement : un saut net d'opacité fait
-        // daté, et la fréquence d'un vrai clignotant est un risque connu pour
-        // les personnes photosensibles. L'opacité basse reste franchement
-        // lisible — c'est elle qui subsiste sous `prefers-reduced-motion`,
-        // où le filet CSS global fige l'animation.
-        'alert-pulse': {
-          '0%, 100%': { opacity: '0.72', textShadow: '0 0 0 rgba(185, 28, 28, 0)' },
-          '50%': { opacity: '1', textShadow: '0 0 14px rgba(185, 28, 28, 0.5)' },
-        },
       },
       animation: {
         'fade-up': 'fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
@@ -118,7 +108,6 @@ export default {
         'figure-forming': 'figure-forming 2.3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spark-twinkle': 'spark-twinkle 3.1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'building-blink': 'building-blink 0.9s ease-in-out infinite',
-        'alert-pulse': 'alert-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },
