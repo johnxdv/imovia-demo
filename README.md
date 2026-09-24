@@ -341,18 +341,16 @@ sans navigation d'URL entre les étapes :
    secondes chacune, soit exactement la durée de l'analyse.
 5. **Résultat** — montant flouté, adresse rappelée, invitation à laisser ses
    coordonnées. La conversation de capture se tient sur un fond de formes qui
-   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)). Une fois la
-   fourchette affichée, un **cachet rond noir**
-   ([`PriceStamp`](src/components/estimation/PriceStamp.jsx)) est frappé sous
-   les deux bornes : il descend, s'écrase, rebondit, tient une seconde, puis se
-   relève et s'efface. Il porte « prix soumis à expertise » et « hors
-   estimation du terrain », sur deux lignes dans la couronne.
+   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)). Sous le
+   montant, une mention permanente : **« Prix soumis à expertise, hors
+   terrain »**.
 
-   > **Ces deux mentions ne sont donc affichées nulle part de façon
-   > permanente** : elles passent avec le cachet, qui se démonte de lui-même à
-   > la dernière image. Le choix est assumé — c'est un geste, pas une mention
-   > légale — mais il est à reprendre le jour où l'estimation engagera
-   > l'agence.
+   > La mention est **du texte nu, sans animation**, et elle suit le montant
+   > partout où il paraît — sur l'écran de repos comme en colonne gauche
+   > pendant la conversation. Une version antérieure la portait dans un cachet
+   > animé qui se démontait de lui-même après deux secondes : la réserve
+   > n'était alors visible nulle part de façon permanente. C'est une mention
+   > qui se lit, pas un geste.
 
 ### Ce qui reste à brancher
 
@@ -498,8 +496,7 @@ simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 **La fourchette élargie n'est pas une précaution de forme** : le marché
 monégasque va, selon le quartier et les sources, de ~38 000 € à plus de
 100 000 €/m². Une moyenne unique ne peut pas prétendre au resserrement d'une
-médiane de ventes voisines. Le reste de l'écran de résultat est identique,
-cachet frappé sous la fourchette compris.
+médiane de ventes voisines. Le reste de l'écran de résultat est identique.
 
 **La détection ne peut pas se lire dans la réponse de la BAN**, qui ne connaît
 aucune adresse monégasque : interrogée sur « Monte-Carlo, Monaco », elle répond

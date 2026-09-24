@@ -4,7 +4,6 @@ import { Check, MapPin } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { StepBackLink } from './StepBackLink'
 import { PriceReveal } from './PriceReveal'
-import { PriceStamp } from './PriceStamp'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { formatEuros, priceRange } from '../../lib/format'
@@ -115,6 +114,14 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
               />
             </div>
 
+            {/* Même réserve que sur l'écran suivant. Le montant est affiché à
+                deux endroits — ici au repos, puis à gauche pendant la
+                conversation — et la mention doit suivre le montant partout où
+                il paraît, pas seulement là où on l'a écrite en premier. */}
+            <p className="mx-auto mt-4 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
+              Prix soumis à expertise, hors terrain
+            </p>
+
             <p className="mt-7 font-display text-lg font-semibold text-ink sm:text-xl">
               Résultats détaillés disponibles
             </p>
@@ -174,6 +181,15 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                 />
               </div>
 
+              {/* Réserve attachée au montant lui-même, sans condition d'étape :
+                  elle vaut pour toute estimation affichée, pendant le
+                  dévoilement comme après. Volontairement du texte nu, sans
+                  animation ni ornement — c'est une réserve juridique, elle se
+                  lit, elle ne se met pas en scène. */}
+              <p className="mx-auto mt-4 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
+                Prix soumis à expertise, hors terrain
+              </p>
+
               {!finished && (
                 <p className="mx-auto mt-5 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
                   Un expert va finaliser votre étude et vous présenter les meilleures options
@@ -191,7 +207,7 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
               initial={{ opacity: 0, y: reduce ? 0 : 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE }}
-              className="relative mt-4"
+              className="mt-4"
             >
               <div className="rounded-2xl border border-ink/10 bg-white px-4 py-5 shadow-[0_14px_36px_-20px_rgba(16,20,28,0.28)] sm:px-6">
                 {/* Les deux bornes restent côte à côte jusqu'aux plus petits
@@ -217,13 +233,6 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
                   </div>
                 </div>
               </div>
-
-              {/* Frappé sous les deux bornes, jamais par-dessus : la fourchette
-                  reste lisible pendant toute l'animation. Positionnement
-                  absolu — le cachet ne dure que deux secondes, il n'a pas à
-                  pousser quoi que ce soit dans la page à son arrivée ni à
-                  laisser un trou à son départ. */}
-              <PriceStamp />
             </motion.div>
           )}
         </div>
