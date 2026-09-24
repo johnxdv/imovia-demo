@@ -16,6 +16,12 @@ const infoLinks = [
 // un document (PDF), pas une route interne : lien externe dédié.
 const legalFooterLinks = [
   { to: '/recrutement', label: 'Recrutement' },
+  // Seul lien du site vers le blog, et il est ici par choix : les articles
+  // s'adressent aux moteurs de recherche et aux moteurs génératifs, pas aux
+  // visiteurs venus consulter des biens. Ils ne doivent donc rien prendre à la
+  // navigation principale. Le pied de page suffit à les rendre atteignables —
+  // et à les faire découvrir par un robot qui suit les liens.
+  { to: '/blog', label: 'Articles' },
   { href: '/documents/bareme-honoraires-immovia.pdf', label: 'Nos honoraires' },
   { to: '/mentions-legales', label: 'Mentions légales' },
   { to: '/confidentialite', label: 'Politique de confidentialité' },

@@ -114,19 +114,29 @@ api/
 ├── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
 ├── estimation.js           Fonction serverless — moteur d'estimation (DVF, + barème Monaco)
 ├── prix-m2.js              Fonction serverless — prix indicatif au m² (aperçu)
+├── seo-articles.js         Fonction serverless — écriture des articles depuis /seo
 └── _lib/                   Briques du moteur (préfixe `_` : jamais des routes)
     ├── bien.js             Étape A — surface et année du bien (BDNB, cadastre)
     ├── comparables.js      Étapes B et C — ventes comparables, médiane au m²
     ├── dvf.js              Téléchargement, analyse et cache des fichiers DVF
     ├── geo.js              Distances, code département, sondage du pourtour
-    └── reference.js        Repli hors couverture DVF (Alsace-Moselle, Mayotte)
+    ├── reference.js        Repli hors couverture DVF (Alsace-Moselle, Mayotte)
+    └── articleTexte.js     Slug d'article, texte brut → article (partagé)
 
 scripts/
 ├── sync-modelo.mjs         Import du flux Modelo — « annule et remplace »
+├── points-reference.mjs    Construction du pool de points de référence
+├── blog-article.mjs        Génération d'un article, de la recherche au fichier
+├── prerender-blog.mjs      Prérendu HTML des articles + sitemap (après le build)
 ├── check-api-imports.mjs   Contrôle de chargement des fonctions serverless
 └── _lib/
     ├── xml.mjs             Lecture XML ordonnée, entités, balises absentes
-    └── modelo.mjs          Mapping `<bien>` Modelo → modèle Immovia
+    ├── modelo.mjs          Mapping `<bien>` Modelo → modèle Immovia
+    ├── claude-api.mjs      Appels à l'API Claude + comptabilité du coût réel
+    ├── donnees-locales.mjs Statistiques locales réelles, lues du moteur d'estimation
+    ├── illustration.mjs    Graphique SVG, ou photo Unsplash / Pexels
+    ├── article.mjs         Contrat d'un article : forme, lecture, écriture, HTML
+    └── jsonLd.mjs          Balisage schema.org (Article, FAQPage, agence)
 
 src/
 ├── components/
@@ -141,6 +151,7 @@ src/
 │   └── team/        ContactConseillerModal (fenêtre de contact individuel)
 ├── data/
 │   ├── properties.json   Biens diffusés — produit par `npm run sync:modelo`
+│   ├── articles/         Articles du blog — un fichier JSON par article
 │   ├── team.js           Conseillers joignables individuellement (page Équipe)
 │   ├── projets.js        Natures de projet du formulaire conseiller
 │   ├── estimation.js     Étapes d'analyse, encarts d'attente, créneaux de rappel
@@ -162,6 +173,7 @@ src/
 │   ├── geo.js            Emprise au sol, emprise carrée, point dans un anneau
 │   ├── estimation.js     Appel du moteur d'estimation (POST /api/estimation)
 │   ├── prixSecteur.js    Prix indicatif au m² du secteur (POST /api/prix-m2)
+│   ├── articles.js       Accès aux articles du blog
 │   └── nav.js            Architecture de navigation
 └── pages/           Une page par route
 ```
@@ -834,6 +846,205 @@ aucun fichier scanné par Tailwind.
 - Les surcharges CSS de Leaflet vivent **hors `@layer`** dans
   [`src/index.css`](src/index.css) — Tailwind élaguerait sinon des règles dont
   les classes n'apparaissent nulle part dans le JSX.
+
+## Blog automatique
+
+Six articles par mois, écrits par l'API Claude sur des données locales réelles,
+publiés par commit comme les biens.
+
+### Le parcours d'un article
+
+```bash
+npm run blog:article            # écrit l'article dans src/data/articles/
+npm run blog:article -- --essai # déroule tout, n'écrit rien dans le dépôt
+npm run blog:article -- --sujet "…" --categorie conseils-vente   # impose le sujet
+```
+
+Un sujet imposé saute la recherche web : l'article n'aura alors **aucune
+statistique extérieure** à citer, puisque rien n'aura été consulté.
+
+1. **Recherche du sujet** — un appel à Claude avec l'outil de recherche web :
+   ce qui se publie déjà sur le secteur, et un angle qui n'est pas pris, dans
+   une catégorie ouverte. Le modèle reçoit la liste des articles déjà publiés
+   avec leur catégorie, et celle des données disponibles : un angle qu'on ne
+   saurait pas documenter est écarté d'emblée. Il rapporte aussi les
+   statistiques sourcées rencontrées, avec l'adresse de chaque page ouverte —
+   adresses ensuite vérifiées.
+2. **Données locales** — [`scripts/_lib/donnees-locales.mjs`](scripts/_lib/donnees-locales.mjs)
+   interroge en lecture le moteur qui sert les estimations du site. Aucun
+   réseau, aucune écriture.
+3. **Rédaction** — second appel, en sorties structurées : résumé de deux à
+   trois phrases, sous-titres formulés en questions, FAQ de trois à cinq
+   questions, 800 à 1 200 mots.
+4. **Balisage** — `Article`, `FAQPage` et la fiche de l'agence, posés au
+   prérendu ([`scripts/_lib/jsonLd.mjs`](scripts/_lib/jsonLd.mjs)).
+5. **Illustration** — un graphique en barres si une comparaison chiffrée porte
+   l'article, sinon Unsplash, sinon Pexels, sinon rien.
+6. **Publication** — le script écrit le fichier, le workflow décide de
+   commiter. Même découpage que l'import Modelo.
+
+Le workflow [`blog-article.yml`](.github/workflows/blog-article.yml) tient le
+rythme : les 1, 6, 11, 16, 21 et 26 de chaque mois. **Son `schedule` est en
+commentaire** tant que le premier article n'a pas été relu — seul le
+déclenchement manuel est actif.
+
+### Six catégories, en rotation
+
+Interdire les sujets déjà publiés ne suffit pas à varier : six demandes d'« un
+angle sur le marché local » donnent six comparaisons de prix qui ne se répètent
+jamais mot pour mot et se ressemblent toutes. La contrainte porte donc sur la
+nature du sujet ([`scripts/_lib/categories.mjs`](scripts/_lib/categories.mjs)) :
+
+| Clé | Catégorie |
+| --- | --------- |
+| `comparaison-prix` | Comparaison de prix par quartier ou par commune |
+| `guide-achat` | Guide d'achat : financement, aides, fiscalité locale |
+| `entretien-travaux` | Entretien et travaux de la maison selon la saison |
+| `qualite-de-vie` | Qualité de vie : écoles, commerces, transports |
+| `conseils-vente` | Conseils pour bien vendre localement |
+| `actualite-marche` | Actualité et évolution du marché — **seulement si une source existe** |
+
+**Règle :** le sujet retenu appartient à une catégorie différente de celle des
+deux derniers articles publiés. Le script la vérifie et échoue si elle n'est pas
+respectée — publier quand même reviendrait à n'avoir écrit ni les catégories ni
+la règle.
+
+Les catégories ouvertes sont présentées **de la moins récemment traitée à la
+plus récente**. Cet ordre corrige un défaut mesuré : la règle seule est
+satisfaite par un cycle de trois (comparaison, guide, travaux, et on recommence),
+où trois catégories sur six ne sortent jamais. Avec l'ordre, une simulation sur
+douze articles au comportement le plus répétitif possible couvre les six
+catégories dès le premier mois.
+
+Un article saisi à la main depuis `/seo` ne porte pas de catégorie et **ne
+consomme pas de tour** de rotation : deux dépannages d'affilée rouvriraient
+sinon toutes les catégories d'un coup.
+
+Quatre catégories sur six n'ont aucune donnée interne à citer — le pool ne
+renseigne que des prix. Elles s'écrivent sur ce que la recherche a sourcé, ou
+sans chiffre du tout. Un article de conseil n'a pas besoin d'un tableau pour
+être utile.
+
+### Aucun chiffre n'est inventé — deux sources, deux régimes
+
+**1. Les relevés du site.** L'étape 3 ne voit que le dossier de l'étape 2, et la
+liste explicite de ce qui n'existe pas :
+
+| Donnée | Disponible ? |
+| ------ | ------------ |
+| Prix au m² par commune | Oui — pool de points de référence, relevé unique |
+| Prix au m² par quartier | Oui, pour cinq communes : Mulhouse, Strasbourg, Metz, Colmar, Forbach |
+| Évolution dans le temps | **Non déductible** — un seul relevé, rien à comparer |
+| Prix des terrains | **Non** — aucun point du pool ne le renseigne |
+| Volumes, délais de vente | **Non** — rien de tel n'est mesuré |
+| Ventes DVF | **Non** — la Moselle relève du livre foncier, rien n'est publié |
+
+Aucune évolution ne peut être tirée de ces prix, par aucun calcul, sous aucune
+formulation même prudente.
+
+**2. Les statistiques trouvées à la recherche.** Une évolution chiffrée — ou
+tout autre fait : nombre d'écoles, temps de trajet, montant d'une aide — peut
+être citée si elle vient d'une source datée et identifiable rencontrée à
+l'étape 1, **et si l'article nomme cette source dans la phrase même**. Ces
+chiffres arrivent dans un bloc `statistiquesExternes` distinct des relevés du
+site, et les sources citées sont rendues en fin d'article, en lien.
+
+#### La vérification qui rend la seconde source utilisable
+
+Un modèle à qui l'on demande une statistique sourcée sait en produire une
+parfaitement crédible et entièrement fausse — « Chambre des notaires de la
+Moselle, mars 2026 » avec une adresse qui n'a jamais existé. C'est le mode
+d'échec le plus courant de l'exercice, et il est **invisible à la relecture** :
+la citation a l'air juste.
+
+La parade est mécanique. `urlsDeRecherche()` extrait les adresses que l'outil de
+recherche a réellement rendues — blocs de résultats et citations des blocs de
+texte — et `verifieSources()` écarte toute statistique dont l'adresse n'y figure
+pas. La comparaison porte sur l'hôte et le chemin, pour tolérer les paramètres
+de suivi et les redirections. Ce qui est écarté est journalisé nommément : une
+source fabriquée en dit long sur la qualité de la recherche de ce passage.
+
+Un second contrôle, après rédaction, signale toute source apparue à l'étape 3 —
+le modèle n'ayant pas accès au web à ce moment-là, elle n'aurait été consultée
+par personne.
+
+Les prix internes cités sont les prix **relevés**, sans la majoration
+commerciale de 10 % que l'estimateur applique (voir `MAJORATION_HORS_DVF` dans
+[`api/_lib/reference.js`](api/_lib/reference.js)) : un article énonce un prix de
+marché, pas un réglage commercial.
+
+Chaque chiffre cité arrive avec sa provenance, dans `chiffresCites`, et la page
+de l'article l'affiche dans un dépliant en fin de lecture.
+
+### Prérendu — sans lui, rien de tout ceci n'est lu
+
+Le site est une application React : le contenu n'existe que dans le paquet
+JavaScript. Googlebot l'exécute, **GPTBot, PerplexityBot et ClaudeBot non**.
+Sans prérendu, un article et son balisage seraient invisibles pour exactement
+les robots que [`public/robots.txt`](public/robots.txt) autorise.
+
+[`scripts/prerender-blog.mjs`](scripts/prerender-blog.mjs), branché sur
+`npm run build`, écrit donc un vrai fichier HTML par article
+(`dist/blog/<slug>/index.html`), avec le texte, les titres, la FAQ, le balisage
+et les balises de partage dans la source. Vercel sert un fichier existant avant
+d'appliquer la réécriture de [`vercel.json`](vercel.json) : ces pages
+court-circuitent la coquille SPA sans rien à déclarer.
+
+La page React et le rendu statique **doivent garder la même hiérarchie de
+titres** — `h1`, `h2` par section, `h3` en FAQ. Une divergence donnerait deux
+lectures du même article selon le lecteur.
+
+### Où le blog apparaît, et où il n'apparaît pas
+
+- **Un seul lien** vers `/blog`, dans la colonne « Informations légales » du
+  pied de page. Rien dans la navbar, rien dans le menu.
+- `/blog` et chaque article sont au sitemap.
+- **`/seo` n'est nulle part** : ni lien, ni sitemap, ni prérendu, ni mention
+  dans `robots.txt` — l'y inscrire en `Disallow` reviendrait à publier son
+  adresse.
+
+### La page `/seo`
+
+Liste les articles, permet d'en supprimer un (avec confirmation) et d'en
+ajouter un à la main. Les deux écritures passent par l'API GitHub : le site
+étant statique, un article est un fichier du dépôt, et c'est le commit qui
+publie. Compter une à deux minutes de déploiement avant qu'un changement soit
+visible.
+
+> **Cette page n'est protégée par aucun mot de passe.** Quiconque devine
+> l'adresse peut publier ou supprimer. Le verrou est déjà écrit et il suffit de
+> le poser : déclarer `SEO_ADMIN_TOKEN` côté Vercel. Tant qu'elle est absente,
+> [`api/seo-articles.js`](api/seo-articles.js) laisse tout passer ; dès qu'elle
+> est renseignée, il exige ce jeton. Aucun code à changer, aucun redéploiement.
+
+Aucune donnée de fréquentation n'y figure : le site n'embarque aucun outil de
+mesure.
+
+### Variables d'environnement
+
+| Variable | Rôle |
+| -------- | ---- |
+| `ANTHROPIC_API_KEY` | **Obligatoire.** Recherche du sujet et rédaction. |
+| `UNSPLASH_ACCESS_KEY` | Facultative — photo d'illustration, premier choix. |
+| `PEXELS_API_KEY` | Facultative — repli si Unsplash ne rend rien. |
+| `GITHUB_TOKEN` | Écriture depuis `/seo` (droit « Contents: write » sur ce dépôt). |
+| `GITHUB_REPO` | `proprietaire/nom`. Déduit du déploiement sur Vercel. |
+| `SEO_ADMIN_TOKEN` | Le verrou de `/seo`. Vide = page ouverte. |
+| `SITE_URL` | Domaine du prérendu. Par défaut `agency.siteUrl`. |
+
+Les trois premières se déclarent en secrets de dépôt GitHub (le workflow les
+lit) ; les quatre suivantes côté Vercel (les fonctions serverless et le build
+les lisent).
+
+### Ce que coûte un article
+
+Le coût réel n'est pas estimé, il est **mesuré** : le champ `usage` de chaque
+réponse est accumulé par [`scripts/_lib/claude-api.mjs`](scripts/_lib/claude-api.mjs),
+tarifé poste par poste, puis enregistré dans l'article lui-même sous
+`meta.cout`. Le script l'affiche aussi en fin de course. Tarifs relevés le
+24 septembre 2026 : Claude Opus 5 à 5 $ le million de jetons en entrée, 25 $ en
+sortie ; recherche web à 10 $ les 1 000 recherches. `max_uses` borne les
+recherches à six par article — c'est le seul garde-fou de coût direct.
 
 ## Système de design
 

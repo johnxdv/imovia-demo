@@ -3,6 +3,11 @@
 export const agency = {
   name: 'IMMOVIA',
   baseline: 'Agence immobilière',
+  // Domaine canonique — sert aux URL absolues qu'un fichier servi hors du
+  // navigateur ne peut pas deviner : balisage schema.org, sitemap, balises
+  // Open Graph des articles prérendus. Reprise de l'en-tête déjà envoyé aux
+  // services publics par `api/monaco-adresses.js`.
+  siteUrl: 'https://immo-via.com',
   phone: '03 72 29 43 76',
   phoneHref: 'tel:+33372294376',
   email: 'contact@immo-via.com',

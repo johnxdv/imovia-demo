@@ -1,0 +1,34 @@
+# robots.txt — IMMOVIA
+#
+# Ce fichier n'existait pas : l'absence de robots.txt vaut autorisation
+# implicite, tout était donc déjà permis. Il est écrit ici pour rendre cette
+# autorisation explicite pour les moteurs génératifs, et pour déclarer le
+# sitemap.
+#
+# LES TROIS ROBOTS NOMMÉS CI-DESSOUS N'EXÉCUTENT PAS LE JAVASCRIPT.
+# Les y autoriser ne sert à quelque chose que parce que les articles sont
+# prérendus en HTML statique au moment du build (`scripts/prerender-blog.mjs`).
+# Sans ce prérendu, ils recevraient la coquille vide de l'application React et
+# cette autorisation serait purement décorative. Si le prérendu est un jour
+# retiré, ces règles ne veulent plus rien dire.
+#
+# `/seo` n'est volontairement PAS mentionné ici, même en `Disallow` : la page
+# n'est liée nulle part et n'est pas prérendue, elle est donc invisible pour un
+# robot qui ne suit que des liens. L'inscrire en `Disallow` reviendrait à
+# publier son adresse dans un fichier que tout le monde peut lire — c'est le
+# contraire de l'effet recherché.
+
+User-agent: *
+Allow: /
+
+# Moteurs génératifs — accès explicite au contenu éditorial.
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+Sitemap: https://immo-via.com/sitemap.xml

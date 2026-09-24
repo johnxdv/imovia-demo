@@ -3,15 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Site vitrine \u2014 agence immobili\u00e8re Imovia (d\u00e9monstrateur)",
+  "description": "Site vitrine — agence immobilière Imovia (démonstrateur)",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check:api && vite build",
+    "build": "npm run check:api && vite build && node scripts/prerender-blog.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "check:api": "node scripts/check-api-imports.mjs",
     "sync:modelo": "node --env-file-if-exists=.env scripts/sync-modelo.mjs",
-    "points:reference": "node scripts/points-reference.mjs"
+    "points:reference": "node scripts/points-reference.mjs",
+    "blog:article": "node --env-file-if-exists=.env scripts/blog-article.mjs",
+    "blog:prerender": "node scripts/prerender-blog.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.5.4",
@@ -22,6 +24,7 @@
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
     "fast-xml-parser": "^5.11.1",

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Prix au m² relevé pour les maisons dans les 12 communes à moins de 7 km de Diebling (relevé septembre 2026)">
+  <rect width="1200" height="630" fill="#10141C" />
+  <text x="70" y="66" fill="#EDEAE3" font-family="Georgia, serif" font-size="26">Prix au m² relevé pour les maisons dans les 12 communes à moins de 7 km</text>
+  <text x="70" y="100" fill="#EDEAE3" font-family="Georgia, serif" font-size="26">de Diebling (relevé septembre 2026)</text>
+  <text x="70" y="134" fill="#B08D57" font-family="ui-monospace, SFMono-Regular, monospace" font-size="19" letter-spacing="2.5">€/M² · MAISON · RELEVÉ 2026-09</text>
+  <line x1="70" y1="423" x2="1130" y2="423" stroke="#B08D57" stroke-width="1" />
+  <rect x="87.7" y="168.0" width="53.0" height="255.0" fill="#B08D57" />
+  <text x="114.2" y="201.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">2144</text>
+  <text x="114.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 114.2 449.0)">Farébersviller</text>
+  <rect x="176.0" y="223.7" width="53.0" height="199.3" fill="#B08D57" />
+  <text x="202.5" y="256.7" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1676</text>
+  <text x="202.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 202.5 449.0)">Nousseviller-Saint-Na…</text>
+  <rect x="264.3" y="235.6" width="53.0" height="187.4" fill="#B08D57" />
+  <text x="290.8" y="268.6" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1576</text>
+  <text x="290.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 290.8 449.0)">Théding</text>
+  <rect x="352.7" y="235.9" width="53.0" height="187.1" fill="#B08D57" />
+  <text x="379.2" y="268.9" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1573</text>
+  <text x="379.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 379.2 449.0)">Henriville</text>
+  <rect x="441.0" y="238.8" width="53.0" height="184.2" fill="#B08D57" />
+  <text x="467.5" y="271.8" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1549</text>
+  <text x="467.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 467.5 449.0)">Hundling</text>
+  <rect x="529.3" y="243.4" width="53.0" height="179.6" fill="#B08D57" />
+  <text x="555.8" y="276.4" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1510</text>
+  <text x="555.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 555.8 449.0)">Lixing-lès-Rouhling</text>
+  <rect x="617.7" y="249.1" width="53.0" height="173.9" fill="#B08D57" />
+  <text x="644.2" y="282.1" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1462</text>
+  <text x="644.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 644.2 449.0)">Diebling</text>
+  <rect x="706.0" y="251.4" width="53.0" height="171.6" fill="#B08D57" />
+  <text x="732.5" y="284.4" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1443</text>
+  <text x="732.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 732.5 449.0)">Ernestviller</text>
+  <rect x="794.3" y="252.6" width="53.0" height="170.4" fill="#B08D57" />
+  <text x="820.8" y="285.6" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1433</text>
+  <text x="820.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 820.8 449.0)">Bousbach</text>
+  <rect x="882.7" y="253.4" width="53.0" height="169.6" fill="#B08D57" />
+  <text x="909.2" y="286.4" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1426</text>
+  <text x="909.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 909.2 449.0)">Folkling</text>
+  <rect x="971.0" y="255.8" width="53.0" height="167.2" fill="#B08D57" />
+  <text x="997.5" y="288.8" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1406</text>
+  <text x="997.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 997.5 449.0)">Woustviller</text>
+  <rect x="1059.3" y="263.6" width="53.0" height="159.4" fill="#B08D57" />
+  <text x="1085.8" y="296.6" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1340</text>
+  <text x="1085.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 1085.8 449.0)">Puttelange-aux-Lacs</text>
+  <text x="1130" y="616" fill="#EDEAE3" fill-opacity="0.35" font-family="ui-monospace, SFMono-Regular, monospace" font-size="15" text-anchor="end">échelle à partir de zéro</text>
+</svg>

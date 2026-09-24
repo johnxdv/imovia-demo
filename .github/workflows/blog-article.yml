@@ -1,0 +1,109 @@
+# Génération d'un article de blog.
+#
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  LE DÉCLENCHEMENT AUTOMATIQUE EST DÉSACTIVÉ.                             ║
+# ║                                                                          ║
+# ║  Le bloc `schedule` ci-dessous est en commentaire, tant que le premier   ║
+# ║  article n'a pas été relu et que le coût unitaire réel n'a pas été       ║
+# ║  validé. En l'état, ce workflow ne part que sur demande explicite,       ║
+# ║  depuis l'onglet Actions.                                                ║
+# ║                                                                          ║
+# ║  POUR L'ACTIVER : retirer le `#` des quatre lignes `schedule`. Rien      ║
+# ║  d'autre n'est à changer.                                                ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# SIX PASSAGES PAR MOIS, ESPACÉS
+#
+# Les 1, 6, 11, 16, 21 et 26 — un article tous les cinq jours, et non six d'un
+# coup en début de mois. Deux raisons : une publication régulière se lit mieux
+# côté moteurs qu'une rafale suivie de trois semaines de silence, et un sujet
+# choisi tous les cinq jours a le temps de tenir compte de ce que la
+# concurrence a publié entre-temps.
+#
+# `cron` s'exprime en UTC : `7` UTC vaut 8 h à Paris en hiver, 9 h en été.
+# L'heure exacte n'a aucune importance ici — rien n'attend l'article.
+#
+# CE QUE COÛTE CHAQUE PASSAGE
+#
+# Un article consomme deux appels à l'API Claude, dont un avec recherche web
+# (facturée à la recherche). Le coût réel du dernier article est enregistré
+# dans son propre fichier, sous `meta.cout` : il n'y a pas à l'estimer, il se
+# relit. C'est ce qui permet de décider si six par mois restent soutenables.
+
+name: Article de blog
+
+on:
+  # schedule:
+  #   # Les 1, 6, 11, 16, 21 et 26 de chaque mois.
+  #   - cron: '0 7 1,6,11,16,21,26 * *'
+
+  # Lancement à la demande depuis l'onglet Actions — seul déclencheur actif.
+  workflow_dispatch:
+    inputs:
+      sujet:
+        description: 'Sujet imposé (laisser vide pour que le modèle le cherche)'
+        required: false
+        type: string
+      essai:
+        description: 'Essai : dérouler sans écrire ni publier'
+        required: false
+        type: boolean
+        default: false
+
+# Deux générations simultanées écriraient deux articles au même instant et se
+# marcheraient dessus au moment du commit.
+concurrency:
+  group: blog-article
+  cancel-in-progress: false
+
+jobs:
+  redaction:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Rédaction de l'article
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          # Le sujet saisi passe par l'environnement, jamais interpolé dans la
+          # ligne de commande : une expression `${{ inputs… }}` écrite
+          # directement dans un `run` est substituée AVANT que le shell ne lise
+          # la ligne, et un sujet contenant un guillemet ou un point-virgule y
+          # exécuterait ce qu'il veut. Ici, le shell ne voit qu'une variable.
+          SUJET: ${{ inputs.sujet }}
+          ESSAI: ${{ inputs.essai }}
+        run: |
+          arguments=()
+          [ "$ESSAI" = "true" ] && arguments+=(--essai)
+          [ -n "$SUJET" ] && arguments+=(--sujet "$SUJET")
+          node scripts/blog-article.mjs "${arguments[@]}"
+
+      - name: Publication
+        if: ${{ !inputs.essai }}
+        run: |
+          # Même garde que l'import Modelo : rien à publier, pas de commit. Un
+          # passage qui échoue à produire un article ne doit pas relancer un
+          # déploiement pour rien. L'article est un fichier neuf, donc non
+          # suivi : `git status` le voit là où `git diff` ne verrait rien.
+          if [ -z "$(git status --porcelain -- src/data/articles public/blog)" ]; then
+            echo "Aucun article produit — pas de commit."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/articles public/blog
+          git commit -m "Publie un article de blog"
+          git push
