@@ -341,16 +341,18 @@ sans navigation d'URL entre les étapes :
    secondes chacune, soit exactement la durée de l'analyse.
 5. **Résultat** — montant flouté, adresse rappelée, invitation à laisser ses
    coordonnées. La conversation de capture se tient sur un fond de formes qui
-   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)). À l'instant
-   où le flou se lève, un **tampon encreur « Prix soumis à expertise »**
-   ([`PriceStamp`](src/components/estimation/PriceStamp.jsx)) est abattu sur le
-   montant et y reste : il descend en survol, frappe, rebondit, puis se fige de
-   travers. Le montant se lit dans la bande vide du cachet, entre ses deux
-   lignes — c'est cette disposition, et non un simple recouvrement, qui laisse
-   les deux lisibles. La mention portait jusqu'ici une ligne rouge pulsée sous
-   la fourchette ; elle a été reprise par le tampon plutôt que doublée.
-   Sous le montant, sur tous les écrans de résultat et toutes les zones,
-   la précision **« Prix hors estimation du terrain »**.
+   dérivent ([`ChatAmbience`](src/components/ui/ChatAmbience.jsx)). Une fois la
+   fourchette affichée, un **cachet rond noir**
+   ([`PriceStamp`](src/components/estimation/PriceStamp.jsx)) est frappé sous
+   les deux bornes : il descend, s'écrase, rebondit, tient une seconde, puis se
+   relève et s'efface. Il porte « prix soumis à expertise » et « hors
+   estimation du terrain », sur deux lignes dans la couronne.
+
+   > **Ces deux mentions ne sont donc affichées nulle part de façon
+   > permanente** : elles passent avec le cachet, qui se démonte de lui-même à
+   > la dernière image. Le choix est assumé — c'est un geste, pas une mention
+   > légale — mais il est à reprendre le jour où l'estimation engagera
+   > l'agence.
 
 ### Ce qui reste à brancher
 
@@ -497,8 +499,7 @@ simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 monégasque va, selon le quartier et les sources, de ~38 000 € à plus de
 100 000 €/m². Une moyenne unique ne peut pas prétendre au resserrement d'une
 médiane de ventes voisines. Le reste de l'écran de résultat est identique,
-tampon « Prix soumis à expertise » et mention « Prix hors estimation du
-terrain » compris.
+cachet frappé sous la fourchette compris.
 
 **La détection ne peut pas se lire dans la réponse de la BAN**, qui ne connaît
 aucune adresse monégasque : interrogée sur « Monte-Carlo, Monaco », elle répond
