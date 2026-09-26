@@ -90,9 +90,17 @@ const DWELLING = { Maison: 'maison', Appartement: 'appartement' }
 const BUILDABLE_CULTURES = new Set(['S', 'AB'])
 
 /**
- * Ventes d'un département sur une année, déjà réduites et filtrées.
+ * Ventes d'un département sur une année, déjà réduites et filtrées, avec
+ * l'information qui dit si le millésime **existe** (`publie`).
  * Conservées en mémoire : sur Vercel, l'instance est réutilisée d'un appel à
  * l'autre, et deux estimations dans le même secteur ne retéléchargent rien.
+ *
+ * `publie` est mémorisé au même titre que les ventes : c'est lui qui permet à
+ * l'appelant de distinguer « ce millésime n'est pas encore paru » de « ce
+ * millésime est paru mais je n'ai pas pu le lire », et donc de savoir si le
+ * millésime tombé en panne était le plus récent publié (voir
+ * `CHARGEMENT.echecsToleres`). Sans cette distinction, la tolérance d'un
+ * millésime manquant ne serait pas décidable.
  *
  * **Seuls des résultats obtenus y entrent.** Un échec technique n'est jamais
  * mémorisé : la tentative suivante doit repartir sur le réseau, sans quoi une
@@ -338,11 +346,11 @@ function cacheGet(key) {
   // Remise en tête : l'entrée la plus anciennement utilisée est celle qui saute.
   cache.delete(key)
   cache.set(key, entry)
-  return entry.sales
+  return entry
 }
 
-function cacheSet(key, sales) {
-  cache.set(key, { at: Date.now(), sales })
+function cacheSet(key, sales, publie) {
+  cache.set(key, { at: Date.now(), sales, publie })
   while (cache.size > CACHE_MAX_ENTRIES) {
     cache.delete(cache.keys().next().value)
   }
@@ -357,6 +365,36 @@ const attendre = (ms, signal) =>
       reject(signal.reason ?? new Error('Attente interrompue'))
     }, { once: true })
   })
+
+/**
+ * Panne simulée, pour voir à l'écran ce que voit l'utilisateur quand la source
+ * lâche — l'écran d'indisponibilité ne se déclenche autrement qu'en coupant
+ * réellement data.gouv.fr.
+ *
+ *   MODE=panne              npm run dev   → tous les millésimes échouent (503)
+ *   MODE=panne:2022         npm run dev   → seul 2022 échoue (toléré, 200)
+ *   MODE=panne:2021,2022    npm run dev   → deux millésimes échouent (503)
+ *
+ * **Inerte en production** : la variable n'est lue qu'une fois, au chargement
+ * du module, et le commutateur exige `NODE_ENV !== 'production'`. Sur Vercel,
+ * `NODE_ENV` vaut toujours `production` à l'exécution d'une fonction — un
+ * `MODE` égaré dans les variables d'environnement du projet ne pourrait donc
+ * pas couper le moteur.
+ */
+const PANNE = (() => {
+  const mode = process.env.MODE ?? ''
+  if (process.env.NODE_ENV === 'production' || !mode.startsWith('panne')) return null
+
+  const liste = mode.slice('panne'.length).replace(/^:/, '').split(',').filter(Boolean)
+  console.warn(
+    `[dvf] PANNE SIMULÉE (MODE=${mode}) — ${liste.length ? `millésime(s) ${liste.join(', ')}` : 'tous les millésimes'} en échec. Développement uniquement.`,
+  )
+  return { millesimes: liste.length > 0 ? new Set(liste) : null }
+})()
+
+/** Ce millésime doit-il échouer ? Toujours `false` hors développement. */
+const panneSimulee = (key) =>
+  PANNE !== null && (PANNE.millesimes === null || PANNE.millesimes.has(key.split(':')[1]))
 
 /**
  * Un essai de téléchargement. Rend `{ publie: false }` sur 404 — une réponse,
@@ -378,10 +416,14 @@ async function essaie(url, timeoutMs, signal) {
 }
 
 /**
- * Ventes d'un département pour une année donnée.
+ * Ventes d'un département pour une année donnée, et publication du millésime.
  *
- * Rend un tableau vide quand l'année n'est pas publiée ou que le département
- * n'est pas couvert par DVF (Alsace-Moselle, Mayotte — voir `reference.js`).
+ * Rend `{ sales: [], publie: false }` quand l'année n'est pas publiée ou que le
+ * département n'est pas couvert par DVF (Alsace-Moselle, Mayotte — voir
+ * `reference.js`). `publie` est ce qui permet à l'appelant de savoir jusqu'où
+ * va réellement l'historique disponible, donc si un millésime tombé en panne
+ * était ou non le plus récent — sans quoi la tolérance d'un millésime manquant
+ * ne pourrait pas se décider (voir `chargeDepartement` dans `comparables.js`).
  *
  * **Lève `DvfIndisponible`** quand la source est en panne, après épuisement
  * des réessais de `CHARGEMENT`. C'est à l'appelant de trancher : le
@@ -395,8 +437,14 @@ export async function loadDepartementYear(departement, year, { signal, journal }
   const key = `${departement}:${year}`
   const cached = cacheGet(key)
   if (cached) {
-    journal?.push({ fichier: key, issue: 'cache', tentatives: 0, ms: 0, ventes: cached.length })
-    return cached
+    journal?.push({
+      fichier: key,
+      issue: 'cache',
+      tentatives: 0,
+      ms: 0,
+      ventes: cached.sales.length,
+    })
+    return { sales: cached.sales, publie: cached.publie }
   }
 
   const url = `${BASE_URL}/${year}/departements/${departement}.csv.gz`
@@ -421,11 +469,15 @@ export async function loadDepartementYear(departement, year, { signal, journal }
         CHARGEMENT.timeoutsMs[tentative - 1] ??
         CHARGEMENT.timeoutsMs[CHARGEMENT.timeoutsMs.length - 1]
 
+      // Développement seulement — voir `PANNE`. Placée dans la boucle pour que
+      // les réessais se déroulent comme sur une vraie panne.
+      if (panneSimulee(key)) throw new Error('panne simulée (MODE=panne)')
+
       const { publie, sales, octets } = await essaie(url, timeoutMs, signal)
 
       // Un 404 se met en cache : ni le millésime manquant ni le département
       // hors couverture ne réapparaîtront dans les six heures qui viennent.
-      cacheSet(key, sales)
+      cacheSet(key, sales, publie)
       journal?.push({
         fichier: key,
         issue: publie ? 'ok' : 'non-publie',
@@ -434,7 +486,7 @@ export async function loadDepartementYear(departement, year, { signal, journal }
         ventes: sales.length,
         ...(octets ? { octets } : {}),
       })
-      return sales
+      return { sales, publie }
     } catch (error) {
       derniere = error
       if (signal?.aborted) break

@@ -10,6 +10,16 @@
       ],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "imovia-panne",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:panne"
+      ],
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }

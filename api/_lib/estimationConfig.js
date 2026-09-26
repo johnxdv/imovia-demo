@@ -97,13 +97,38 @@ export const MIN_COMPARABLES = 5
 export const MAX_COMPARABLES = 8
 
 /**
+ * Rayons du **repli par les surfaces**, en mètres, au-delà du dernier palier de
+ * la cascade (2 km).
+ *
+ * CE QU'ILS REMPLACENT. Quand la cascade ne réunissait pas cinq ventes
+ * similaires à 2 km, le moteur servait la médiane du département entier. C'est
+ * un chiffre qui ne décrit rien : ni le quartier, ni le bien. Il tombait
+ * pourtant sur deux cas parfaitement ordinaires, qui n'ont rien d'une panne —
+ * le bien atypique (une maison de 300 m² dans un tissu de 90 m²) et la zone
+ * peu dense (un hameau où cinq maisons ne se vendent pas en cinq ans dans un
+ * rayon de 2 km).
+ *
+ * CE QUE FAIT LE REPLI. Il relâche la seule contrainte qui bloque, et une
+ * seule : la fenêtre de surface 0,7×–1,4×. Les ventes retenues restent du même
+ * type, dans le même secteur, filtrées par la qualité, et ce sont les **plus
+ * proches en surface** du bien — pour une maison de 300 m², la plus grande
+ * maison vendue à proximité, même si elle n'en fait que 220. Le rayon ne
+ * s'élargit qu'ensuite, et seulement s'il n'y a pas cinq ventes du type à 2 km.
+ *
+ * L'ordre importe : relâcher la surface coûte une comparaison moins juste,
+ * s'éloigner coûte un autre marché. On paie donc la surface d'abord.
+ */
+export const RAYONS_ELARGIS_M = [5000, 10000, 20000]
+
+/**
  * Niveaux de confiance, par rayon réellement atteint.
  *
  * Jusqu'à 500 m, l'échantillon décrit le quartier : confiance normale.
- * Au-delà et jusqu'à 2 km, il décrit un secteur : confiance moyenne. Sans
- * échantillon à 2 km, il ne reste que la médiane départementale actualisée :
- * confiance faible. Ces trois niveaux pilotent l'élargissement de la
- * fourchette (voir `FOURCHETTE`), et redescendent dans `meta`.
+ * Au-delà et jusqu'à 2 km, il décrit un secteur : confiance moyenne. Faute de
+ * cinq ventes similaires à 2 km, on passe aux replis par les surfaces
+ * (`RAYONS_ELARGIS_M`), qui sont tous en confiance faible. Ces trois niveaux
+ * pilotent l'élargissement de la fourchette (voir `FOURCHETTE`), et
+ * redescendent dans `meta`.
  */
 export const CONFIANCE = {
   rayonNormalMaxM: 500,
@@ -147,11 +172,17 @@ export const POIDS = {
 /**
  * Indice de prix par semestre, reconstruit sur DVF.
  *
- * `minVentesSemestreCommune` : volume exigé **à chaque semestre** de la
- * fenêtre pour que l'indice soit calculé à l'échelle de la commune plutôt que
- * du département. Un seul semestre creux suffit à retomber au département —
- * un indice qui saute d'un semestre à l'autre fait plus de mal qu'un indice
- * un peu trop large.
+ * `medianeVentesSemestreCommune` / `minVentesSemestreCommune` : les deux
+ * conditions de l'échelle communale. La **médiane** des volumes semestriels
+ * doit atteindre 30 ventes, et **aucun** semestre ne doit descendre sous 15.
+ *
+ * La règle précédente exigeait 30 ventes à *chaque* semestre : un seul
+ * semestre creux — un août calme, un millésime publié en retard — renvoyait
+ * tout l'indice à l'échelle départementale, y compris pour des communes qui
+ * en avaient largement le volume le reste du temps. Le couple médiane +
+ * plancher garde l'intention de départ (ne pas bâtir un indice sur un
+ * semestre vide, qui sauterait d'un point à l'autre) sans sanctionner un creux
+ * isolé.
  *
  * `lissageSemestres` : moyenne glissante centrée sur 3 semestres. Une médiane
  * semestrielle sur quelques centaines de ventes bouge de plusieurs pour cent
@@ -162,7 +193,8 @@ export const POIDS = {
  * ces bornes signale un indice défaillant, pas un marché qui a doublé.
  */
 export const INDICE = {
-  minVentesSemestreCommune: 30,
+  medianeVentesSemestreCommune: 30,
+  minVentesSemestreCommune: 15,
   lissageSemestres: 3,
   coefficientMin: 0.6,
   coefficientMax: 1.8,
@@ -213,11 +245,18 @@ export const TERRAIN = {
  * médiane sur cinq à huit ventes n'a pas.
  *
  * `elargissement` multiplie la demi-largeur selon la confiance : un
- * échantillon trouvé à 1,5 km, ou une médiane départementale, doit se lire
+ * échantillon trouvé à 1,5 km, ou un repli par les surfaces, doit se lire
  * comme tel.
+ *
+ * `demiLargeurMaxPct` plafonne la demi-largeur à 20 % du prix, **dans tous les
+ * cas** — quantiles pondérés, fourchette symétrique de Monaco, prix de
+ * référence hors DVF. Au-delà, la fourchette cesse d'informer : annoncer
+ * « entre 250 000 et 750 000 € » revient à ne rien annoncer, et c'est ce que
+ * produisait la dispersion interquartile d'un département entier.
  */
 export const FOURCHETTE = {
   demiLargeurMinPct: 0.05,
+  demiLargeurMaxPct: 0.2,
   elargissement: { normale: 1, moyenne: 1.5, faible: 2.5 },
 }
 
@@ -233,9 +272,19 @@ export const FOURCHETTE = {
  *
  * `budgetTotalMs` : enveloppe de l'étape B tout entière, réessais compris.
  * `vercel.json` accorde à la fonction une durée maximale supérieure.
+ *
+ * `echecsToleres` : nombre de millésimes dont l'échec n'interrompt pas
+ * l'estimation, sur le département du bien. Un seul — et à condition qu'un
+ * millésime **plus récent** ait bel et bien été chargé. Perdre 2022 sur six
+ * fichiers retire quelques ventes d'un échantillon qui en compte cinq à huit,
+ * et l'indice temporel ramène de toute façon tout au dernier semestre ; perdre
+ * le millésime le plus récent, en revanche, c'est estimer sur un marché qui
+ * n'est plus le bon sans pouvoir le savoir. Deux échecs ou plus, ou l'échec du
+ * plus récent publié : l'estimation s'arrête (503), comme avant.
  */
 export const CHARGEMENT = {
   tentatives: 3,
+  echecsToleres: 1,
   delaisMs: [0, 400, 1200],
   timeoutsMs: [6000, 9000, 12000],
   budgetTotalMs: 25000,

@@ -4,16 +4,36 @@
 // niveau de confiance. Ni les sources de données, ni la méthode, ni les
 // éventuels replis ne descendent jusqu'ici.
 //
-// CE QUI A CHANGÉ. Le moteur peut désormais répondre « je ne sais pas » : une
-// panne persistante de DVF rend un 503 explicite au lieu d'un montant replié en
-// silence sur la médiane départementale. Cette fonction relance **une fois**,
-// puis rend un statut d'indisponibilité que l'écran résultat sait afficher.
-// C'est le seul moyen de ne pas annoncer un prix faux à un vendeur.
+// CE QUI A CHANGÉ. Le moteur peut répondre « je ne sais pas » : une panne
+// persistante de DVF rend un 503 explicite au lieu d'un montant replié en
+// silence sur la médiane départementale. Cette fonction relance **au plus une
+// fois**, puis rend un statut d'indisponibilité que l'écran résultat sait
+// afficher. C'est le seul moyen de ne pas annoncer un prix faux à un vendeur.
+//
+// L'ATTENTE EST PLAFONNÉE À QUARANTE SECONDES, relance comprise — un écran qui
+// ne répond pas est un écran cassé, même quand il finira par répondre. Et la
+// relance est conditionnelle : seule une erreur arrivée en moins de quinze
+// secondes vaut la peine d'être retentée (voir `SEUIL_RELANCE_MS`).
 
 const ENDPOINT = '/api/estimation'
 
 /**
- * Filet de sécurité côté client, par tentative.
+ * Attente maximale de bout en bout, relance comprise.
+ *
+ * C'est le seul chiffre qui compte pour l'utilisateur : passé ce délai, il voit
+ * l'écran d'indisponibilité, quoi qu'il arrive. Quarante secondes, et pas
+ * davantage — l'écran d'analyse en couvre douze, les vingt-huit suivantes sont
+ * une page qui ne répond plus.
+ *
+ * Le réglage précédent ne plafonnait que chaque tentative (35 s) : deux
+ * tentatives et leur délai intermédiaire pouvaient donc tenir l'utilisateur
+ * 71 s devant une animation figée avant de lui dire qu'il n'y aurait pas de
+ * montant.
+ */
+const BUDGET_TOTAL_MS = 40000
+
+/**
+ * Filet de sécurité par tentative, dans la limite du budget total.
  *
  * Le serveur s'accorde 25 s pour charger DVF, réessais compris, et 30 s au
  * total (voir `BUDGET_MS` dans `api/estimation.js`) ; ce délai doit lui laisser
@@ -21,10 +41,19 @@ const ENDPOINT = '/api/estimation'
  * abandon côté client ressemblerait à une panne réseau et ferait relancer pour
  * rien.
  */
-const TIMEOUT_MS = 35000
+const TIMEOUT_TENTATIVE_MS = 35000
 
-/** Nombre de relances après un premier échec. Une seule : au-delà, c'est à l'utilisateur de décider. */
-const RELANCES = 1
+/**
+ * Au-delà de ce temps, une première erreur ne se relance plus.
+ *
+ * La distinction est la suivante : une erreur immédiate ressemble à un incident
+ * passager — instance serverless à démarrer, requête perdue, réseau qui hoquette
+ * — et une seconde tentative la rattrape souvent pour une seconde d'attente. Une
+ * erreur qui met vingt secondes à venir, c'est la source qui ne répond pas ;
+ * relancer ne ferait qu'ajouter vingt secondes à une attente déjà trop longue,
+ * pour le même résultat. Dans ce cas, l'écran d'indisponibilité tout de suite.
+ */
+const SEUIL_RELANCE_MS = 15000
 
 /** Attente avant la relance — le temps qu'un incident passager se dissipe. */
 const DELAI_RELANCE_MS = 1200
@@ -38,13 +67,13 @@ const attendre = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * Un 400 n'est jamais relancé : surface manquante ou coordonnées absentes sont
  * des refus déterministes, la même requête obtiendrait le même refus.
  */
-async function tentative(payload) {
+async function tentative(payload, timeoutMs) {
   try {
     const response = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
 
     const data = await response.json().catch(() => null)
@@ -102,9 +131,11 @@ async function tentative(payload) {
  * Le montant est volontairement tiré une seule fois, au lancement de l'analyse :
  * le redemander à l'affichage du résultat le ferait varier d'un rendu à l'autre.
  *
- * À ne pas confondre avec l'aperçu de la fenêtre de surface
- * (`src/lib/prixSecteur.js`) : celui-ci n'est qu'un ordre de grandeur calculé
- * dans le navigateur, que le montant obtenu ici vient remplacer.
+ * C'est aussi, depuis le retrait de l'aperçu du curseur, **le seul prix que le
+ * parcours calcule**. La fenêtre de surface multipliait un prix au m² du secteur
+ * par la valeur du curseur pour donner un ordre de grandeur : deux montants
+ * obtenus par deux méthodes, montrés au même vendeur à quelques secondes
+ * d'intervalle, et qui n'avaient aucune raison de tomber d'accord.
  */
 export async function requestEstimation(selection) {
   if (!selection) return { status: 'indisponible', code: 'sans-selection' }
@@ -166,14 +197,22 @@ export async function requestEstimation(selection) {
       : null,
   }
 
-  let dernier = null
+  const debut = Date.now()
+  const restant = () => BUDGET_TOTAL_MS - (Date.now() - debut)
 
-  for (let essai = 0; essai <= RELANCES; essai += 1) {
-    if (essai > 0) await attendre(DELAI_RELANCE_MS)
+  let dernier = await tentative(payload, Math.min(TIMEOUT_TENTATIVE_MS, restant()))
+  if (dernier.ok) return dernier.resultat
 
-    dernier = await tentative(payload)
+  // Une seule relance, et seulement si la première erreur est arrivée vite :
+  // c'est la signature d'un incident passager (voir `SEUIL_RELANCE_MS`). Son
+  // délai est pris sur ce qui reste du budget total, jamais en plus.
+  const rapide = Date.now() - debut < SEUIL_RELANCE_MS
+  const budget = Math.min(TIMEOUT_TENTATIVE_MS, restant() - DELAI_RELANCE_MS)
+
+  if (dernier.relancable && rapide && budget > 0) {
+    await attendre(DELAI_RELANCE_MS)
+    dernier = await tentative(payload, budget)
     if (dernier.ok) return dernier.resultat
-    if (!dernier.relancable) break
   }
 
   return { status: 'indisponible', code: dernier?.code ?? 'inconnu' }

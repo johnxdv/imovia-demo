@@ -6,6 +6,7 @@
   "description": "Site vitrine \u2014 agence immobili\u00e8re Imovia (d\u00e9monstrateur)",
   "scripts": {
     "dev": "vite",
+    "dev:panne": "MODE=panne vite",
     "build": "npm run check:api && vite build",
     "preview": "vite preview",
     "lint": "eslint .",

@@ -50,10 +50,15 @@ export function construitIndice(ventes, { codeInsee, departement }) {
   const premier = dernier - FENETRE_ANNEES * 2 + 1
   const fenetre = semestres.filter((s) => s >= premier)
 
-  // Échelle communale si — et seulement si — *chaque* semestre de la fenêtre
-  // atteint le volume exigé. Un seul semestre creux suffit à retomber au
-  // département : un indice qui saute d'un semestre à l'autre fait plus de mal
-  // qu'un indice un peu trop large.
+  // Échelle communale à deux conditions : la **médiane** des volumes
+  // semestriels atteint 30 ventes, et **aucun** semestre ne descend sous 15.
+  //
+  // La règle précédente exigeait 30 ventes à chaque semestre. Elle renvoyait au
+  // département des communes qui en avaient largement le volume, pour un seul
+  // semestre creux — et le semestre le plus récent l'est presque toujours, DVF
+  // étant publié par tranches. Le couple médiane + plancher garde l'intention
+  // (pas d'indice bâti sur un semestre vide, qui sauterait d'un point à
+  // l'autre) sans sanctionner un creux isolé.
   const communales = codeInsee
     ? ventes.filter((v) => String(v.commune) === String(codeInsee) && v.semestre >= premier)
     : []
@@ -69,9 +74,12 @@ export function construitIndice(ventes, { codeInsee, departement }) {
   }
 
   const tableCommune = parSemestre(communales)
+  const volumes = fenetre.map((s) => tableCommune.get(s)?.length ?? 0)
+
   const communeSuffit =
-    fenetre.length > 0 &&
-    fenetre.every((s) => (tableCommune.get(s)?.length ?? 0) >= INDICE.minVentesSemestreCommune)
+    volumes.length > 0 &&
+    (median(volumes) ?? 0) >= INDICE.medianeVentesSemestreCommune &&
+    Math.min(...volumes) >= INDICE.minVentesSemestreCommune
 
   const zone = communeSuffit ? 'commune' : 'departement'
   const table = communeSuffit ? tableCommune : parSemestre(ventes)
@@ -108,6 +116,14 @@ export function construitIndice(ventes, { codeInsee, departement }) {
     coefficient,
     zone,
     zoneCode: communeSuffit ? String(codeInsee) : String(departement),
+    // Pourquoi cette échelle-là : les deux mesures qui ont tranché, en regard
+    // de leurs seuils. « departement » sans motif n'apprend rien.
+    echelle: {
+      medianeVentesSemestreCommune: median(volumes) ?? 0,
+      minVentesSemestreCommune: volumes.length > 0 ? Math.min(...volumes) : 0,
+      seuilMediane: INDICE.medianeVentesSemestreCommune,
+      seuilPlancher: INDICE.minVentesSemestreCommune,
+    },
     semestreReference: semestreLabel(reference),
     // Le détail, pour que l'indice se relise dans le journal plutôt que de
     // rester une boîte noire au milieu du calcul.
@@ -128,6 +144,7 @@ function indiceNeutre({ motif, zone = null }) {
     coefficient: () => 1,
     zone,
     zoneCode: null,
+    echelle: null,
     semestreReference: null,
     points: [],
     motif,

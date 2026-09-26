@@ -153,8 +153,8 @@ export function estHorsCouvertureDvf(departement) {
  * Prix de référence au m² pour un type de bien, et provenance de ce prix.
  *
  * `lat`/`lon` sont facultatives : sans elles, la recherche du point le plus
- * proche est simplement sautée — l'appelant du bloc `catch` de `prix-m2.js`
- * n'a plus de coordonnées à donner, et doit tout de même obtenir un prix.
+ * proche est simplement sautée — un appelant qui n'a pas de coordonnées à
+ * donner doit tout de même obtenir un prix.
  *
  * `type` peut valoir `autre` ou `local` : faute de mieux, ces biens sont
  * alignés sur la maison, comme ils le sont déjà dans la recherche de

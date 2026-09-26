@@ -3,11 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Check, Minus, Plus } from 'lucide-react'
 import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { HouseIllustration } from './HouseIllustration'
-import { PriceReveal } from './PriceReveal'
-import { formatEuros } from '../../lib/format'
-import { ETAGE_DEFAUT, ETAGE_MAX, ETAGE_MIN, coefficientEtage, etageLabel } from '../../lib/etage'
-import { fetchPrixM2 } from '../../lib/prixSecteur'
-import { MONACO_PRICE_PER_M2 } from '../../lib/monaco'
+import { ETAGE_DEFAUT, ETAGE_MAX, ETAGE_MIN, etageLabel } from '../../lib/etage'
 import { EASE } from '../../lib/motion'
 
 /** Éléments focusables du panneau, pour le maintien du focus à l'intérieur. */
@@ -57,12 +53,6 @@ const MONACO_TYPES = [
 const SURFACE_DEFAULT = 100
 
 /**
- * Le montant d'aperçu est arrondi au millier, comme celui du moteur : un ordre
- * de grandeur affiché à l'euro près afficherait une précision qu'il n'a pas.
- */
-const roundPrice = (value) => Math.round(value / 1000) * 1000
-
-/**
  * Fenêtre de saisie de la surface habitable.
  *
  * Vraie fenêtre modale, et non un calque posé sur la carte : le fond assombri
@@ -92,14 +82,23 @@ const roundPrice = (value) => Math.round(value / 1000) * 1000
  * Il ne bloque rien : validée avant, la fenêtre part sans étage, et le moteur
  * s'en passe (coefficient 1, voir `src/lib/etage.js`).
  *
- * `monaco` bascule la fenêtre dans sa variante monégasque : le prix au m² n'est
- * plus demandé au réseau mais lu dans une constante, et le type de bien — que
- * plus aucune base ne peut deviner — est demandé à l'utilisateur en tête de
+ * AUCUN MONTANT NE S'AFFICHE ICI, et c'est un retrait délibéré. La fenêtre
+ * montrait un prix d'aperçu qui suivait le curseur : prix au m² du secteur,
+ * demandé au réseau à l'ouverture, multiplié par la surface dans le navigateur.
+ * Deux chiffres obtenus par deux méthodes différentes se succédaient donc à
+ * quelques secondes d'intervalle sous les yeux du même vendeur — l'aperçu ne
+ * sélectionnait pas les ventes, ne les pondérait pas, ne les actualisait pas —
+ * et rien n'expliquait l'écart. Le curseur ne recueille plus qu'une surface ;
+ * le seul montant du parcours est celui de l'écran de résultat, et il est
+ * calculé pour de bon.
+ *
+ * `monaco` bascule la fenêtre dans sa variante monégasque : le type de bien —
+ * que plus aucune base ne peut deviner — est demandé à l'utilisateur en tête de
  * panneau. `onEstimate` reçoit alors ce type en second argument ; il vaut
  * `null` dans le parcours français, où la détection s'en charge. Le troisième
  * argument est l'étage, `null` dès que le bien retenu n'est pas un appartement.
  */
-export function BuildingConfirmModal({ selection, type = null, onClose, onEstimate, monaco = false }) {
+export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco = false }) {
   const panelRef = useRef(null)
   const reduce = useReducedMotion()
 
@@ -120,30 +119,6 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
   // champ posé au hasard sur une maison.
   const typeRetenu = monaco ? monacoType : type
   const estAppartement = typeRetenu === 'appartement'
-
-  // Prix indicatif au m² du secteur, demandé une seule fois à l'ouverture.
-  // Tout le reste — le montant qui suit le curseur — se calcule ici même, sans
-  // repasser par le réseau : un appel par mouvement de doigt saturerait la
-  // liaison pour un chiffre qui n'est de toute façon qu'un aperçu.
-  //
-  // À Monaco, il n'y a rien à demander : aucune base de mutations n'y est
-  // publiée, la constante de référence est tout ce dont on dispose — et elle
-  // sert aussi bien à l'aperçu qu'au calcul final (voir `src/lib/monaco.js`).
-  const [pricePerM2, setPricePerM2] = useState(monaco ? MONACO_PRICE_PER_M2 : null)
-
-  useEffect(() => {
-    if (monaco) return undefined
-
-    const controller = new AbortController()
-
-    fetchPrixM2(selection, { signal: controller.signal })
-      .then(setPricePerM2)
-      .catch(() => {
-        // Annulation à la fermeture : il n'y a plus rien à afficher.
-      })
-
-    return () => controller.abort()
-  }, [selection, monaco])
 
   // Fermeture au clavier + maintien du focus dans la fenêtre, sans quoi la
   // tabulation repartirait dans la navigation, derrière le fond assombri.
@@ -201,13 +176,6 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
   const atMin = surface <= SURFACE_MIN
   const atMax = surface >= SURFACE_MAX
   const surfaceLabel = `${atMax ? `${SURFACE_MAX}+` : surface} m²`
-  // L'étage entre dans l'aperçu comme il entrera dans le calcul final : le même
-  // barème, appliqué au même endroit du produit. Sans quoi le montant sauterait
-  // entre la fenêtre et l'écran de résultat sans que rien ne l'explique.
-  const coefficient = coefficientEtage(estAppartement ? etage : null)
-  const formatted = pricePerM2
-    ? formatEuros(roundPrice(pricePerM2 * surface * coefficient))
-    : null
 
   // Part remplie de la piste, passée au CSS : un `input[type=range]` ne colore
   // pas son parcours de lui-même sur les moteurs WebKit. Elle suit la valeur
@@ -351,7 +319,7 @@ export function BuildingConfirmModal({ selection, type = null, onClose, onEstima
             ) : null}
           </AnimatePresence>
 
-          <PricePreview formatted={formatted} surface={surface} />
+          <SurfaceIllustration surface={surface} />
 
           {/* Valeur en cours, au-dessus du curseur : elle suit le doigt sans
               attendre le relâchement. `tabular-nums` fige la largeur des
@@ -472,53 +440,27 @@ function StepButton({ icon: Icon, label, disabled, onClick }) {
 }
 
 /**
- * Aperçu du montant, au-dessus de la maison et sous le même halo.
+ * La silhouette du palier de surface, et son halo.
  *
- * Ce n'est pas l'estimation : seulement le prix moyen au m² du secteur
- * multiplié par la surface au curseur, recalculé dans le navigateur à chaque
- * mouvement. Il est flouté selon la règle du parcours — premier chiffre net,
- * le reste sous un flou d'intensité fixe (voir `PriceReveal`) — et le montant
- * réel le remplacera à l'écran de résultat.
+ * Seul témoin visuel du curseur depuis le retrait de l'aperçu de prix — et
+ * c'est bien assez : le dessin change de programme au fil de l'échelle (petite
+ * maison, maison à étage, propriété, château) et dit donc quelque chose de la
+ * surface déclarée, ce qu'un montant faisait moins bien qu'il ne le
+ * contredisait.
  *
- * Montant et silhouette sont empilés dans un même bloc, sous un même halo, et
- * se chevauchent de quelques pixels : le toit monte juste derrière le chiffre,
- * assez pour que les deux se lisent comme une seule image, pas assez pour que
- * la maison passe sur les chiffres — un montant à moitié couvert par un
- * pignon n'aurait plus rien d'un aperçu.
- *
- * Les hauteurs sont fixes et se somment exactement à celle du bloc : ni
- * l'arrivée du prix, ni le changement de palier, ni le passage de trois à sept
- * chiffres ne déplacent le curseur qui suit.
+ * La hauteur est fixe : le changement de palier ne doit pas déplacer le curseur
+ * qui suit. Le halo, lui, reste — il détachait le montant du blanc de la carte,
+ * il détache maintenant le dessin.
  */
-function PricePreview({ formatted, surface }) {
+function SurfaceIllustration({ surface }) {
   return (
-    <div className="relative mx-auto mt-4 flex h-[11.5rem] w-full max-w-[17rem] flex-col">
-      {/* Halo diffus : détache le montant du blanc de la carte. */}
+    <div className="relative mx-auto mt-5 h-32 w-full max-w-[17rem]">
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-6 top-2 h-12 animate-cta-breath rounded-full bg-brass/30 blur-2xl"
+        className="pointer-events-none absolute inset-x-8 top-6 h-12 animate-cta-breath rounded-full bg-brass/25 blur-2xl"
       />
 
-      <div className="relative flex h-16 shrink-0 items-center justify-center">
-        {formatted ? (
-          <PriceReveal
-            formatted={formatted}
-            className="font-display text-[1.9rem] font-semibold leading-none text-ink tabular-nums sm:text-[2.1rem]"
-          />
-        ) : (
-          // Attente de l'aperçu : trois blocs neutres au découpage d'un
-          // montant, pour que la place soit tenue sans rien laisser deviner.
-          <span aria-hidden="true" className="flex animate-pulse items-center gap-2">
-            <span className="h-6 w-14 rounded-md bg-ink/10" />
-            <span className="h-6 w-16 rounded-md bg-ink/10" />
-            <span className="h-6 w-5 rounded-md bg-brass/25" />
-          </span>
-        )}
-      </div>
-
-      {/* La marge négative fait remonter le faîtage derrière le montant.
-          64 + 128 − 8 = 184 px, soit exactement la hauteur du bloc. */}
-      <HouseIllustration surfaceM2={surface} className="-mt-2 h-32 shrink-0" />
+      <HouseIllustration surfaceM2={surface} className="relative h-32" />
     </div>
   )
 }

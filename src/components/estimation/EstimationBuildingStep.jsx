@@ -177,7 +177,6 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
             lat={address.lat}
             lon={address.lon}
             addressLabel={address.label}
-            selection={selection}
             onSelect={setSelection}
           />
         </Suspense>

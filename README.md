@@ -97,7 +97,8 @@ des services publics ouverts. Deux variables restent facultatives :
 | Variable              | Rôle                                                                     |
 | --------------------- | ------------------------------------------------------------------------ |
 | `ESTIMATION_PRIX_M2`  | Prix de référence au m², en JSON, par code commune INSEE ou par département — utilisés là où DVF n'a aucune donnée (voir « DVF ne couvre pas la Moselle »). Ex. `{"57176":{"maison":1650,"appartement":1400},"57":{"maison":1850}}`. |
-| `ESTIMATION_DEBUG`    | À `1`, la réponse joint le détail du calcul (type retenu et sa confiance, surface, étage et son coefficient, prix au m², nombre de comparables, rayon du palier et étendue réelle). À laisser vide en production. |
+| `ESTIMATION_DEBUG`    | À `1`, la réponse joint le détail du calcul (type retenu et sa confiance, surface, étage et son coefficient, prix au m², étape ayant produit le prix, nombre de comparables, rayon du palier et étendue réelle). À laisser vide en production. |
+| `MODE`                | **Développement uniquement.** `panne` fait échouer tous les téléchargements DVF, `panne:2022` un seul millésime, `panne:2021,2022` plusieurs — de quoi voir l'écran d'indisponibilité et la tolérance d'un millésime sans couper data.gouv.fr. `npm run dev:panne` la pose pour vous. Sans effet en production (`NODE_ENV=production`). |
 
 Pour utiliser un autre prestataire d'envoi (SendGrid, Postmark, SMTP…), seul
 l'appel réseau dans `api/contact-conseiller.js` est à adapter ; le contrat
@@ -113,12 +114,17 @@ Modelo (dépend de l'API Modelo).
 api/
 ├── contact-conseiller.js   Fonction serverless — envoi du formulaire Équipe
 ├── estimation.js           Fonction serverless — moteur d'estimation (DVF, + barème Monaco)
-├── prix-m2.js              Fonction serverless — prix indicatif au m² (aperçu)
+├── monaco-adresses.js      Fonction serverless — géocodage monégasque
 └── _lib/                   Briques du moteur (préfixe `_` : jamais des routes)
     ├── bien.js             Étape A — surface et année du bien (BDNB, cadastre)
     ├── comparables.js      Étapes B et C — ventes comparables, médiane au m²
     ├── dvf.js              Téléchargement, analyse et cache des fichiers DVF
+    ├── indice.js           Indice de prix par semestre (actualisation des ventes)
+    ├── terrain.js          Ajustement de terrain des maisons (régression)
+    ├── statistiques.js     Médianes, quantiles, versions pondérées
+    ├── estimationConfig.js Tous les seuils et réglages du moteur, en un point
     ├── geo.js              Distances, code département, sondage du pourtour
+    ├── pointsReference.js  Recherche dans le pool de points de référence
     └── reference.js        Repli hors couverture DVF (Alsace-Moselle, Mayotte)
 
 scripts/
@@ -161,7 +167,6 @@ src/
 │   ├── osm.js            OpenStreetMap / Overpass — contours bâtis monégasques
 │   ├── geo.js            Emprise au sol, emprise carrée, point dans un anneau
 │   ├── estimation.js     Appel du moteur d'estimation (POST /api/estimation)
-│   ├── prixSecteur.js    Prix indicatif au m² du secteur (POST /api/prix-m2)
 │   └── nav.js            Architecture de navigation
 └── pages/           Une page par route
 ```
@@ -380,8 +385,8 @@ l'animation d'analyse.
 | ----- | ----- | ------ |
 | **A** | Surface et année du bien | Surface déclarée au curseur ; à défaut BDNB (surface habitable d'un DPE, sinon emprise × niveaux), cadastre pour un terrain |
 | | ↳ *niveaux* | BDNB `nb_niveau`, à défaut BD TOPO® `nombre_d_etages`, à défaut déduits de la hauteur du bâtiment |
-| **B** | Ventes comparables | [DVF / Etalab](https://files.data.gouv.fr/geo-dvf/) — 300 m, 4 derniers millésimes, 40 ventes les plus proches |
-| **C** | Prix médian au m² × surface | — |
+| **B** | Ventes comparables | [DVF / Etalab](https://files.data.gouv.fr/geo-dvf/) — cascade de 100 m à 2 km, 5 derniers millésimes, 5 à 8 ventes similaires pondérées |
+| **C** | Prix médian pondéré au m² × surface, ajustement de terrain | — |
 | | ↳ *étage* | Coefficient 0,95 (RDC) à 1,05 (étage élevé), appartements seulement — [`src/lib/etage.js`](src/lib/etage.js) |
 
 **Médiane, jamais moyenne** : sur quelques ventes, une seule transaction hors
@@ -428,11 +433,6 @@ D'où un rayon serré, un échantillon plus court assumé — quatre ventes du m
 pâté de maisons valent mieux que cinquante ventes de la commune entière — et une
 profondeur d'historique portée à cinq millésimes.
 
-L'aperçu de la fenêtre de surface ([`api/prix-m2.js`](api/prix-m2.js)) suit les
-mêmes paliers en plus courts : ce sont deux chiffres montrés au même utilisateur
-à quelques secondes d'intervalle, et l'aperçu n'a rien à gagner à annoncer le
-prix du quartier d'à côté.
-
 **Ce que ce resserrement coûte** : là où un programme neuf vient d'être livré,
 les quarante ventes les plus proches peuvent être quarante VEFA du même immeuble,
 et la médiane monte avec elles. C'est le prix d'une médiane hyperlocale, et il se
@@ -452,6 +452,63 @@ facteur dix :
 - **Un terrain agricole n'est pas un terrain à bâtir** : dans la Meuse, les
   terres se vendent autour d'1 €/m² contre 15 €/m² pour du sol constructible.
   Seules les natures de culture `S` (sols) et `AB` sont comparables.
+
+#### Quand les ventes similaires manquent
+
+La cascade s'arrête à 2 km. Au-delà, il n'y a plus de quartier à décrire, et le
+moteur **ne sert plus la médiane du département** : elle ne décrivait ni le
+quartier ni le bien, et elle tombait sur deux situations parfaitement
+ordinaires.
+
+| Situation | Ce qui manque | Étape servie |
+| --- | --- | --- |
+| **Bien atypique** — une maison de 300 m² dans un tissu de 90 m² | Aucune vente dans la fenêtre de surface 0,7×–1,4× | `atypique-2km` |
+| **Zone peu dense** — un hameau, cinq maisons vendues en cinq ans | Moins de 5 ventes **du type** dans les 2 km | `elargi-5km`, `elargi-10km`, `elargi-20km` |
+| Ni l'un ni l'autre | Rien à 20 km | `departement` — journalisé en `warn`, doit rester exceptionnel |
+
+Le repli relâche **une seule** contrainte, la fenêtre de surface, et garde tout
+le reste : même type de bien, mêmes filtres de qualité, même loi de pondération.
+Sont retenues les ventes **les plus proches en surface** du bien — pour une
+maison de 300 m² dont la plus grande voisine vendue en fait 220, c'est celle-là
+qu'on prend, avec le poids que son écart de surface lui vaut. Le rayon ne
+s'ouvre qu'ensuite, et seulement faute de ventes du type.
+
+L'ordre n'est pas indifférent : **relâcher la surface coûte une comparaison
+moins juste, s'éloigner coûte un autre marché.** On paie donc la surface
+d'abord. Toutes ces étapes descendent en confiance « faible », et
+`meta.etape` dit laquelle a produit le prix.
+
+Relevé sur le cas de contrôle marseillais (parcelle `132108580H0042`) :
+
+| Surface déclarée | Étape | Prix au m² | Montant | Confiance |
+| --- | --- | --- | --- | --- |
+| 100 m² | `cascade-normale`, 200 m | 5 492 € | 527 000 € | normale |
+| 300 m² | `atypique-2km` (8 ventes de 150 à 192 m²) | 3 217 € | 929 000 € | faible |
+
+#### Ce que le moteur tolère, et ce qu'il refuse
+
+Une panne de DVF **interrompt** l'estimation : 503, et l'écran « estimation
+momentanément indisponible » plutôt qu'un montant de consolation. Une exception,
+une seule : l'échec d'**un** millésime plus ancien qu'un millésime effectivement
+chargé. Cinq fichiers sur six suffisent à un échantillon de cinq à huit ventes,
+et l'indice temporel ramène de toute façon tout au dernier semestre.
+
+| Ce qui échoue | Réponse |
+| --- | --- |
+| Un millésime ancien (2022, alors que 2025 est chargé) | **200**, `meta.chargement.millesimesEnEchec` le signale |
+| Le millésime le plus récent publié | **503** |
+| Deux millésimes ou plus | **503** |
+| Un département voisin sondé par débordement | **200**, il n'est qu'un complément |
+
+Côté navigateur, l'attente est plafonnée : **40 secondes au total**, relance
+comprise. Et la relance est conditionnelle — seule une première erreur arrivée
+en **moins de 15 secondes** vaut la peine d'être retentée (un incident passager :
+instance à démarrer, requête perdue). Au-delà, c'est la source qui ne répond pas,
+et l'écran d'indisponibilité s'affiche tout de suite plutôt que d'ajouter vingt
+secondes pour le même résultat.
+
+Pour voir cet écran sans couper data.gouv.fr : `npm run dev:panne` (voir `MODE`
+dans les variables d'environnement).
 
 #### DVF ne couvre pas la Moselle
 
@@ -532,25 +589,25 @@ font 44 px de côté (la cible tactile recommandée, celle qui dicte déjà la t
 de la pastille) et se désactivent en butée plutôt que de disparaître — une
 commande qui s'efface déplacerait le curseur avec elle.
 
-Valeur affichée, montant d'aperçu, remplissage de la piste et silhouette suivent
-tous la valeur exacte, au m² près. Seule la pastille reste crantée sur 5 : un
+Valeur affichée, remplissage de la piste et silhouette suivent tous la valeur
+exacte, au m² près. Seule la pastille reste crantée sur 5 : un
 `input[type=range]` recale de toute façon toute valeur hors cran, et elle se
 figerait entre deux clics de bouton. L'écart est de 2 m² au pire — un quart de
 pixel sur la piste.
 
-**Le montant d'aperçu n'est pas l'estimation.** Il vient d'un second point
-d'entrée, volontairement bridé : [`api/prix-m2.js`](api/prix-m2.js) rend un prix
-au m² du secteur en un seul rayon, deux millésimes, sans élargissement ni
-département voisin — une à deux secondes, contre dix pour le calcul complet. Le
-front le multiplie ensuite par la valeur du curseur **dans le navigateur** :
-déplacer le curseur ne déclenche aucune requête. Le montant réel le remplace à
-l'écran de résultat. Effet de bord utile : les millésimes chargés pour l'aperçu
-restent en cache pour l'estimation qui suit, sur la même instance.
+**Aucun montant ne s'affiche pendant le réglage**, et c'est un retrait
+délibéré. La fenêtre montrait un prix d'aperçu qui suivait le curseur : un prix
+au m² du secteur, demandé à un second point d'entrée volontairement bridé, puis
+multiplié par la surface dans le navigateur. Deux chiffres obtenus par deux
+méthodes différentes se succédaient donc à quelques secondes d'intervalle sous
+les yeux du même vendeur — l'aperçu ne sélectionnait pas les ventes, ne les
+pondérait pas, ne les actualisait pas — et rien n'expliquait l'écart. Le point
+d'entrée `/api/prix-m2` a été supprimé avec lui : le parcours ne calcule plus
+qu'un seul prix, celui de l'écran de résultat.
 
-Le flou reprend la règle du parcours — premier chiffre net, le reste sous un
-flou d'intensité fixe (voir [`PriceReveal`](src/components/estimation/PriceReveal.jsx)).
-Ce premier chiffre suit le curseur, et c'est là tout l'intérêt : il donne
-l'ordre de grandeur sans donner le montant.
+Reste la silhouette, qui change de programme au fil de l'échelle : elle dit
+quelque chose de la surface déclarée, ce qu'un montant faisait moins bien qu'il
+ne le contredisait.
 
 ### Étage
 

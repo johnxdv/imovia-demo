@@ -17,17 +17,26 @@
 //   D. Zones hors couverture DVF      → `_lib/reference.js`
 //
 // CE QUI PEUT ÉCHOUER, ET CE QUI NE PEUT PAS. Une panne technique de DVF
-// **interrompt** désormais l'estimation, avec une erreur explicite que le front
-// traduit par « estimation momentanément indisponible ». C'est un renversement
-// assumé : l'ancienne version repliait silencieusement sur la médiane
-// départementale, et une maison marseillaise estimée 489 000 € par son
-// voisinage ressortait à 403 000 € sans que rien, nulle part, ne le signale.
-// Un chiffre faux et muet coûte plus cher qu'un écran qui demande de réessayer.
+// **interrompt** l'estimation, avec une erreur explicite que le front traduit
+// par « estimation momentanément indisponible ». C'est un renversement assumé :
+// l'ancienne version repliait silencieusement sur la médiane départementale, et
+// une maison marseillaise estimée 489 000 € par son voisinage ressortait à
+// 403 000 € sans que rien, nulle part, ne le signale. Un chiffre faux et muet
+// coûte plus cher qu'un écran qui demande de réessayer.
 //
-// Le repli départemental existe toujours, mais pour le seul cas légitime : les
-// données sont chargées, et il n'y a pas cinq ventes similaires à deux
-// kilomètres. Il descend alors en confiance « faible » avec une fourchette
-// large, et le dit.
+// Une exception, et une seule : l'échec d'**un** millésime plus ancien qu'un
+// millésime effectivement chargé. Cinq fichiers sur six suffisent à un
+// échantillon de cinq à huit ventes, et l'indice temporel ramène de toute façon
+// tout au dernier semestre. `meta.chargement.millesimesEnEchec` le dit. Deux
+// échecs, ou l'échec du millésime le plus récent : 503.
+//
+// QUAND LES VENTES SIMILAIRES MANQUENT, la médiane départementale n'est plus la
+// réponse — elle ne décrivait ni le quartier, ni le bien, et tombait sur deux
+// cas ordinaires : le bien atypique et la zone peu dense. Le moteur relâche
+// maintenant la fenêtre de surface à 2 km (« atypique »), puis ouvre le rayon à
+// 5, 10 et 20 km (« élargi »), en gardant les ventes les plus proches en
+// surface du bien. `meta.etape` dit toujours laquelle de ces étapes a produit le
+// prix.
 //
 // Les zones hors couverture DVF (57, 67, 68, 976) ne sont pas concernées par
 // tout ceci : elles passent par `reference.js`, dont rien n'a changé.
@@ -119,24 +128,36 @@ function badRequest(res, message, code) {
 }
 
 /**
+ * Demi-largeur de fourchette, ramenée entre le plancher et le plafond.
+ *
+ * Le plafond (±20 % du prix) s'applique **dans tous les cas** et quel que soit
+ * le chemin de calcul : une fourchette plus large n'informe plus personne —
+ * « entre 250 000 et 750 000 € » revient à ne rien annoncer. C'est exactement ce
+ * que produisait la dispersion interquartile d'un département entier, élargie
+ * ×2,5 par la confiance faible.
+ */
+const demiLargeur = (prix, demi) =>
+  Math.min(Math.max(demi, prix * FOURCHETTE.demiLargeurMinPct), prix * FOURCHETTE.demiLargeurMaxPct)
+
+/**
  * Fourchette autour d'un montant, à partir d'une dispersion en €/m².
  *
  * Les bornes viennent des quantiles pondérés 25 et 75 de l'échantillon retenu,
  * converties en euros par la même formule que le prix lui-même — ajustement de
  * terrain compris, puisqu'il s'applique identiquement aux trois. La
- * demi-largeur est ensuite élargie selon la confiance, et ne descend jamais
- * sous `FOURCHETTE.demiLargeurMinPct` : une médiane sur cinq à huit ventes ne
- * peut pas prétendre mieux, même quand ces ventes s'accordent parfaitement.
+ * demi-largeur est ensuite élargie selon la confiance, sans jamais descendre
+ * sous `FOURCHETTE.demiLargeurMinPct` — une médiane sur cinq à huit ventes ne
+ * peut pas prétendre mieux, même quand ces ventes s'accordent parfaitement — ni
+ * dépasser `FOURCHETTE.demiLargeurMaxPct`.
  */
 function fourchetteDepuisQuantiles({ prix, quantiles, versEuros, confiance }) {
   const facteur = FOURCHETTE.elargissement[confiance] ?? 1
-  const minimum = prix * FOURCHETTE.demiLargeurMinPct
 
   const basBrut = quantiles?.q25 != null ? versEuros(quantiles.q25) : null
   const hautBrut = quantiles?.q75 != null ? versEuros(quantiles.q75) : null
 
-  const demiBas = Math.max(basBrut != null ? (prix - basBrut) * facteur : 0, minimum)
-  const demiHaut = Math.max(hautBrut != null ? (hautBrut - prix) * facteur : 0, minimum)
+  const demiBas = demiLargeur(prix, basBrut != null ? (prix - basBrut) * facteur : 0)
+  const demiHaut = demiLargeur(prix, hautBrut != null ? (hautBrut - prix) * facteur : 0)
 
   return {
     low: arrondiBorne(Math.max(prix - demiBas, PRICE_RANGE[0])),
@@ -144,9 +165,16 @@ function fourchetteDepuisQuantiles({ prix, quantiles, versEuros, confiance }) {
   }
 }
 
-/** Fourchette symétrique en pourcentage — pour Monaco et les prix de référence. */
+/**
+ * Fourchette symétrique en pourcentage — pour Monaco et les prix de référence.
+ *
+ * Passe par le même plafond : Monaco est aujourd'hui pile à 20 %, la borne ne
+ * mord donc pas, mais elle interdit qu'une révision du barème monégasque
+ * s'affiche un jour en fourchette de ±40 %.
+ */
 function fourchetteSymetrique(prix, pct) {
-  return { low: arrondiBorne(prix * (1 - pct)), high: arrondiBorne(prix * (1 + pct)) }
+  const demi = demiLargeur(prix, prix * pct)
+  return { low: arrondiBorne(prix - demi), high: arrondiBorne(prix + demi) }
 }
 
 /**
@@ -409,11 +437,13 @@ export default async function handler(req, res) {
 
     const partBati = marche.prixM2 * surfaceM2 * (type === 'appartement' ? coefficientEtageApplique : 1)
 
-    // Pas d'ajustement de terrain sur le repli départemental : le €/m² y est
-    // celui du département entier, et lui adosser une valeur de terrain
-    // mesurée dans un rayon de deux kilomètres mélangerait deux échelles. Une
-    // estimation de confiance « faible » n'a pas à se donner des airs de
-    // précision locale.
+    // Pas d'ajustement de terrain sur le seul dernier filet départemental : le
+    // €/m² y est celui du département entier, et lui adosser une valeur de
+    // terrain mesurée dans un rayon de deux kilomètres mélangerait deux
+    // échelles. Les replis par les surfaces, eux, y ont droit comme la cascade
+    // normale : leurs ventes sont bien celles du secteur, et l'écart de terrain
+    // entre le bien et elles se valorise de la même façon — c'est même sur un
+    // bien atypique que cet ajustement a le plus de sens.
     const ajustement =
       type !== 'maison'
         ? { montant: 0, motif: 'sans-objet', plafonne: false }
@@ -470,7 +500,12 @@ export default async function handler(req, res) {
 
       codeInsee,
       departement,
-      source: marche.statut === 'voisinage' ? 'dvf' : 'dvf-departement',
+      source: marche.statut === 'departement' ? 'dvf-departement' : 'dvf',
+      // L'étape qui a produit le prix, en clair : `cascade-normale`,
+      // `atypique-2km`, `elargi-5km` / `-10km` / `-20km`, ou `departement`.
+      // C'est la première chose à lire dans ce journal — tout le reste
+      // s'interprète différemment selon elle.
+      etape: marche.etape,
       confiance: marche.confiance,
       pricePerM2: Math.round(marche.prixM2),
       rayonAtteintM: marche.rayonAtteintM,
@@ -480,6 +515,9 @@ export default async function handler(req, res) {
       indice: {
         zone: marche.indice.zone,
         zoneCode: marche.indice.zoneCode,
+        // Médiane et plancher des volumes semestriels de la commune, en regard
+        // de leurs seuils : de quoi savoir pourquoi l'échelle est celle-là.
+        echelle: marche.indice.echelle,
         semestreReference: marche.indice.semestreReference,
         motif: marche.indice.motif,
         points: marche.indice.points,
@@ -489,6 +527,12 @@ export default async function handler(req, res) {
       // de similaires par rayon. C'est ce qui permet de dire *pourquoi* le
       // rayon retenu est celui-là.
       candidats: marche.candidats,
+
+      // Renseigné sur les seules étapes de repli : rayon atteint, volume trouvé,
+      // surface du bien et surfaces réellement retenues. C'est là qu'on lit ce
+      // que le relâchement de la fenêtre de surface a coûté — une maison de
+      // 300 m² comparée à des 220 m², par exemple.
+      repli: marche.repli,
 
       // Terrain.
       terrain: {
@@ -567,6 +611,11 @@ export default async function handler(req, res) {
         departements: marche.chargement.departements,
         fichiers: journal.length,
         echecs: echecs.length,
+        // Millésimes perdus sur le département du bien et **tolérés** : un seul
+        // peut l'être, et seulement s'il est plus ancien qu'un millésime
+        // effectivement chargé (voir `CHARGEMENT.echecsToleres`). Non vide, ce
+        // champ dit que l'estimation a été calculée sur un historique incomplet.
+        millesimesEnEchec: marche.chargement.millesimesEnEchec,
         echecsNonEssentiels: marche.chargement.echecsNonEssentiels,
         tentatives: journal.reduce((somme, f) => somme + f.tentatives, 0),
         detail: journal,
