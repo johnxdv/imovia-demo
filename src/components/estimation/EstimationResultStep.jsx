@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Check, MapPin } from 'lucide-react'
-import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { StepBackLink } from './StepBackLink'
 import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
@@ -14,8 +13,10 @@ import { EASE } from '../../lib/motion'
  * coordonnées n'ont pas été renseignées.
  *
  * Trois temps sur le même écran, sans navigation entre eux :
- * 1. **Repos** — carte centrée, prix flouté (déjà avec son premier chiffre
- *    net), CTA « Voir mon estimation ».
+ * 1. **Repos** — panneau centré, prix flouté (déjà avec son premier chiffre
+ *    net), CTA « Voir mon estimation ». Volontairement dépouillé : ni rappel
+ *    d'adresse, ni promesse d'expertise — les deux reparaissent à l'écran
+ *    suivant, et la place rendue va au bien qui s'achève derrière la vitre.
  * 2. **Conversation** — au clic sur ce CTA, l'écran bascule en deux colonnes :
  *    le prix à gauche (toujours visible, qui se déflégère très légèrement à
  *    mesure des réponses), la conversation de capture à droite, agrandie.
@@ -31,9 +32,13 @@ import { EASE } from '../../lib/motion'
  *
  * `onProgress` remonte l'avancement local (0 avant le clic sur le CTA, la
  * fraction de conversation complétée, puis 1 une fois la confirmation
- * affichée) à la barre de progression globale du parcours, portée par
- * `Estimer.jsx`. `onDone` signale cette même bascule finale au parent — sans
- * quitter cet écran, voir `finishChat` dans `Estimer.jsx`.
+ * affichée) au rail d'étapes du parcours, porté par `Estimer.jsx`. `onDone`
+ * signale cette même bascule finale au parent — sans quitter cet écran, voir
+ * `finishChat` dans `Estimer.jsx`.
+ *
+ * Cette dernière bascule est aussi ce qui achève le chantier du décor : le
+ * drone reprend de la hauteur et un halo doré entoure le bien (stade 6, voir
+ * `DroneScene`).
  */
 export function EstimationResultStep({ address, estimation, onBack, onDone, onProgress, onClose }) {
   const reduce = useReducedMotion()
@@ -75,78 +80,75 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
 
   if (!started) {
     return (
+      // Le retour reste hors du panneau : son `backdrop-filter` ferait du verre
+      // dépoli le bloc conteneur de sa position `fixed` (voir `StepBackLink`).
       <div className="w-full max-w-lg">
         <StepBackLink onClick={onBack}>Modifier ma sélection</StepBackLink>
 
-        <motion.div
-          initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE }}
-          className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-bottle shadow-lg shadow-bottle/25"
-        >
-          <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
-        </motion.div>
+        <div className="panneau-verre p-7 text-center sm:p-9">
+          <motion.div
+            initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE }}
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-bottle"
+          >
+            <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
+          </motion.div>
 
-        <h1 className="titre-etape mt-7 text-center text-[1.7rem] leading-tight text-ink sm:text-[2rem]">
-          Votre estimation est prête
-        </h1>
+          <h1 className="titre-etape mt-7 text-center text-[1.7rem] leading-tight text-ink sm:text-[2rem]">
+            Votre estimation est prête
+          </h1>
 
-        {/* Rappel de l'adresse estimée : sans le montant, c'est tout ce qui
-            rattache l'écran au bien de l'utilisateur. */}
-        <p className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-center text-[0.85rem] leading-snug text-ink/55">
-          <MapPin className="h-4 w-4 shrink-0 text-brass" strokeWidth={1.75} aria-hidden="true" />
-          {address.label}
-        </p>
+          {/* Plus de rappel d'adresse ici : il reparaît à l'écran suivant, en
+              tête de la colonne du prix, et la hauteur qu'il occupait revient au
+              chantier qui s'achève derrière la vitre. */}
 
-        <div className="relative mt-8">
-          <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
+          <div className="mt-8">
+            <div className="panneau-interne overflow-hidden px-6 py-8 text-center sm:px-8">
+              <p className="font-mono text-[0.6rem] uppercase tracking-micro text-ink/55">
+                Estimation de votre bien
+              </p>
 
-          <div className="relative overflow-hidden rounded-2xl border border-ink/10 bg-white px-6 py-8 text-center shadow-[0_22px_54px_-18px_rgba(16,20,28,0.3)] sm:px-8">
-            <p className="font-mono text-[0.6rem] uppercase tracking-micro text-ink/40">
-              Estimation de votre bien
-            </p>
+              {/* Le montant domine délibérément l'écran — au point d'aiguiser la
+                  curiosité plutôt que de simplement l'informer. Le premier
+                  chiffre est net dès cet écran ; le reste se déflégera très
+                  progressivement au fil de la conversation qui suit. */}
+              <div className="mt-5 flex items-center justify-center">
+                <PriceReveal
+                  formatted={formatted ?? '— €'}
+                  revealStage={0}
+                  className="titre-etape whitespace-nowrap text-[clamp(2.75rem,15vw,4.25rem)] leading-none text-laiton-texte sm:text-[6.5rem]"
+                />
+              </div>
 
-            {/* Le montant domine délibérément l'écran — au point d'aiguiser la
-                curiosité plutôt que de simplement l'informer. Le premier
-                chiffre est net dès cet écran ; le reste se déflégera très
-                progressivement au fil de la conversation qui suit. */}
-            <div className="mt-5 flex items-center justify-center">
-              <PriceReveal
-                formatted={formatted ?? '— €'}
-                revealStage={0}
-                className="whitespace-nowrap font-display text-[clamp(2.75rem,15vw,4.25rem)] font-semibold leading-none text-ink sm:text-[6.5rem]"
-              />
-            </div>
+              {/* Même réserve que sur l'écran suivant. Le montant est affiché à
+                  deux endroits — ici au repos, puis à gauche pendant la
+                  conversation — et la mention doit suivre le montant partout où
+                  il paraît, pas seulement là où on l'a écrite en premier. */}
+              <p className="mx-auto mt-4 max-w-xs text-[0.75rem] leading-relaxed text-ink/70">
+                Prix soumis à expertise
+              </p>
 
-            {/* Même réserve que sur l'écran suivant. Le montant est affiché à
-                deux endroits — ici au repos, puis à gauche pendant la
-                conversation — et la mention doit suivre le montant partout où
-                il paraît, pas seulement là où on l'a écrite en premier. */}
-            <p className="mx-auto mt-4 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
-              Prix soumis à expertise, hors terrain
-            </p>
+              {/* La promesse d'expertise ne paraît plus ici : elle attend
+                  l'écran suivant, où la conversation la rend concrète. Ce qui
+                  est gagné en hauteur revient au bien qui s'achève derrière la
+                  vitre — c'est le dernier stade du chantier, il mérite mieux
+                  qu'un bandeau de texte par-dessus. */}
+              <p className="mt-7 text-lg font-semibold text-ink sm:text-xl">
+                Résultats détaillés disponibles
+              </p>
 
-            <p className="mt-7 font-display text-lg font-semibold text-ink sm:text-xl">
-              Résultats détaillés disponibles
-            </p>
-            <p className="mx-auto mt-3 max-w-sm text-balance font-display text-[0.78rem] leading-relaxed text-ink/60">
-              Un expert va finaliser votre étude et vous présenter les meilleures options
-              pour votre projet.
-            </p>
-
-            <div className="relative mx-auto mt-7 max-w-[17rem]">
-              <GoldFrame className="-inset-[2px] rounded-[0.87rem]" />
-
-              <button
-                type="button"
-                onClick={() => setStarted(true)}
-                className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-6 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
-              >
-                <Shine width="w-1/5" tint="via-brass/40" />
-                <span className="relative font-display text-[0.88rem] font-semibold uppercase tracking-[0.08em] text-white">
-                  Voir mon estimation
-                </span>
-              </button>
+              <div className="mx-auto mt-7 max-w-[17rem]">
+                <button
+                  type="button"
+                  onClick={() => setStarted(true)}
+                  className="bouton-tunnel flex w-full items-center justify-center px-6 py-4"
+                >
+                  <span className="text-[0.88rem] font-semibold uppercase tracking-[0.08em]">
+                    Voir mon estimation
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -164,16 +166,14 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
           juste au-dessus de la conversation plutôt qu'à côté. */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:items-start md:gap-8">
         <div className="md:sticky md:top-28 md:col-span-5">
-          <div className="relative">
-            <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
-
-            <div className="relative overflow-hidden rounded-2xl border border-ink/10 bg-white px-6 py-7 text-center shadow-[0_22px_54px_-18px_rgba(16,20,28,0.3)] sm:px-8">
-              <p className="mx-auto flex max-w-xs items-center justify-center gap-2 text-[0.78rem] leading-snug text-ink/50">
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-brass" strokeWidth={1.75} aria-hidden="true" />
+          <div>
+            <div className="panneau-verre overflow-hidden px-6 py-7 text-center sm:px-8">
+              <p className="mx-auto flex max-w-xs items-center justify-center gap-2 text-[0.78rem] leading-snug text-ink/60">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-laiton-texte" strokeWidth={1.75} aria-hidden="true" />
                 {address.label}
               </p>
 
-              <p className="mt-5 font-mono text-[0.6rem] uppercase tracking-micro text-ink/40">
+              <p className="mt-5 font-mono text-[0.6rem] uppercase tracking-micro text-ink/55">
                 Estimation de votre bien
               </p>
 
@@ -181,7 +181,7 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
                 <PriceReveal
                   formatted={formatted ?? '— €'}
                   revealStage={finished ? 5 : revealStage}
-                  className="whitespace-nowrap font-display text-[clamp(2.5rem,13vw,3.5rem)] font-semibold leading-none text-ink md:text-[3.25rem]"
+                  className="titre-etape whitespace-nowrap text-[clamp(2.5rem,13vw,3.5rem)] leading-none text-laiton-texte md:text-[3.25rem]"
                 />
               </div>
 
@@ -190,12 +190,12 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
                   dévoilement comme après. Volontairement du texte nu, sans
                   animation ni ornement — c'est une réserve juridique, elle se
                   lit, elle ne se met pas en scène. */}
-              <p className="mx-auto mt-4 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
-                Prix soumis à expertise, hors terrain
+              <p className="mx-auto mt-4 max-w-xs text-[0.75rem] leading-relaxed text-ink/70">
+                Prix soumis à expertise
               </p>
 
               {!finished && (
-                <p className="mx-auto mt-5 max-w-xs font-display text-[0.75rem] leading-relaxed text-ink/60">
+                <p className="mx-auto mt-5 max-w-xs text-[0.75rem] leading-relaxed text-ink/70">
                   Un expert va finaliser votre étude et vous présenter les meilleures options
                   pour votre projet.
                 </p>
@@ -213,25 +213,25 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
               transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE }}
               className="mt-4"
             >
-              <div className="rounded-2xl border border-ink/10 bg-white px-4 py-5 shadow-[0_14px_36px_-20px_rgba(16,20,28,0.28)] sm:px-6">
+              <div className="panneau-verre px-4 py-5 sm:px-6">
                 {/* Les deux bornes restent côte à côte jusqu'aux plus petits
                     écrans : les montants passent à une taille légèrement
                     réduite en dessous de 640 px plutôt que de s'empiler. */}
                 <div className="grid grid-cols-2 divide-x divide-ink/10">
                   <div className="px-2 text-center">
-                    <p className="font-mono text-[0.58rem] uppercase tracking-micro text-ink/40">
+                    <p className="font-mono text-[0.58rem] uppercase tracking-micro text-ink/55">
                       Estimation basse
                     </p>
-                    <p className="mt-2 whitespace-nowrap font-display text-[1.25rem] font-semibold leading-none text-ink sm:text-[1.55rem]">
+                    <p className="titre-etape mt-2 whitespace-nowrap text-[1.25rem] leading-none text-ink sm:text-[1.55rem]">
                       {formatEuros(range.low)}
                     </p>
                   </div>
 
                   <div className="px-2 text-center">
-                    <p className="font-mono text-[0.58rem] uppercase tracking-micro text-ink/40">
+                    <p className="font-mono text-[0.58rem] uppercase tracking-micro text-ink/55">
                       Estimation haute
                     </p>
-                    <p className="mt-2 whitespace-nowrap font-display text-[1.25rem] font-semibold leading-none text-ink sm:text-[1.55rem]">
+                    <p className="titre-etape mt-2 whitespace-nowrap text-[1.25rem] leading-none text-ink sm:text-[1.55rem]">
                       {formatEuros(range.high)}
                     </p>
                   </div>

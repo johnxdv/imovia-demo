@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { CALLBACK_SLOTS } from '../../data/estimation'
-import { GoldFrame } from '../ui/GoldFrame'
 import { GrowthArrowIcon } from '../ui/GrowthArrowIcon'
 import { EASE } from '../../lib/motion'
 
@@ -64,8 +63,8 @@ const nextId = () => `msg-${(messageSeq += 1)}`
 /** Badge circulaire de l'assistant — même dégradé que les autres écrans « IA » du parcours. */
 function AssistantAvatar() {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ink via-ink to-ink/70 shadow-sm shadow-ink/25">
-      <GrowthArrowIcon className="h-3.5 w-3.5 text-brass" />
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ink via-ink to-ink/70">
+      <GrowthArrowIcon className="h-3.5 w-3.5 text-laiton" />
     </span>
   )
 }
@@ -84,10 +83,10 @@ function Bubble({ role, text }) {
       {isUser ? null : <AssistantAvatar />}
       <div
         className={[
-          'max-w-[80%] whitespace-pre-line rounded-2xl px-4 py-3 font-display text-[1rem] leading-relaxed sm:max-w-[75%] sm:text-[1.08rem]',
+          'max-w-[80%] whitespace-pre-line rounded-[10px] px-4 py-3 text-[0.98rem] leading-relaxed sm:max-w-[75%] sm:text-[1.04rem]',
           isUser
             ? 'rounded-br-sm bg-ink text-white'
-            : 'rounded-bl-sm border border-ink/10 bg-stone text-ink',
+            : 'rounded-bl-sm border border-ink/10 bg-ink/[0.04] text-ink',
         ].join(' ')}
       >
         {text}
@@ -107,7 +106,7 @@ function TypingBubble() {
       className="flex items-end gap-2.5"
     >
       <AssistantAvatar />
-      <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm border border-ink/10 bg-stone px-4 py-3.5">
+      <div className="flex items-center gap-1.5 rounded-[10px] rounded-bl-sm border border-ink/10 bg-ink/[0.04] px-4 py-3.5">
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/30 [animation-delay:-0.3s]" />
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/30 [animation-delay:-0.15s]" />
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/30" />
@@ -123,8 +122,8 @@ function TypingBubble() {
  * Intégré directement dans l'écran résultat (colonne de droite du split-screen)
  * plutôt qu'en fenêtre modale séparée : plus de fond assombri, de croix de
  * fermeture ni de piège à focus — c'est un panneau de la page comme un autre.
- * L'avancement se lit dans la barre de progression globale du parcours,
- * portée par la page ; ce panneau n'affiche donc plus la sienne.
+ * L'avancement se lit dans le rail d'étapes du parcours, porté par la page ;
+ * ce panneau n'affiche donc plus le sien.
  *
  * Purement une interface pour l'instant — `onDone` remonte les coordonnées
  * saisies (state React le temps de la session), rien n'est envoyé ni
@@ -133,6 +132,9 @@ function TypingBubble() {
  * `onProgress` remonte le nombre de questions déjà répondues (0 à
  * `QUESTION_COUNT`), pour piloter le déflouttage progressif du prix affiché
  * dans la colonne de gauche ([PriceReveal](./PriceReveal.jsx)).
+ *
+ * L'avancement se lit aussi dans le décor : c'est à cette étape que les
+ * fenêtres du bien s'éclairent (voir `DroneScene`).
  */
 export function EstimationChatPanel({ onDone, onProgress }) {
   const reduce = useReducedMotion()
@@ -236,9 +238,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
 
   return (
     <div className="relative w-full">
-      <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
-
-      <div className="relative flex h-[26rem] flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_22px_54px_-18px_rgba(16,20,28,0.3)] sm:h-[32rem] lg:h-[36rem]">
+      <div className="panneau-verre relative flex h-[26rem] flex-col overflow-hidden sm:h-[32rem] lg:h-[36rem]">
         <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <div className="flex flex-col gap-4">
             <AnimatePresence initial={false}>
@@ -251,7 +251,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
         </div>
 
         {currentQuestion ? (
-          <div className="relative shrink-0 border-t border-ink/10 bg-stone/60 px-5 py-4 backdrop-blur-sm sm:px-8">
+          <div className="relative shrink-0 border-t border-ink/10 bg-ink/[0.03] px-5 py-4 sm:px-8">
             {currentQuestion.type === 'choice' ? (
               <div className="grid grid-cols-2 gap-3">
                 {currentQuestion.options.map((slot) => (
@@ -259,7 +259,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
                     key={slot.id}
                     type="button"
                     onClick={() => submitChoice(slot)}
-                    className="touch-manipulation rounded-xl border border-ink/15 bg-white px-4 py-4 text-center font-display text-[0.88rem] font-semibold uppercase tracking-[0.05em] text-ink/75 transition-colors duration-200 ease-plan hover:border-ink/40 hover:text-ink"
+                    className="option-tunnel px-4 py-4 text-center text-[0.88rem] font-semibold uppercase tracking-[0.05em]"
                   >
                     {slot.label}
                   </button>
@@ -267,7 +267,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
               </div>
             ) : (
               <form onSubmit={submitText} noValidate>
-                <div className="flex items-center gap-3 rounded-full border border-ink/15 bg-white py-1.5 pl-5 pr-1.5 shadow-sm shadow-ink/5 focus-within:border-ink/40">
+                <div className="champ-tunnel flex items-center gap-3 rounded-full py-1.5 pl-5 pr-1.5">
                   <input
                     ref={inputRef}
                     type={currentQuestion.type}
@@ -282,12 +282,12 @@ export function EstimationChatPanel({ onDone, onProgress }) {
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? 'chat-input-error' : undefined}
                     // 16 px minimum : en deçà, iOS zoome automatiquement sur le champ.
-                    className="min-w-0 flex-1 bg-transparent py-2 font-display text-base text-ink placeholder:text-ink/35 focus:outline-none"
+                    className="min-w-0 flex-1 bg-transparent py-2 text-base text-ink placeholder:text-ink/45 focus:outline-none"
                   />
                   <button
                     type="submit"
                     aria-label="Valider ma réponse"
-                    className="flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full bg-ink text-white transition-colors duration-200 ease-plan hover:bg-ink/85"
+                    className="bouton-tunnel flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
                   >
                     <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   </button>

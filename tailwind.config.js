@@ -9,12 +9,25 @@ export default {
         stone: '#EDEAE3', // Warm Stone — fond clair, sections alternées
         brass: '#B08D57', // Brass — accent unique (CTA, liens, éléments actifs)
         bottle: '#1F3B2E', // Bottle Green — accent secondaire très rare
+        // Laiton du parcours d'estimation. Seule teinte ajoutée à la palette,
+        // et volontairement cantonnée à un écran : c'est l'accent du panneau de
+        // verre du tunnel « Estimer mon bien » (curseur, champ actif, option
+        // retenue), repris tel quel de la maquette de référence. Le Brass du
+        // reste du site reste la seule couleur d'accent partout ailleurs.
+        laiton: '#C9A16B',
+        // Même laiton, assombri, pour le texte posé sur le blanc du panneau :
+        // #C9A16B se lit mal en corps de texte, la maquette de référence écrit
+        // donc ses valeurs retenues (m², étage) dans cette teinte.
+        'laiton-texte': '#8A6224',
       },
       fontFamily: {
         // Deux familles principales + une utilitaire monospace.
         display: ['Fraunces', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        // Sans-serif du seul parcours d'estimation (texte courant et libellés
+        // de son panneau) — voir `.tunnel-estimation` dans `src/index.css`.
+        grotesk: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         // Échelle éditoriale généreuse.

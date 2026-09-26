@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Loader2, MapPin } from 'lucide-react'
 // Leaflet et la carte ne servent qu'ici : les charger à la demande évite
 // d'alourdir de ~150 ko toutes les autres pages du site. Le module est
@@ -10,7 +10,35 @@ const BuildingMap = lazy(() =>
 )
 import { BuildingConfirmModal } from './BuildingConfirmModal'
 import { StepBackLink } from './StepBackLink'
+import { niveauxReleves, useChantier } from './chantier'
 import { detectPropertyType, typeImmediat } from '../../lib/typeBien'
+import { EASE } from '../../lib/motion'
+
+/**
+ * Aspiration de la carte.
+ *
+ * Le bien est choisi : la photo aérienne a fait son travail, et la fenêtre de
+ * surface s'ouvre. Plutôt que de rester en fond derrière elle, la carte est
+ * happée vers le bâtiment — elle se referme sur son centre en se brouillant,
+ * comme aspirée par la maison qui se construit derrière. Le chantier reste
+ * alors seul sous la fenêtre, et c'est tout l'intérêt : c'est au moment où la
+ * surface se règle que le bâtiment grandit, et il faut le voir.
+ *
+ * Réversible : fermer la fenêtre rend la carte à sa place, par le même chemin.
+ */
+export const CARTE_ASPIREE = {
+  opacity: 0,
+  scale: 0.88,
+  filter: 'blur(8px)',
+  transition: { duration: 0.75, ease: EASE },
+}
+
+export const CARTE_EN_PLACE = {
+  opacity: 1,
+  scale: 1,
+  filter: 'blur(0px)',
+  transition: { duration: 0.55, ease: EASE },
+}
 
 /**
  * Délai au-delà duquel un repérage libre part sans attendre le cadastre.
@@ -51,8 +79,18 @@ const ATTENTE_CADASTRE_MS = 2500
  *
  * `onEstimate` remonte la sélection enrichie du type retenu, de la surface et
  * de l'étage déclarés, sans que l'utilisateur ait eu à s'en préoccuper.
+ *
+ * ET CE TYPE SE VOIT, désormais : c'est lui qui décide de
+ * l'architecture du bâtiment qui se construit dans le décor 3D derrière le
+ * panneau — villa d'architecte pour une maison, immeuble haussmannien pour un
+ * appartement, terrain nu pour un repérage libre (voir `DroneScene`). Il y est
+ * déclaré par `ChantierContext`, à côté du nombre de niveaux relevé sur le
+ * bâtiment cliqué, et la silhouette se précise avec la détection : la déduction
+ * locale d'abord, la réponse du réseau ensuite.
  */
 export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
+  const chantier = useChantier()
+  const reduce = useReducedMotion()
   const [selection, setSelection] = useState(null)
   // Résultat complet de la détection, et pas seulement le type : la parcelle
   // cadastrale et la fiche BDNB obtenues au passage évitent au moteur
@@ -70,6 +108,13 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // plutôt que mémorisé — c'est une lecture d'attributs et deux exponentielles,
   // moins cher que la comparaison de dépendances qui l'éviterait.
   const typeAffiche = detection?.type ?? typeImmediat(selection)
+
+  // Le décor n'a que ces deux informations à connaître, et elles ne servent
+  // qu'à lui : l'architecture à monter, et le nombre d'étages à lui donner s'il
+  // s'agit d'un immeuble.
+  useEffect(() => {
+    chantier.declarerBien({ type: typeAffiche, niveaux: niveauxReleves(selection) })
+  }, [chantier, typeAffiche, selection])
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {
@@ -154,37 +199,54 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   }, [selection, isBuilding, detection, startEstimate])
 
   return (
+    // Retour et fenêtre modale restent HORS du panneau : `.panneau-verre` porte
+    // un `backdrop-filter`, et un tel filtre fait du panneau le bloc conteneur
+    // de ses descendants `fixed` — le retour comme la fenêtre s'y retrouveraient
+    // enfermés au lieu de se caler sur la fenêtre du navigateur.
     <div className="w-full max-w-3xl">
       <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
-      <h1 className="titre-etape text-center text-[1.6rem] leading-tight text-ink sm:text-[2rem]">
-        Cliquez sur votre bien
-      </h1>
-      <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60">
-        Sur la vue aérienne, sélectionnez le bâtiment concerné.
-      </p>
+      {/* La carte et tout ce qui l'annonce s'effacent ensemble dès qu'un bien est
+          retenu : ce n'est plus de la carte qu'il s'agit, mais de la surface.
+          `pointer-events-none` pendant l'aspiration, sinon un clic passerait au
+          travers de la fenêtre pour atterrir sur un bâtiment voisin ; et
+          `aria-hidden`, pour que la tabulation n'aille pas non plus s'y perdre. */}
+      <motion.div
+        animate={isBuilding && !reduce ? CARTE_ASPIREE : CARTE_EN_PLACE}
+        aria-hidden={isBuilding}
+        className={[
+          'panneau-verre p-6 sm:p-8',
+          isBuilding ? 'pointer-events-none' : '',
+        ].join(' ')}
+      >
+        <h1 className="titre-etape text-center text-[1.6rem] leading-tight text-ink sm:text-[2rem]">
+          Cliquez sur votre bien
+        </h1>
+        <p className="mx-auto mt-4 max-w-md text-center text-[1rem] leading-relaxed text-ink/70">
+          Sur la vue aérienne, sélectionnez le bâtiment concerné.
+        </p>
 
-      {/* Rappel de l'adresse : l'utilisateur n'a rien validé explicitement pour
-          arriver ici, il doit pouvoir vérifier d'un coup d'œil où il a atterri. */}
-      <p className="mx-auto mt-6 flex max-w-xl items-center justify-center gap-2.5 rounded-full border border-ink/10 bg-white px-4 py-2.5 text-center text-[0.8rem] leading-snug text-ink/70 sm:text-sm">
-        <MapPin className="h-4 w-4 shrink-0 text-brass" strokeWidth={1.75} aria-hidden="true" />
-        {address.label}
-      </p>
+        {/* Rappel de l'adresse : l'utilisateur n'a rien validé explicitement pour
+            arriver ici, il doit pouvoir vérifier d'un coup d'œil où il a atterri. */}
+        <p className="mx-auto mt-6 flex max-w-xl items-center justify-center gap-2.5 rounded-full border border-ink/10 bg-white/70 px-4 py-2.5 text-center text-[0.8rem] leading-snug text-ink/70 sm:text-sm">
+          <MapPin className="h-4 w-4 shrink-0 text-laiton-texte" strokeWidth={1.75} aria-hidden="true" />
+          {address.label}
+        </p>
 
-      <div className="mt-6">
-        <Suspense fallback={<MapPlaceholder />}>
-          <BuildingMap
-            lat={address.lat}
-            lon={address.lon}
-            addressLabel={address.label}
-            onSelect={setSelection}
-          />
-        </Suspense>
+        <div className="mt-6">
+          <Suspense fallback={<MapPlaceholder />}>
+            <BuildingMap
+              lat={address.lat}
+              lon={address.lon}
+              addressLabel={address.label}
+              onSelect={setSelection}
+            />
+          </Suspense>
+        </div>
+      </motion.div>
 
-      </div>
-
-      {/* La fenêtre est rendue hors du conteneur de la carte : elle couvre la
-          page entière, pas seulement la vue aérienne. */}
+      {/* La fenêtre est rendue hors du panneau ET du conteneur de la carte :
+          elle couvre la page entière, pas seulement la vue aérienne. */}
       <AnimatePresence>
         {isBuilding ? (
           <BuildingConfirmModal

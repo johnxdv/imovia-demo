@@ -131,7 +131,7 @@ export function AddressAutocomplete({
     <div className="relative">
       <div className="relative">
         <MapPin
-          className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink/35 sm:left-6 sm:h-6 sm:w-6"
+          className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink/45 sm:left-6 sm:h-6 sm:w-6"
           strokeWidth={1.75}
           aria-hidden="true"
         />
@@ -155,15 +155,15 @@ export function AddressAutocomplete({
           aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
           // 16 px minimum : en deçà, iOS zoome automatiquement sur le champ.
           // Le champ est délibérément plus haut et plus large que les autres
-          // saisies du site : c'est le seul geste de cet écran, et il se
-          // détache maintenant d'un décor animé — un champ discret s'y
-          // dissoudrait. L'ombre portée, elle, le décolle du dessin.
-          className="w-full rounded-2xl border border-ink/15 bg-white py-5 pl-14 pr-14 text-[1.05rem] text-ink shadow-md shadow-ink/10 outline-none transition-colors duration-300 ease-plan placeholder:text-ink/40 focus:border-ink/40 sm:py-6 sm:pl-16 sm:pr-16 sm:text-xl"
+          // saisies du site : c'est le seul geste de cet écran. Son filet passe
+          // au laiton à la prise de focus, comme tous les champs du parcours
+          // (voir `.champ-tunnel` dans `src/index.css`).
+          className="champ-tunnel py-5 pl-14 pr-14 text-[1.05rem] sm:py-6 sm:pl-16 sm:pr-16 sm:text-xl"
         />
 
         {loading ? (
           <Loader2
-            className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-ink/35 sm:right-6 sm:h-6 sm:w-6"
+            className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-ink/45 sm:right-6 sm:h-6 sm:w-6"
             strokeWidth={1.75}
             aria-hidden="true"
           />
@@ -178,7 +178,7 @@ export function AddressAutocomplete({
           role="listbox"
           aria-label="Suggestions d’adresses"
           onMouseDown={(event) => event.preventDefault()}
-          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-xl shadow-ink/10"
+          className="panneau-verre absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden"
         >
           {suggestions.map((suggestion, index) => (
             <li key={suggestion.id || suggestion.label} role="none">
@@ -191,7 +191,7 @@ export function AddressAutocomplete({
                 onMouseEnter={() => setActiveIndex(index)}
                 className={[
                   'flex w-full touch-manipulation items-center gap-3 px-4 py-3.5 text-left text-base text-ink/80 transition-colors sm:px-5',
-                  index === activeIndex ? 'bg-stone/70 text-ink' : 'bg-white',
+                  index === activeIndex ? 'bg-laiton/12 text-ink' : 'bg-transparent',
                 ].join(' ')}
               >
                 <MapPin className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} aria-hidden="true" />
@@ -203,7 +203,7 @@ export function AddressAutocomplete({
       ) : null}
 
       {showEmpty ? (
-        <p className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 flex items-center gap-3 rounded-2xl border border-ink/10 bg-white px-4 py-3.5 text-base text-ink/55 shadow-xl shadow-ink/10 sm:px-5">
+        <p className="panneau-verre absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 flex items-center gap-3 px-4 py-3.5 text-base text-ink/65 sm:px-5">
           <SearchX className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} aria-hidden="true" />
           Aucune adresse ne correspond à cette recherche.
         </p>
@@ -211,7 +211,7 @@ export function AddressAutocomplete({
 
       {/* Panne réseau : message discret, la saisie reste possible. */}
       {status === 'error' ? (
-        <p role="status" className="mt-3 text-center text-base text-ink/45">
+        <p role="status" className="mt-3 text-center text-base text-ink/55">
           Recherche d’adresse momentanément indisponible. Réessayez dans un instant.
         </p>
       ) : null}

@@ -60,24 +60,232 @@
   /* Titres d'étape du parcours d'estimation — de « Où se situe votre bien ? »
      jusqu'à la confirmation finale.
 
-     Ils quittent la Fraunces du reste du site pour la Prata de Barnes, avec le
-     geste qui va avec : l'interlettrage de 0.025em que le site de la marque
-     pose sur son `body` et laisse hériter partout. C'est ce très léger
-     desserrage — et non une graisse ou une couleur — qui fait l'allure ; il est
-     donc écrit ici une fois, plutôt que répété par titre.
+     Ils reviennent à la Fraunces du reste du site, en 600 : c'est la serif des
+     titres de la maquette de référence du tunnel (voir `DroneScene`), et le
+     panneau de verre n'en connaît que deux — celle-ci pour les titres, la Space
+     Grotesk pour tout le reste (voir `.tunnel-estimation` ci-dessous).
 
-     Prata ne se décline qu'en une graisse. La graisse est donc verrouillée à
-     400 et la synthèse refusée : sans ce verrou, un `font-semibold` oublié sur
-     un titre ferait fabriquer au navigateur un faux gras — des lettres
-     épaissies mécaniquement, empattements compris, ce qu'une romane de ce
-     dessin ne supporte pas.
+     La Prata qui tenait ce rôle a été retirée, feuille de fontes comprise :
+     elle ne servait qu'ici.
 
      La classe ne porte ni taille ni couleur : chaque écran garde les siennes. */
   .titre-etape {
-    font-family: 'Prata', Georgia, serif;
-    font-weight: 400;
-    font-synthesis-weight: none;
-    letter-spacing: 0.025em;
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  /* ==========================================================================
+     PANNEAU DE VERRE DU TUNNEL « ESTIMER MON BIEN »
+     ==========================================================================
+
+     Tout ce bloc ne concerne QUE le parcours d'estimation : le panneau posé
+     devant la scène 3D (voir `src/components/estimation/DroneScene.jsx`), et
+     rien d'autre du site. Il reprend à l'identique l'habillage de la maquette
+     de référence — verre dépoli blanc cassé, coins arrondis, ombre douce,
+     accent laiton — de façon à ce qu'aucune étape n'en dévie : la règle est
+     écrite une fois ici, pas répétée par écran.
+
+     `.tunnel-estimation` est posé haut, sur le conteneur du parcours (voir
+     `src/pages/Estimer.jsx`) : il commande la sans-serif de tout ce qui est
+     texte courant et libellé à l'intérieur. Les titres, eux, gardent la
+     `.titre-etape` ci-dessus. */
+  .tunnel-estimation {
+    font-family: 'Space Grotesk', Inter, system-ui, sans-serif;
+  }
+
+  /* Le parcours ne connaît que deux polices : la Fraunces des titres
+     (`.titre-etape`) et la Space Grotesk de tout le reste. Les étiquettes
+     techniques du site — celles en `font-mono`, réglées en IBM Plex Mono pour
+     le reste des pages — sont donc ramenées ici sur la Space Grotesk, et
+     gardent leur allure de légende : capitales, très espacées. Une règle de
+     portée plutôt que quinze remplacements de classe : c'est la règle du
+     parcours entier, elle s'écrit à un seul endroit.
+
+     L'interlettrage est repris un cran en dessous du `tracking-micro` du site :
+     0,18 em sur une grotesque, c'est le double de ce qu'il faut. */
+  .tunnel-estimation .font-mono {
+    font-family: 'Space Grotesk', Inter, system-ui, sans-serif;
+    letter-spacing: 0.1em;
+  }
+
+  /* Le panneau lui-même — une vitre, pas un calque blanc.
+
+     LE FLOU EST L'ENNEMI. C'est lui qui décidait de tout dans les versions
+     précédentes : à 22 px, le bâtiment derrière devenait une tache colorée, et
+     on ne voyait plus que c'était une maison. Il tombe ici à 7 px — de quoi
+     adoucir le décor sans le dissoudre : la silhouette, le toit, l'ombre portée
+     restent lisibles au travers, et c'est tout l'objet du parcours.
+
+     CE QUI REND LE TEXTE LISIBLE, ce n'est donc plus l'opacité du fond — qui
+     descend à 0,20-0,42 selon l'endroit de la vitre — mais trois choses qui ne
+     coûtent rien à la transparence :
+
+     1. `brightness(1.07) contrast(0.96)` sur ce qui passe derrière : un coup de
+        pouce, pas un lavage. Les tons sombres du décor remontent juste assez
+        pour que le texte noir tienne, et la scène garde ses valeurs — poussé
+        plus haut (on a essayé 1,18), le verre blanchit tout et la maison
+        disparaît, ce qui est exactement le défaut qu'on cherche à éviter.
+     2. La saturation relevée de moitié, qui rend au décor la couleur que le
+        flou lui prend.
+     3. Un halo blanc très court sous chaque lettre (voir `text-shadow` plus
+        bas) : c'est le détourage qui tient la lecture quand une arête sombre
+        passe juste derrière un mot.
+
+     LES REFLETS (`::before`) font le reste, et ce ne sont pas des ornements :
+     deux bandes de lumière rasante, l'une en haut à gauche, l'autre au coin
+     opposé, qui donnent à la plaque son épaisseur et son inclinaison. Sans
+     elles, une surface aussi transparente ne se lit plus comme du verre mais
+     comme un trou dans l'écran. */
+  .panneau-verre {
+    position: relative;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0.24) 38%,
+      rgba(255, 255, 255, 0.2) 64%,
+      rgba(255, 255, 255, 0.36) 100%
+    );
+    backdrop-filter: blur(6px) saturate(1.4) brightness(1.07) contrast(0.96);
+    -webkit-backdrop-filter: blur(6px) saturate(1.4) brightness(1.07) contrast(0.96);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 14px;
+    box-shadow:
+      0 22px 55px rgba(20, 20, 20, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+    /* Détourage de lecture : un blanc très court, jamais un halo visible. */
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.72);
+  }
+
+  /* Les reflets. Posés au-dessus du fond mais sous le contenu, et transparents
+     au clic — c'est de la lumière, pas une surface. */
+  .panneau-verre::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        118deg,
+        rgba(255, 255, 255, 0.7) 0%,
+        rgba(255, 255, 255, 0.22) 11%,
+        rgba(255, 255, 255, 0) 27%
+      ),
+      linear-gradient(
+        300deg,
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(255, 255, 255, 0.08) 9%,
+        rgba(255, 255, 255, 0) 24%
+      );
+  }
+
+  /* Le contenu repasse devant les reflets. */
+  .panneau-verre > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Sur fond sombre — bouton d'action, bulle de réponse, pastille —, le
+     détourage blanc n'a rien à détourer : il ne ferait que baver. */
+  .panneau-verre .text-white,
+  .panneau-verre .bouton-tunnel {
+    text-shadow: none;
+  }
+
+  /* Variante sans flou, pour les blocs posés À L'INTÉRIEUR d'un panneau (carte
+     de fourchette, encart d'attente) : deux flous empilés se voient, et le
+     second n'a de toute façon rien à flouter. */
+  .panneau-interne {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(255, 255, 255, 0.16) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+  }
+
+  /* Bouton d'avancement — « Continuer », « Obtenir une estimation »… Anthracite
+     plein, texte blanc, coins à peine arrondis. */
+  .bouton-tunnel {
+    @apply touch-manipulation bg-ink text-white transition-colors duration-200;
+    border-radius: 8px;
+  }
+
+  .bouton-tunnel:hover {
+    background: #3a3f48;
+  }
+
+  .bouton-tunnel:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* Option ou créneau proposé au choix : filet discret au repos, laiton dès
+     qu'il est survolé, laiton plein une fois retenu. */
+  .option-tunnel {
+    @apply touch-manipulation text-ink transition-colors duration-200;
+    border: 1px solid rgba(32, 36, 43, 0.14);
+    border-radius: 10px;
+    background: rgba(32, 36, 43, 0.02);
+  }
+
+  .option-tunnel:hover {
+    border-color: rgba(201, 161, 107, 0.7);
+    background: rgba(201, 161, 107, 0.1);
+  }
+
+  .option-tunnel[aria-pressed='true'],
+  .option-tunnel.est-retenue {
+    border-color: theme('colors.laiton');
+    background: rgba(201, 161, 107, 0.16);
+    color: theme('colors.laiton-texte');
+  }
+
+  /* Champ de saisie : le filet passe au laiton à la prise de focus — c'est le
+     seul signal, il n'y a pas d'anneau par-dessus. */
+  .champ-tunnel {
+    @apply w-full bg-white/45 text-ink outline-none transition-colors duration-200 placeholder:text-ink/50;
+    border: 1px solid rgba(32, 36, 43, 0.18);
+    border-radius: 8px;
+  }
+
+  .champ-tunnel:focus,
+  .champ-tunnel:focus-within {
+    border-color: theme('colors.laiton');
+  }
+
+  /* Rail d'étapes, sur le flanc droit de l'écran : gris clair pour ce qui
+     vient, laiton pour ce qui est franchi, anthracite agrandi pour l'étape en
+     cours. Purement indicatif — la navigation se fait par les boutons du
+     panneau, jamais en cliquant un point.
+
+     Le calage vertical n'est pas ici : le rail est posé par la page, dans le
+     même calque collant que le décor, de façon à ne pas déborder sur le pied
+     de page (voir `src/pages/Estimer.jsx`). */
+  .rail-etapes {
+    @apply pointer-events-none flex flex-col gap-2.5;
+    margin-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .rail-point {
+    height: 7px;
+    width: 7px;
+    border-radius: 50%;
+    background: rgba(32, 36, 43, 0.22);
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+
+  .rail-point.est-franchie {
+    background: theme('colors.laiton');
+  }
+
+  .rail-point.est-courante {
+    background: theme('colors.ink');
+    transform: scale(1.5);
   }
 
   /* Étiquette technique (kicker) — mono, espacée, façon légende de plan. */
@@ -90,14 +298,23 @@
   }
 
   /* Curseur de surface de la fenêtre d'estimation.
+
      L'apparence d'un `input[type=range]` ne se pilote qu'en pseudo-éléments,
      hors de portée des utilitaires Tailwind — d'où ces règles écrites à la
      main. Le composant natif est conservé plutôt que réécrit en JavaScript :
      lui seul apporte le suivi tactile du système, le clavier et le rôle ARIA
      sans une ligne de code, et sans le décrochage au doigt d'un glissement
      reconstitué à la main.
-     `--fill`, posé en style inline par le composant, marque la part parcourue :
-     WebKit ne colore pas son parcours de lui-même. */
+
+     Habillage de la maquette de référence : une fine ligne grise, un point
+     laiton qui glisse dessus, et un halo laiton qui s'élargit au survol. La
+     piste n'a plus de part remplie — c'est le point seul qui dit où l'on en
+     est, et le chiffre au-dessus qui dit quoi.
+
+     Le point est dessiné à 1 rem plutôt qu'aux 14 px de la maquette : il est
+     pris au pouce sur un téléphone, et son halo porte la cible à 1,6 rem sans
+     l'alourdir à l'œil. L'élément, lui, garde ses 2,75 rem de haut — c'est la
+     hauteur de préhension, pas celle du dessin. */
   .surface-slider {
     @apply h-11 w-full cursor-pointer touch-manipulation bg-transparent align-middle;
     -webkit-appearance: none;
@@ -105,38 +322,42 @@
   }
 
   .surface-slider::-webkit-slider-runnable-track {
-    @apply h-1.5 rounded-full;
-    background: linear-gradient(
-      90deg,
-      theme('colors.ink') 0%,
-      theme('colors.brass') var(--fill),
-      rgba(16, 20, 28, 0.1) var(--fill)
-    );
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(32, 36, 43, 0.18);
   }
 
   .surface-slider::-moz-range-track {
-    @apply h-1.5 rounded-full;
-    background: rgba(16, 20, 28, 0.1);
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(32, 36, 43, 0.18);
   }
 
-  .surface-slider::-moz-range-progress {
-    @apply h-1.5 rounded-full;
-    background: linear-gradient(90deg, theme('colors.ink'), theme('colors.brass'));
-  }
-
-  /* La pastille est large de 1,5 rem : en deçà, la cible tactile impose de
-     viser, et l'on rate son geste sur un écran de téléphone. */
   .surface-slider::-webkit-slider-thumb {
-    @apply h-6 w-6 rounded-full border-2 border-white bg-ink shadow-[0_2px_8px_-1px_rgba(16,20,28,0.5)];
+    @apply h-4 w-4 rounded-full bg-laiton;
     -webkit-appearance: none;
     appearance: none;
-    /* Recentre la pastille sur la piste : (1,5 rem − 0,375 rem) ÷ 2. */
-    margin-top: -0.5625rem;
+    box-shadow: 0 0 0 4px rgba(201, 161, 107, 0.2);
+    transition: box-shadow 0.25s ease;
+    /* Recentre le point sur la piste : (1 rem − 2 px) ÷ 2. */
+    margin-top: -0.4375rem;
   }
 
   .surface-slider::-moz-range-thumb {
-    @apply h-6 w-6 rounded-full border-2 border-white bg-ink shadow-[0_2px_8px_-1px_rgba(16,20,28,0.5)];
+    @apply h-4 w-4 rounded-full border-0 bg-laiton;
     box-sizing: border-box;
+    box-shadow: 0 0 0 4px rgba(201, 161, 107, 0.2);
+    transition: box-shadow 0.25s ease;
+  }
+
+  .surface-slider:hover::-webkit-slider-thumb,
+  .surface-slider:active::-webkit-slider-thumb {
+    box-shadow: 0 0 0 7px rgba(201, 161, 107, 0.28);
+  }
+
+  .surface-slider:hover::-moz-range-thumb,
+  .surface-slider:active::-moz-range-thumb {
+    box-shadow: 0 0 0 7px rgba(201, 161, 107, 0.28);
   }
 
   .surface-slider:focus-visible {
@@ -144,11 +365,11 @@
   }
 
   .surface-slider:focus-visible::-webkit-slider-thumb {
-    @apply ring-2 ring-brass ring-offset-2;
+    box-shadow: 0 0 0 7px rgba(201, 161, 107, 0.45);
   }
 
   .surface-slider:focus-visible::-moz-range-thumb {
-    @apply ring-2 ring-brass ring-offset-2;
+    box-shadow: 0 0 0 7px rgba(201, 161, 107, 0.45);
   }
 }
 
@@ -298,55 +519,4 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-}
-
-/* Dessin à l'encre — tracé progressif, hors de tout `@layer`.
-   Même raison que les règles Leaflet ci-dessus : le minutage de chaque trait
-   est posé en style inline par le composant (`--ink-t`, `--ink-d`), et ces deux
-   règles sont l'infrastructure sur laquelle s'appuient toutes les scènes du
-   parcours — la villa de l'étape adresse, les six planches de l'analyse et les
-   cinq paliers du curseur de surface (voir `src/components/estimation/encre.jsx`).
-
-   `pathLength="1"` est ce qui rend le procédé praticable : il normalise la
-   longueur de n'importe quel tracé à 1, si bien qu'un seul jeu d'images-clés
-   suffit du plus petit meneau à la ligne d'horizon. Sans lui, il faudrait
-   mesurer chaque `<path>` en JavaScript (`getTotalLength`) et écrire son
-   `stroke-dasharray` à la main — une mesure par trait, au montage, sur des
-   centaines de tracés.
-
-   Sous `prefers-reduced-motion`, le filet global ramène la durée à zéro :
-   `forwards` fige alors chaque trait sur son image finale, et le dessin
-   s'affiche achevé plutôt que de ne jamais se tracer. */
-@keyframes imv-ink-trait {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes imv-ink-aplat {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: var(--ink-o, 1);
-  }
-}
-
-.imv-ink-trait {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  /* Départ lent, fin franche : la plume attaque doucement et quitte le papier
-     d'un coup — une courbe linéaire donnerait un tracé de traceur, pas de main. */
-  animation: imv-ink-trait var(--ink-d, 0.5s) cubic-bezier(0.35, 0, 0.15, 1)
-    var(--ink-t, 0s) forwards;
-}
-
-/* Aplats (eau, vitrages) : ils ne se tracent pas, ils se posent — un lavis
-   arrive d'un bloc là où un trait court. */
-.imv-ink-aplat {
-  opacity: 0;
-  animation: imv-ink-aplat var(--ink-d, 0.5s) ease-out var(--ink-t, 0s) forwards;
 }

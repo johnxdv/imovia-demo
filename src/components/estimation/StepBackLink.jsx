@@ -25,7 +25,7 @@ export function StepBackLink({ onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/45 transition-colors hover:text-ink lg:fixed lg:left-8 lg:top-[6.5rem] lg:z-40 lg:mb-0 xl:left-12"
+      className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/55 transition-colors hover:text-ink lg:fixed lg:left-8 lg:top-[6.5rem] lg:z-40 lg:mb-0 xl:left-12"
     >
       <ArrowLeft
         className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"

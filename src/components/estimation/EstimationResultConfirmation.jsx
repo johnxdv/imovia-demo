@@ -1,7 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { Check, PhoneCall, X } from 'lucide-react'
 import { CALLBACK_SLOTS } from '../../data/estimation'
-import { GoldFrame } from '../ui/GoldFrame'
 import { EASE } from '../../lib/motion'
 
 /**
@@ -28,14 +27,12 @@ export function EstimationResultConfirmation({ contact, onClose }) {
       transition={{ duration: reduce ? 0.2 : 0.4, ease: EASE }}
       className="relative w-full"
     >
-      <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
-
-      <div className="relative flex h-[26rem] flex-col items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-white px-6 py-8 text-center shadow-[0_22px_54px_-18px_rgba(16,20,28,0.3)] sm:h-[32rem] sm:px-10 lg:h-[36rem]">
+      <div className="panneau-verre relative flex h-[26rem] flex-col items-center justify-center overflow-hidden px-6 py-8 text-center sm:h-[32rem] sm:px-10 lg:h-[36rem]">
         <button
           type="button"
           onClick={onClose}
           aria-label="Fermer et revenir à l’accueil"
-          className="absolute right-3 top-3 flex h-9 w-9 touch-manipulation items-center justify-center rounded-full text-ink/40 transition-colors hover:bg-stone hover:text-ink"
+          className="absolute right-3 top-3 flex h-9 w-9 touch-manipulation items-center justify-center rounded-full text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
         >
           <X className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -51,18 +48,18 @@ export function EstimationResultConfirmation({ contact, onClose }) {
           Merci {contact?.prenom}&nbsp;!
         </h2>
 
-        <p className="mt-4 font-display text-[1.12rem] leading-relaxed text-ink/70">
+        <p className="mt-4 text-[1.08rem] leading-relaxed text-ink/70">
           Votre demande a été enregistrée.
         </p>
-        <p className="mt-1.5 font-display text-[1.02rem] leading-relaxed text-ink/60">
+        <p className="mt-1.5 text-[1rem] leading-relaxed text-ink/70">
           Un expert vous contactera {slot?.phrase}.
         </p>
 
         {/* Substitut du bleu clair demandé — hors palette du site. Une teinte
             Ink très légère lui correspond visuellement (froide, discrète)
             sans introduire de couleur étrangère à la charte. */}
-        <div className="mt-7 flex max-w-sm items-start gap-3 rounded-xl bg-ink/5 px-5 py-4 text-left">
-          <PhoneCall className="mt-0.5 h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} aria-hidden="true" />
+        <div className="panneau-interne mt-7 flex max-w-sm items-start gap-3 px-5 py-4 text-left">
+          <PhoneCall className="mt-0.5 h-4 w-4 shrink-0 text-ink/60" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-[0.85rem] leading-relaxed text-ink/70">
             <strong className="font-semibold text-ink">Prochaine étape&nbsp;:</strong> gardez votre
             téléphone à portée de main, notre expert vous appellera pour discuter de votre projet

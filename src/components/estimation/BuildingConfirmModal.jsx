@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, Check, Minus, Plus } from 'lucide-react'
-import { GoldFrame, Shine } from '../ui/GoldFrame'
-import { HouseIllustration } from './HouseIllustration'
+import { ArrowLeft, Minus, Plus } from 'lucide-react'
+import { useChantier } from './chantier'
 import { ETAGE_DEFAUT, ETAGE_MAX, ETAGE_MIN, etageLabel } from '../../lib/etage'
 import { EASE } from '../../lib/motion'
 
@@ -82,6 +81,14 @@ const SURFACE_DEFAULT = 100
  * Il ne bloque rien : validée avant, la fenêtre part sans étage, et le moteur
  * s'en passe (coefficient 1, voir `src/lib/etage.js`).
  *
+ * LE CURSEUR N'A PLUS D'ILLUSTRATION SOUS LUI. Le dessin à l'encre qui changeait
+ * de programme au fil de l'échelle (petite maison, maison à étage, propriété,
+ * château) a été retiré avec les autres dessins du parcours : c'est le bâtiment
+ * du décor 3D, derrière la fenêtre, qui grandit maintenant sous le curseur —
+ * mêmes mètres carrés, mais sur le bien qu'on est en train d'estimer, et non sur
+ * une vignette à côté (voir `DroneScene`). La surface en cours de déclaration
+ * lui est transmise par `ChantierContext`, sans attendre la validation.
+ *
  * AUCUN MONTANT NE S'AFFICHE ICI, et c'est un retrait délibéré. La fenêtre
  * montrait un prix d'aperçu qui suivait le curseur : prix au m² du secteur,
  * demandé au réseau à l'ouverture, multiplié par la surface dans le navigateur.
@@ -101,6 +108,7 @@ const SURFACE_DEFAULT = 100
 export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco = false }) {
   const panelRef = useRef(null)
   const reduce = useReducedMotion()
+  const chantier = useChantier()
 
   const [surface, setSurface] = useState(SURFACE_DEFAULT)
 
@@ -173,20 +181,26 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
     }
   }, [])
 
+  // Le décor suit le curseur, et le type déclaré en Principauté : la seule
+  // chose que la fenêtre ait à dire au fond de scène. Rien n'en dépend côté
+  // parcours — la validation reste celle du bouton.
+  useEffect(() => {
+    chantier.declarerSurface(surface)
+  }, [chantier, surface])
+
+  useEffect(() => {
+    if (monaco) chantier.declarerBien({ type: monacoType, niveaux: null })
+  }, [chantier, monaco, monacoType])
+
   const atMin = surface <= SURFACE_MIN
   const atMax = surface >= SURFACE_MAX
   const surfaceLabel = `${atMax ? `${SURFACE_MAX}+` : surface} m²`
 
-  // Part remplie de la piste, passée au CSS : un `input[type=range]` ne colore
-  // pas son parcours de lui-même sur les moteurs WebKit. Elle suit la valeur
-  // réelle, au m² près — pas la position crantée de la pastille.
-  const fill = ((surface - SURFACE_MIN) / (SURFACE_MAX - SURFACE_MIN)) * 100
-
-  // Le curseur, lui, garde son pas de 5 : un `input[type=range]` recale de
-  // toute façon toute valeur hors cran, et la pastille se figerait entre deux
+  // Le curseur garde son pas de 5 : un `input[type=range]` recale de
+  // toute façon toute valeur hors cran, et le point se figerait entre deux
   // clics de bouton. On lui donne donc la valeur crantée la plus proche — au
   // pire 2 m² d'écart, soit un quart de pixel sur la piste — pendant que le
-  // chiffre affiché, l'illustration et le montant suivent la valeur exacte.
+  // chiffre affiché et le bâtiment du décor suivent la valeur exacte.
   // `SURFACE_MIN` et `SURFACE_MAX` étant tous deux multiples du pas, l'arrondi
   // ne peut pas sortir des bornes.
   const sliderValue = Math.round(surface / SURFACE_STEP) * SURFACE_STEP
@@ -202,7 +216,16 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: reduce ? 0.15 : 0.28, ease: EASE }}
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/45 px-5 py-10 backdrop-blur-md"
+      // Pas de flou et à peine une teinte : la carte vient de s'effacer pour
+      // laisser voir le chantier, et c'est sous le curseur de cette fenêtre que
+      // le bâtiment grandit. Un voile appuyé annulerait tout le geste. Il reste
+      // ce qu'il faut de gris pour que la fenêtre se détache du décor, et le
+      // fond garde son rôle : un clic dessus la ferme.
+      //
+      // Tant que les panneaux d'étape sont rangés en bas (sous 1024 px), la
+      // fenêtre s'y range aussi : c'est la bande du haut qui montre le bien, et
+      // elle doit rester libre.
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/10 px-5 pb-6 pt-24 lg:items-center lg:py-10"
     >
       {/* Le fond ferme la fenêtre ; le panneau, posé au-dessus, retient le clic. */}
       <button
@@ -223,18 +246,26 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: reduce ? 0 : 8, scale: reduce ? 1 : 0.98 }}
         transition={{ duration: reduce ? 0.15 : 0.34, ease: EASE }}
-        className="relative my-auto w-full max-w-sm outline-none"
+        // `mt-auto` tant que la fenêtre est rangée en bas : c'est lui qui l'y
+        // plaque, là où `my-auto` la recentrait malgré l'alignement du
+        // conteneur. Au gabarit ordinateur, les deux marges automatiques la
+        // remettent au milieu et la gardent atteignable si elle déborde.
+        className="relative mt-auto w-full max-w-lg outline-none lg:my-auto"
       >
-        <GoldFrame className="-inset-[2px] rounded-[1.05rem]" spin="animate-border-spin-slow" />
+        {/* Panneau repris de la maquette de la fenêtre de surface : aligné à
+            gauche, bas et large plutôt que haut et étroit — c'est ce format-là
+            qui laisse le bâtiment se voir de part et d'autre —, une ligne par
+            question (libellé à gauche, valeur retenue en laiton à droite), la
+            piste du curseur en pleine largeur dessous, et le pied de panneau
+            qui aligne le retour discret et le bouton noir.
 
-        <div className="relative rounded-2xl border border-ink/10 bg-white px-6 py-8 text-center shadow-[0_28px_64px_-18px_rgba(16,20,28,0.55)] sm:px-8">
-          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-bottle shadow-lg shadow-bottle/25">
-            <Check className="h-8 w-8 text-white" strokeWidth={2.25} aria-hidden="true" />
-          </span>
-
+            Le grand cercle vert de confirmation qui coiffait la fenêtre a été
+            retiré : il mangeait un quart de la hauteur du panneau pour redire
+            ce que la fenêtre elle-même annonce en s'ouvrant. */}
+        <div className="panneau-verre relative px-7 py-7 text-left sm:px-9 sm:py-8">
           <h2
             id="surface-habitable-titre"
-            className="titre-etape mt-5 text-[1.75rem] leading-tight text-ink sm:text-[2.1rem]"
+            className="titre-etape text-[1.5rem] leading-tight text-ink sm:text-[1.8rem]"
           >
             Votre surface habitable
           </h2>
@@ -242,37 +273,33 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
           {/* Choix du type, en Principauté seulement : le cadastre s'arrête à
               la frontière, il n'y a personne pour répondre à notre place. */}
           {monaco ? (
-            <fieldset className="mx-auto mt-5 max-w-[17rem]">
+            <fieldset className="mt-6">
               <legend className="sr-only">Type de bien</legend>
-              <div className="flex gap-1.5 rounded-xl border border-ink/10 bg-stone/60 p-1.5">
-                {MONACO_TYPES.map(({ id, label }) => {
-                  const active = monacoType === id
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setMonacoType(id)}
-                      className={[
-                        'flex-1 touch-manipulation rounded-lg px-3 py-2.5 font-display text-[0.88rem] font-semibold uppercase tracking-[0.06em] transition-colors duration-300 ease-plan',
-                        active
-                          ? 'bg-ink text-white shadow-sm shadow-ink/20'
-                          : 'text-ink/50 hover:text-ink',
-                      ].join(' ')}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
+              <div className="grid grid-cols-2 gap-2.5">
+                {MONACO_TYPES.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={monacoType === id}
+                    onClick={() => setMonacoType(id)}
+                    className="option-tunnel px-3 py-3 text-center text-[0.9rem]"
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </fieldset>
           ) : null}
 
           {/* Étage — appartements seulement, et seulement une fois le type
-              détecté. Le champ arrive donc en cours de lecture de la fenêtre :
-              il se déplie plutôt qu'il n'apparaît d'un coup, sans quoi le
-              panneau sauterait sous les yeux. Une maison n'en voit jamais rien,
-              et ne se voit toujours demander que sa surface habitable. */}
+              détecté. Le champ arrive donc à la volée, en cours de lecture de la
+              fenêtre : il se déplie plutôt qu'il n'apparaît d'un coup, sans quoi
+              le panneau sauterait sous les yeux. Une maison n'en voit jamais
+              rien, et ne se voit toujours demander que sa surface habitable.
+
+              Même grammaire que la surface : le libellé à gauche, la valeur
+              retenue à droite. Pas de curseur — une échelle de treize crans se
+              traverse plus vite au bouton qu'au glissement. */}
           <AnimatePresence initial={false}>
             {estAppartement ? (
               <motion.div
@@ -283,16 +310,14 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
                 transition={{ duration: reduce ? 0.15 : 0.3, ease: EASE }}
                 className="overflow-hidden"
               >
-                <div role="group" aria-label="Étage du logement" className="mx-auto mt-5 max-w-[17rem]">
-                  <p className="font-mono text-[0.62rem] uppercase tracking-micro text-ink/40">
-                    Votre étage
-                  </p>
+                <div
+                  role="group"
+                  aria-label="Étage du logement"
+                  className="mt-6 flex flex-wrap items-center justify-between gap-3"
+                >
+                  <p className="text-[0.95rem] text-ink/70">Votre étage</p>
 
-                  {/* Mêmes boutons que ceux du curseur de surface : le geste
-                      d'ajustement est le même, il n'a pas à s'apprendre deux
-                      fois. Pas de curseur ici — une échelle de treize crans se
-                      traverse plus vite au bouton qu'au glissement. */}
-                  <div className="mt-2 flex items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2">
                     <StepButton
                       icon={Minus}
                       label="Descendre d’un étage"
@@ -302,7 +327,7 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
 
                     <p
                       aria-live="polite"
-                      className="min-w-0 flex-1 rounded-xl border border-ink/10 bg-stone/60 px-2 py-3 font-mono text-[0.64rem] uppercase tracking-micro text-ink"
+                      className="min-w-[8rem] text-center text-[0.95rem] text-laiton-texte"
                     >
                       {etageLabel(etage)}
                     </p>
@@ -319,19 +344,19 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
             ) : null}
           </AnimatePresence>
 
-          <SurfaceIllustration surface={surface} />
+          <div className="mt-7">
+            {/* Libellé à gauche, valeur en cours à droite : elle suit le doigt
+                sans attendre le relâchement, et `tabular-nums` fige la largeur
+                des chiffres — sans quoi le nombre danserait pendant le
+                glissement. En laiton, comme toute valeur retenue du panneau. */}
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="text-[0.95rem] text-ink/70">Surface habitable</p>
+              <p className="text-[1.15rem] text-laiton-texte tabular-nums">{surfaceLabel}</p>
+            </div>
 
-          {/* Valeur en cours, au-dessus du curseur : elle suit le doigt sans
-              attendre le relâchement. `tabular-nums` fige la largeur des
-              chiffres — sans quoi le nombre danserait pendant le glissement. */}
-          <p className="mt-1 font-display text-[2rem] font-semibold leading-none text-ink tabular-nums sm:text-[2.25rem]">
-            {surfaceLabel}
-          </p>
-
-          <div className="mt-3">
             {/* Curseur encadré de ses deux boutons : le glissement pour
                 traverser l'échelle, les boutons pour tomber juste. */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="mt-1 flex items-center gap-2 sm:gap-3">
               <StepButton
                 icon={Minus}
                 label="Retirer un mètre carré"
@@ -349,7 +374,6 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
                   onChange={(event) => setSurface(clampSurface(Number(event.target.value)))}
                   aria-label="Surface habitable, en mètres carrés"
                   aria-valuetext={surfaceLabel}
-                  style={{ '--fill': `${fill}%` }}
                   className="surface-slider"
                 />
               </div>
@@ -364,51 +388,48 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
 
             {/* Les bornes se calent sous les extrémités de la piste, pas du
                 bloc : largeur d'un bouton plus la gouttière, de chaque côté. */}
-            <div className="flex justify-between px-[3.25rem] font-mono text-[0.62rem] uppercase tracking-micro text-ink/35 sm:px-[3.5rem]">
+            <div className="flex justify-between px-[3.25rem] font-mono text-[0.6rem] uppercase text-ink/55 sm:px-[2.75rem]">
               <span>{SURFACE_MIN} m²</span>
               <span>{SURFACE_MAX}+ m²</span>
             </div>
           </div>
 
-          {/* Trente-quatre caractères en capitales : c'est le libellé le plus
-              long du parcours, et il dicte à lui seul le corps du texte et les
-              gouttières de ce bouton. Élargir le panneau ou rallonger le
-              libellé demande de revérifier qu'il tient toujours sur une ligne. */}
-          <div className="relative mx-auto mt-6 max-w-[20rem]">
-            <GoldFrame className="-inset-[2px] rounded-[0.87rem]" />
+          {/* Pied de panneau : le retour en retrait à gauche, l'action en noir à
+              droite — la disposition de la maquette. Le libellé du bouton fait
+              trente-quatre caractères en capitales, le plus long du parcours :
+              il ne tient à côté du retour qu'à partir du gabarit tablette, en
+              dessous de quoi les deux s'empilent, l'action au-dessus. */}
+          <div className="mt-8 flex flex-col-reverse flex-wrap gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            {/* Seule sortie visible depuis le retrait de la croix —
+                délibérément en retrait, mais nommée : « Modifier ma sélection »
+                dit ce qui va se passer là où une croix laissait deviner. Même
+                libellé en Principauté : depuis que l'étape monégasque a sa
+                propre carte, on y revient au repérage comme partout ailleurs. */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="group inline-flex touch-manipulation items-center justify-center gap-1.5 text-[0.85rem] text-ink/60 transition-colors hover:text-ink sm:shrink-0 sm:justify-start"
+            >
+              <ArrowLeft
+                className="h-3.5 w-3.5 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              Modifier ma sélection
+            </button>
 
             <button
               type="button"
               onClick={() =>
                 onEstimate(surface, monaco ? monacoType : null, estAppartement ? etage : null)
               }
-              className="group relative flex w-full touch-manipulation items-center justify-center overflow-hidden rounded-xl bg-ink px-4 py-4 shadow-[0_8px_20px_-10px_rgba(16,20,28,0.55),0_0_10px_-5px_rgba(176,141,87,0.7)] transition-shadow duration-300 ease-plan hover:shadow-[0_10px_24px_-10px_rgba(16,20,28,0.6),0_0_14px_-4px_rgba(176,141,87,0.85)]"
+              className="bouton-tunnel flex items-center justify-center px-6 py-3.5"
             >
-              <Shine width="w-1/5" tint="via-brass/40" />
-              <span className="relative font-display text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-white">
+              <span className="whitespace-nowrap text-[0.64rem] font-semibold uppercase tracking-[0.05em]">
                 Obtenir une estimation instantanée
               </span>
             </button>
           </div>
-
-          {/* Seule sortie visible depuis le retrait de la croix — délibérément
-              en retrait, mais nommée : « Modifier ma sélection » dit ce qui va
-              se passer là où une croix laissait deviner. La flèche reprend le
-              même retour visuel que les boutons « Retour » des autres étapes.
-              Même libellé en Principauté : depuis que l'étape monégasque a sa
-              propre carte, on y revient au repérage comme partout ailleurs. */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="group mt-4 inline-flex touch-manipulation items-center gap-1.5 font-mono text-[0.68rem] uppercase tracking-micro text-ink/40 underline-offset-4 transition-colors hover:text-ink/70 hover:underline"
-          >
-            <ArrowLeft
-              className="h-3.5 w-3.5 transition-transform duration-300 ease-plan group-hover:-translate-x-1"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-            Modifier ma sélection
-          </button>
         </div>
       </motion.div>
     </motion.div>
@@ -418,9 +439,9 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
 /**
  * Bouton d'ajustement au mètre carré près.
  *
- * 2,75 rem de côté — la cible tactile recommandée (44 px), la même que celle
- * qui a déjà dicté la taille de la pastille du curseur. Un bouton plus discret
- * tiendrait mieux dans la maquette et se raterait au pouce.
+ * 2,75 rem de côté au doigt — la cible tactile recommandée (44 px). Il se
+ * resserre à 2,25 rem à partir du gabarit tablette, où l'on vise à la souris :
+ * le panneau y gagne en calme, et rien ne s'y rate.
  *
  * En butée, il est désactivé plutôt que masqué : une commande qui disparaît
  * déplace l'autre, et le curseur avec.
@@ -432,35 +453,9 @@ function StepButton({ icon: Icon, label, disabled, onClick }) {
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition-colors duration-300 ease-plan hover:border-ink/40 hover:bg-stone/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-ink/25 disabled:hover:bg-white"
+      className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full border border-ink/15 bg-white/70 text-ink transition-colors duration-300 ease-plan hover:border-laiton hover:bg-laiton/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-laiton focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-ink/25 disabled:hover:bg-white/70"
     >
       <Icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
     </button>
-  )
-}
-
-/**
- * La silhouette du palier de surface, et son halo.
- *
- * Seul témoin visuel du curseur depuis le retrait de l'aperçu de prix — et
- * c'est bien assez : le dessin change de programme au fil de l'échelle (petite
- * maison, maison à étage, propriété, château) et dit donc quelque chose de la
- * surface déclarée, ce qu'un montant faisait moins bien qu'il ne le
- * contredisait.
- *
- * La hauteur est fixe : le changement de palier ne doit pas déplacer le curseur
- * qui suit. Le halo, lui, reste — il détachait le montant du blanc de la carte,
- * il détache maintenant le dessin.
- */
-function SurfaceIllustration({ surface }) {
-  return (
-    <div className="relative mx-auto mt-5 h-32 w-full max-w-[17rem]">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-8 top-6 h-12 animate-cta-breath rounded-full bg-brass/25 blur-2xl"
-      />
-
-      <HouseIllustration surfaceM2={surface} className="relative h-32" />
-    </div>
   )
 }

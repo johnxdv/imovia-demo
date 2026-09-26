@@ -3,7 +3,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Check, Lightbulb, Loader2 } from 'lucide-react'
 import { ANALYSIS_STEPS, DID_YOU_KNOW } from '../../data/estimation'
 import { EASE } from '../../lib/motion'
-import { SceneAnalyse, useTirageScenes } from './ScenesAnalyse'
 
 const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
 
@@ -11,28 +10,22 @@ const TOTAL_MS = ANALYSIS_STEPS.reduce((sum, step) => sum + step.durationMs, 0)
 const FACT_ROTATE_MS = 4000
 
 /**
- * Durée de tracé d'une scène. Les deux s'enchaînent — la droite démarre quand
- * la gauche s'achève — et couvrent ensemble les douze secondes de l'analyse
- * (`ANALYSIS_STEPS`). Les trois durées sont donc liées : allonger une étape
- * d'analyse sans toucher à celle-ci laisserait l'écran fini avant le calcul.
- */
-const SCENE_S = TOTAL_MS / 2000
-
-/**
  * Écran 2 — analyse simulée.
  *
  * Aucun calcul ne tourne derrière : les durées viennent de `ANALYSIS_STEPS` et
  * n'ont qu'une fonction d'habillage, en attendant le vrai enchaînement DVF.
  * Le composant se contente d'égrener les étapes puis d'appeler `onDone`.
+ *
+ * Les deux planches à l'encre qui flanquaient cet écran pendant les douze
+ * secondes d'attente ont été retirées, comme tous les dessins du parcours :
+ * c'est le chantier du fond qui tient l'attente désormais — le toit se pose au
+ * début de l'analyse, les fenêtres apparaissent avant qu'elle s'achève (voir
+ * `stadeChantier` dans `src/pages/Estimer.jsx`).
  */
 export function EstimationLoadingStep({ onDone, onProgress }) {
   const [completed, setCompleted] = useState(0)
   const [barFilled, setBarFilled] = useState(false)
   const reduce = useReducedMotion()
-
-  // Tirage figé à l'initialisation : les planches doivent tenir les douze
-  // secondes sans changer en cours de route (voir `useTirageScenes`).
-  const scenes = useTirageScenes()
 
   // Avancement local remonté à la barre globale : les 3 étapes de l'analyse
   // sont son seul repère fiable — la grande barre ci-dessous se remplit en
@@ -85,79 +78,15 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
   const progress = Math.round((completed / ANALYSIS_STEPS.length) * 100)
 
   return (
-    <div className="w-full max-w-lg">
-      {/* Deux scènes tirées au sort, tracées à l'encre l'une après l'autre — la
-          gauche pendant la première moitié de l'analyse, la droite pendant la
-          seconde. Elles remplacent la pastille et les pictogrammes qui
-          occupaient jadis cet écran : une plume qui court tient l'attente mieux
-          qu'une icône qui tourne.
-
-          **Elles flanquent l'écran, à partir du gabarit `xl`.** C'est là, et
-          pas au-dessus du titre, qu'elles ont la place d'être grandes : douze
-          secondes d'attente sur un grand écran, ce sont deux colonnes de vide
-          de part et d'autre de la carte de progression, et c'est ce vide
-          qu'elles occupent. Le seuil est `xl` et non `lg` : à 1024 px, 27 % de
-          la fenêtre de chaque côté viendraient mordre sur la colonne centrale.
-
-          En dessous, il n'y a pas de côtés — elles reprennent leur place dans
-          le flux, côte à côte au-dessus du titre. C'est la même grille : les
-          deux scènes passent simplement en `fixed` au point de rupture, et la
-          grille qu'elles laissent derrière elles retombe à zéro de hauteur.
-
-          `fixed` tient ici pour la même raison que dans
-          [`StepBackLink`](./StepBackLink.jsx) : au repos, Framer Motion laisse
-          `transform: none` sur l'étape, donc aucun ancêtre transformé ne vient
-          requalifier le `fixed`. Pendant la transition d'étape il se cale sur
-          le conteneur animé — qui occupe toute la largeur de la section et se
-          centre à la même hauteur, si bien que l'écart ne se voit pas.
-
-          **Le format est debout, et non plus carré.** Les planches étaient en
-          `aspect-[15/14]` sur 27 vw : larges, basses, et par conséquent vides
-          en haut et en bas de leur colonne. Une colonne de bord d'écran est
-          haute — c'est un format portrait qu'elle demande, et c'est lui qui
-          permet de composer en plans superposés plutôt que d'étaler un seul
-          plan sur toute la largeur. D'où `aspect-[300/420]`, et une largeur
-          ramenée de 27 à 21 vw : moins large, plus haut, à surface comparable.
-
-          Le cadre est posé une fois pour toutes : la droite tient sa place vide
-          pendant six secondes plutôt que de pousser la page quand elle démarre.
-
-          Monochromes, à l'encre pleine (`text-ink`) : le parcours ne connaît
-          qu'une couleur de trait, et un gris intermédiaire ferait lire un
-          dessin délavé plutôt qu'un dessin à l'encre.
-
-          La planche de droite est retournée (`miroir`) : la pointe y court de
-          droite à gauche, et la scène se penche vers la carte de progression
-          comme celle de gauche s'y penche. */}
-      <div className="grid grid-cols-2 justify-items-center gap-4 sm:gap-6">
-        {scenes.map((scene, index) => (
-          <SceneAnalyse
-            key={index}
-            scene={scene}
-            miroir={index === 1}
-            duree={SCENE_S}
-            decalage={index * SCENE_S}
-            className={[
-              // Dans le flux, c'est la **hauteur** qui est fixée et la largeur
-              // qui s'en déduit : un format debout à qui l'on donne toute la
-              // largeur d'une demi-colonne deviendrait deux fois plus haut que
-              // le titre qu'il annonce.
-              'aspect-[300/420] h-[12rem] w-auto text-ink sm:h-[14.5rem]',
-              'xl:fixed xl:top-1/2 xl:h-auto xl:w-[21vw] xl:max-w-[26rem] xl:-translate-y-1/2',
-              index === 0 ? 'xl:left-[2vw]' : 'xl:right-[2vw]',
-            ].join(' ')}
-          />
-        ))}
-      </div>
-
-      <h1 className="titre-etape mt-7 text-center text-[1.8rem] leading-tight text-ink sm:text-[2.25rem]">
+    <div className="panneau-verre w-full max-w-lg p-7 sm:p-9">
+      <h1 className="titre-etape text-center text-[1.8rem] leading-tight text-ink sm:text-[2.25rem]">
         Analyse personnalisée en cours…
       </h1>
 
       <p
         role="status"
         aria-live="polite"
-        className="mt-3 text-center font-mono text-[0.72rem] uppercase tracking-micro text-brass"
+        className="mt-3 text-center font-mono text-[0.72rem] uppercase tracking-micro text-laiton-texte"
       >
         {Math.min(completed + 1, ANALYSIS_STEPS.length)}/{ANALYSIS_STEPS.length} —{' '}
         {completed >= ANALYSIS_STEPS.length ? 'Analyse terminée' : ANALYSIS_STEPS[current].label}
@@ -177,7 +106,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
             les transitions : la barre sauterait d'un coup à 100 %. On repasse
             alors aux paliers, qui restent lisibles sans rien animer. */}
         <div
-          className="h-full rounded-full bg-gradient-to-r from-ink via-ink/80 to-brass"
+          className="h-full rounded-full bg-gradient-to-r from-ink via-ink/80 to-laiton"
           style={
             reduce
               ? { width: `${progress}%` }
@@ -198,31 +127,31 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: reduce ? 0.15 : 0.4, ease: EASE, delay: index * 0.08 }}
               className={[
-                'flex items-center gap-3 rounded-xl border px-4 py-3.5 transition-colors duration-500 ease-plan',
+                'flex items-center gap-3 rounded-[10px] border px-4 py-3.5 transition-colors duration-500 ease-plan',
                 isDone
-                  ? 'border-bottle/20 bg-bottle/5'
+                  ? 'border-laiton/45 bg-laiton/10'
                   : isCurrent
-                    ? 'border-ink/15 bg-white'
-                    : 'border-ink/5 bg-white/50',
+                    ? 'border-ink/15 bg-white/70'
+                    : 'border-ink/5 bg-white/40',
               ].join(' ')}
             >
               <span
                 className={[
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors duration-500',
-                  isDone ? 'bg-bottle' : 'bg-ink/10',
+                  isDone ? 'bg-laiton' : 'bg-ink/10',
                 ].join(' ')}
               >
                 {isDone ? (
                   <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} aria-hidden="true" />
                 ) : isCurrent ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-ink/50" strokeWidth={2.5} aria-hidden="true" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-ink/60" strokeWidth={2.5} aria-hidden="true" />
                 ) : null}
               </span>
 
               <span
                 className={[
-                  'font-display text-[0.98rem] leading-snug transition-colors duration-500',
-                  isDone ? 'text-ink/70' : isCurrent ? 'text-ink' : 'text-ink/35',
+                  'text-[0.95rem] leading-snug transition-colors duration-500',
+                  isDone ? 'text-ink/70' : isCurrent ? 'text-ink' : 'text-ink/45',
                 ].join(' ')}
               >
                 {isDone ? step.done : step.label}
@@ -238,11 +167,11 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: reduce ? 0.2 : 0.6, ease: EASE, delay: 0.5 }}
-        className="mt-8 flex items-start gap-3 rounded-xl border border-ink/5 bg-stone/70 px-4 py-4 sm:px-5"
+        className="panneau-interne mt-8 flex items-start gap-3 px-4 py-4 sm:px-5"
       >
-        <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-brass" strokeWidth={1.75} aria-hidden="true" />
+        <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-laiton-texte" strokeWidth={1.75} aria-hidden="true" />
         <span>
-          <span className="block font-mono text-[0.66rem] uppercase tracking-micro text-ink/45">
+          <span className="block font-mono text-[0.66rem] uppercase tracking-micro text-ink/55">
             Le saviez-vous&nbsp;?
           </span>
           <AnimatePresence mode="wait">
@@ -252,7 +181,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reduce ? 0.15 : 0.35, ease: EASE }}
-              className="mt-1.5 block font-display text-[0.98rem] leading-relaxed text-ink/65"
+              className="mt-1.5 block text-[0.95rem] leading-relaxed text-ink/75"
             >
               {fact}
             </motion.span>

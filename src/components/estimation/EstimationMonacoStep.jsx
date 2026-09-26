@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Loader2, MapPin } from 'lucide-react'
 // Même chargement à la demande que côté français : Leaflet ne sert qu'ici, et
 // le module est préchargé dès l'étape adresse (voir la page Estimer).
@@ -8,6 +8,8 @@ const BuildingMap = lazy(() =>
 )
 import { BuildingConfirmModal } from './BuildingConfirmModal'
 import { StepBackLink } from './StepBackLink'
+import { useChantier } from './chantier'
+import { CARTE_ASPIREE, CARTE_EN_PLACE } from './EstimationBuildingStep'
 
 /**
  * Étape 3 — variante monégasque : repérage du bien, puis déclaration de son
@@ -33,14 +35,28 @@ import { StepBackLink } from './StepBackLink'
  * n'y avoir aucun tracé. La carte prévoit déjà ce cas et bascule alors sur son
  * repli — l'utilisateur désigne l'emplacement de son bien à main levée, et le
  * parcours continue.
+ *
+ * Le décor 3D du fond suit le type déclaré comme il suivrait un type détecté —
+ * c'est la fenêtre qui le lui dit, puisque c'est là qu'il se choisit (voir
+ * `BuildingConfirmModal` et `DroneScene`). Les niveaux, eux, ne sont pas relevés
+ * ici : aucune base ne décrit le bâti monégasque, et le décor retombe sur la
+ * surface déclarée pour compter ses étages.
  */
 export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }) {
+  const chantier = useChantier()
+  const reduce = useReducedMotion()
   const [selection, setSelection] = useState(null)
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {
     setSelection(null)
   }, [address.id, address.lat, address.lon])
+
+  // Plus de repérage, plus de type : le décor repart de son chantier nu plutôt
+  // que de garder la silhouette du bâtiment précédent.
+  useEffect(() => {
+    if (!selection) chantier.declarerBien({ type: null, niveaux: null })
+  }, [chantier, selection])
 
   // Avancement local remonté à la barre globale : la moitié dès qu'un bien est
   // repéré (fenêtre de surface ouverte), le reste au passage à l'étape suivante.
@@ -84,39 +100,49 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
   )
 
   return (
+    // Retour et fenêtre modale restent HORS du panneau, pour la même raison que
+    // côté français : le `backdrop-filter` du verre dépoli ferait du panneau le
+    // bloc conteneur de leurs positions `fixed`.
     <div className="w-full max-w-3xl">
       <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
-      <h1 className="titre-etape text-center text-[1.6rem] leading-tight text-ink sm:text-[2rem]">
-        Cliquez sur votre bien
-      </h1>
-      <p className="mx-auto mt-4 max-w-md text-center font-display text-[1.02rem] leading-relaxed text-ink/60">
-        Sur la vue aérienne, sélectionnez le bâtiment concerné.
-      </p>
+      {/* Même aspiration qu'en France dès qu'un bien est retenu : la carte se
+          referme sur le bâtiment et laisse le chantier seul sous la fenêtre
+          (voir `CARTE_ASPIREE` dans `EstimationBuildingStep`). */}
+      <motion.div
+        animate={selection && !reduce ? CARTE_ASPIREE : CARTE_EN_PLACE}
+        aria-hidden={Boolean(selection)}
+        className={['panneau-verre p-6 sm:p-8', selection ? 'pointer-events-none' : ''].join(' ')}
+      >
+        <h1 className="titre-etape text-center text-[1.6rem] leading-tight text-ink sm:text-[2rem]">
+          Cliquez sur votre bien
+        </h1>
+        <p className="mx-auto mt-4 max-w-md text-center text-[1rem] leading-relaxed text-ink/70">
+          Sur la vue aérienne, sélectionnez le bâtiment concerné.
+        </p>
 
-      {/* Rappel de l'adresse : l'utilisateur n'a rien validé explicitement pour
-          arriver ici, il doit pouvoir vérifier d'un coup d'œil où il a atterri. */}
-      <p className="mx-auto mt-6 flex max-w-xl items-center justify-center gap-2.5 rounded-full border border-ink/10 bg-white px-4 py-2.5 text-center text-[0.8rem] leading-snug text-ink/70 sm:text-sm">
-        <MapPin className="h-4 w-4 shrink-0 text-brass" strokeWidth={1.75} aria-hidden="true" />
-        {address.label}
-      </p>
+        {/* Rappel de l'adresse : l'utilisateur n'a rien validé explicitement pour
+            arriver ici, il doit pouvoir vérifier d'un coup d'œil où il a atterri. */}
+        <p className="mx-auto mt-6 flex max-w-xl items-center justify-center gap-2.5 rounded-full border border-ink/10 bg-white/70 px-4 py-2.5 text-center text-[0.8rem] leading-snug text-ink/70 sm:text-sm">
+          <MapPin className="h-4 w-4 shrink-0 text-laiton-texte" strokeWidth={1.75} aria-hidden="true" />
+          {address.label}
+        </p>
 
-      <div className="mt-6">
-        <Suspense fallback={<MapPlaceholder />}>
-          <BuildingMap
-            monaco
-            lat={address.lat}
-            lon={address.lon}
-            addressLabel={address.label}
-            onSelect={setSelection}
-          />
-        </Suspense>
-      </div>
+        <div className="mt-6">
+          <Suspense fallback={<MapPlaceholder />}>
+            <BuildingMap
+              monaco
+              lat={address.lat}
+              lon={address.lon}
+              addressLabel={address.label}
+              onSelect={setSelection}
+            />
+          </Suspense>
+        </div>
+      </motion.div>
 
-      {/* La fenêtre est rendue hors du conteneur de la carte : elle couvre la
-          page entière, pas seulement la vue aérienne. Fermer la fenêtre ramène
-          à la carte — et non à la saisie d'adresse, comme lorsque cette étape
-          n'avait pas d'écran propre. */}
+      {/* Fermer la fenêtre ramène à la carte — et non à la saisie d'adresse,
+          comme lorsque cette étape n'avait pas d'écran propre. */}
       <AnimatePresence>
         {selection ? (
           <BuildingConfirmModal
