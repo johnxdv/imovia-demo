@@ -134,7 +134,7 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col gap-8 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-xs text-stone/45">
-            © {new Date().getFullYear()} {agency.name}. Tous droits réservés.
+            © {new Date().getFullYear()} {agency.name}. Tous droits réservés X.
           </p>
 
           {/* Réseaux sociaux */}
