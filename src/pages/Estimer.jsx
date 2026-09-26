@@ -7,6 +7,7 @@ import { EstimationBuildingStep } from '../components/estimation/EstimationBuild
 import { EstimationMonacoStep } from '../components/estimation/EstimationMonacoStep'
 import { EstimationLoadingStep } from '../components/estimation/EstimationLoadingStep'
 import { EstimationResultStep } from '../components/estimation/EstimationResultStep'
+import { EstimationIndisponibleStep } from '../components/estimation/EstimationIndisponibleStep'
 import { requestEstimation } from '../lib/estimation'
 import { EASE } from '../lib/motion'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
@@ -52,7 +53,11 @@ export default function Estimer() {
   // parcelle et fiche BDNB. Rien n'en est affiché — c'est la charge utile du
   // calcul, conservée ici pour n'avoir pas à être redemandée.
   const [selection, setSelection] = useState(null)
-  const [price, setPrice] = useState(null)
+  // Résultat du moteur : `{ status: 'ok', price, low, high, confiance }` ou
+  // `{ status: 'indisponible', code }`. L'objet entier est conservé plutôt que
+  // le seul montant — la fourchette est désormais calculée par le serveur sur la
+  // dispersion réelle des comparables, et le front n'a pas de quoi la refaire.
+  const [estimation, setEstimation] = useState(null)
   // Calcul en cours, conservé sous forme de promesse : il démarre avec
   // l'animation d'analyse et n'est lu qu'à la fin de celle-ci. Une référence
   // plutôt qu'un état — sa mutation ne doit provoquer aucun rendu, et
@@ -100,16 +105,23 @@ export default function Estimer() {
   // interrompue si elle tarde.
   const startAnalysis = useCallback((confirmedSelection) => {
     setSelection(confirmedSelection)
-    setPrice(null)
+    setEstimation(null)
     pendingEstimate.current = requestEstimation(confirmedSelection)
     goToStep('analyse')
   }, [goToStep])
+
+  // Relance depuis l'écran d'indisponibilité. La sélection confirmée est déjà
+  // en mémoire : rien n'est à refaire sur la carte, et l'animation d'analyse
+  // se rejoue à l'identique — c'est elle qui couvre l'attente.
+  const retryAnalysis = useCallback(() => {
+    if (selection) startAnalysis(selection)
+  }, [selection, startAnalysis])
 
   // Fin de l'animation : le montant est très largement calculé à ce stade
   // (quelques secondes contre douze), l'attente ci-dessous ne couvre que le
   // cas d'un serveur à la traîne. `requestEstimation` ne rejette jamais.
   const showResult = useCallback(async () => {
-    setPrice(await pendingEstimate.current)
+    setEstimation(await pendingEstimate.current)
     goToStep('resultat')
   }, [goToStep])
 
@@ -205,15 +217,29 @@ export default function Estimer() {
               <EstimationLoadingStep onDone={showResult} onProgress={setStageProgress} />
             ) : null}
 
+            {/* Le moteur peut désormais répondre qu'il ne sait pas : une panne
+                persistante de la base des ventes rend une indisponibilité
+                explicite, et non plus un montant replié en silence sur la
+                médiane départementale. Cet écran-là remplace alors le résultat,
+                sans passer par la conversation de capture — il n'y a pas de
+                montant à faire désirer. */}
             {step === 'resultat' && address ? (
-              <EstimationResultStep
-                address={address}
-                price={price}
-                onBack={() => goToStep('batiment')}
-                onDone={finishChat}
-                onProgress={setStageProgress}
-                onClose={goHome}
-              />
+              estimation?.status === 'ok' ? (
+                <EstimationResultStep
+                  address={address}
+                  estimation={estimation}
+                  onBack={() => goToStep('batiment')}
+                  onDone={finishChat}
+                  onProgress={setStageProgress}
+                  onClose={goHome}
+                />
+              ) : (
+                <EstimationIndisponibleStep
+                  address={address}
+                  onRetry={retryAnalysis}
+                  onBack={() => goToStep('batiment')}
+                />
+              )
             ) : null}
           </motion.div>
         </AnimatePresence>

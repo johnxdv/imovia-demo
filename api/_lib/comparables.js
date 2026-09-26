@@ -1,93 +1,45 @@
-// Étape B — recherche des ventes comparables, et étape C — prix médian au m².
+// Étape B — sélection des ventes comparables, et étape C — prix au m².
+//
+// PRINCIPE. On reste le plus près possible du bien. La similarité est un seuil
+// minimum à franchir, pas un score à maximiser : au-dessus de ce seuil, c'est
+// la proximité qui tranche. Une vente voisine un peu moins ressemblante en dit
+// plus long qu'une vente très ressemblante à deux kilomètres, parce que
+// l'emplacement se négocie rue par rue là où la surface et le terrain se
+// corrigent par le calcul (voir `indice.js` et `terrain.js`, qui font
+// précisément ces corrections).
+//
+// CE QUI A CHANGÉ, et pourquoi. L'ancienne version partait d'un rayon de 300 m
+// et retenait les **quarante** ventes les plus proches, toutes surfaces
+// confondues, sans pondération d'aucune sorte : une maison de 249 m² et une de
+// 30 m² pesaient autant l'une que l'autre dans la médiane d'un bien de 100 m²,
+// et une vente de 2021 autant qu'une de 2025. Sur le cas de contrôle
+// marseillais, l'échantillon allait de 250 à 11 500 €/m². Une médiane est
+// robuste, elle absorbait le pire — mais elle absorbait aussi toute l'ambition
+// du calcul : le chiffre produit décrivait le quartier, pas le bien.
+//
+// Désormais : cinq à huit ventes, éliminatoirement similaires, pondérées par la
+// distance avant tout, et ramenées au même semestre de marché.
 
-import { candidateYears, loadDepartementYear } from './dvf.js'
+import { DvfIndisponible, candidateYears, loadDepartementYear } from './dvf.js'
 import { departementsAround, distanceM } from './geo.js'
+import { actualise, construitIndice } from './indice.js'
+import { median, medianePonderee, quantile, quantilePondere } from './statistiques.js'
+import {
+  CHARGEMENT,
+  CONFIANCE,
+  FENETRE_ANNEES,
+  MAX_COMPARABLES,
+  MIN_COMPARABLES,
+  POIDS,
+  QUALITE,
+  RAYONS_M,
+  RAYON_TRANSFRONTALIER_M,
+  SIMILARITE,
+} from './estimationConfig.js'
 
-/**
- * Paliers d'élargissement, du plus resserré au plus large.
- *
- * On part du pâté de maisons, et l'on n'élargit qu'à défaut d'échantillon
- * suffisant. Rien de tout cela n'est dit à l'utilisateur : le parcours est
- * identique qu'il s'agisse d'un centre-ville couvert par cent ventes ou d'un
- * hameau qu'il a fallu chercher à quinze kilomètres.
- *
- * **Le premier palier tient en 300 m, et c'est le cœur du réglage.** Il valait
- * 1 km, avec cinq ventes pour seuil — deux conditions qu'une ville dense
- * remplit toujours, et de très loin : à Lyon, un disque d'un kilomètre autour
- * d'une adresse contient trois mille ventes réparties sur trois ou quatre
- * quartiers. La médiane qui en sortait n'était pas celle de la rue, c'était
- * celle de l'arrondissement. Relevé sur DVF (69, cinq millésimes) :
- *
- * | Adresse | 250 m | 1 km | écart |
- * | --- | --- | --- | --- |
- * | Lyon 3e — Part-Dieu | 4 078 €/m² | 5 082 €/m² | **+24,6 %** |
- * | Lyon 8e — Mermoz | 3 351 €/m² | 3 467 €/m² | +3,4 % |
- * | Lyon 6e — bd des Belges | 5 937 €/m² | 5 802 €/m² | −2,3 % |
- * | Bordeaux — Chartrons | 5 145 €/m² | 4 780 €/m² | −7,1 % |
- *
- * Un quart de trop sur un T3 de la Part-Dieu, sept pour cent de moins sur un
- * appartement des Chartrons : l'erreur ne va pas toujours dans le même sens, ce
- * qui est bien pire qu'un biais — elle est imprévisible et ne se rattrape pas.
- *
- * Le seuil d'échantillon monte avec le rayon plutôt que de rester fixe : plus le
- * disque est large, moins chaque vente dit de l'adresse, et plus il en faut pour
- * que la médiane veuille dire quelque chose. À 300 m, quatre ventes du même
- * pâté de maisons valent mieux que cinquante ventes de la commune entière.
- *
- * La profondeur d'historique, elle, ne se paie presque pas : cinq millésimes au
- * lieu de trois font entrer une dérive de marché de quelques pour cent par an,
- * là où élargir le rayon d'un kilomètre en fait entrer vingt-cinq d'un coup.
- * C'est l'arbitrage retenu partout ici — **remonter dans le temps plutôt que
- * s'éloigner dans l'espace**.
- */
-const LADDER = [
-  { radiusM: 300, years: 4, minSample: 4 },
-  { radiusM: 600, years: 5, minSample: 5 },
-  { radiusM: 1200, years: 5, minSample: 8 },
-  { radiusM: 3000, years: 5, minSample: 10 },
-  { radiusM: 8000, years: 5, minSample: 10 },
-  { radiusM: 15000, years: 5, minSample: 12 },
-]
-
-/**
- * Nombre de ventes retenues au plus, les plus proches d'abord.
- *
- * Le palier fixe une limite à ne pas dépasser ; ce plafond-ci fait le reste du
- * travail. Dès qu'un rayon ramène plus de ventes qu'il n'en faut, seules les
- * plus proches sont gardées — la médiane se recentre alors d'elle-même sur le
- * quartier, sans qu'aucun palier ait eu à le prévoir. Dans les mêmes relevés
- * lyonnais, les quarante ventes les plus proches tiennent en 70 m boulevard des
- * Belges, en 180 m à Mermoz, et en 800 m dans le pavillonnaire d'Écully : le
- * plafond se resserre exactement là où le tissu est dense, et se relâche là où
- * il faut bien aller chercher plus loin.
- *
- * Quarante, parce qu'une médiane cesse de bouger bien avant — au-delà, on
- * n'ajoute plus de la précision, seulement de la distance.
- */
-const MAX_SAMPLE = 40
-
-/**
- * À partir de ce rayon, la zone de recherche peut déborder sur un département
- * voisin — et les fichiers DVF sont rangés par département.
- */
-const CROSS_BORDER_FROM_M = 2000
-
-/**
- * Nombre de millésimes téléchargés de front.
- *
- * Sans plafond, un palier large lance une douzaine de fichiers à la fois : sur
- * une liaison ordinaire, ils se partagent la bande passante et finissent par
- * dépasser, tous ensemble, le délai au-delà duquel on les abandonne — de sorte
- * qu'élargir la recherche revenait à tout perdre. Par lots, chacun arrive vite.
- */
-const CONCURRENCY = 4
-
-/** Exécute des tâches par lots, sans jamais en lancer plus de `CONCURRENCY`. */
-async function inBatches(items, run) {
-  for (let i = 0; i < items.length; i += CONCURRENCY) {
-    await Promise.all(items.slice(i, i + CONCURRENCY).map(run))
-  }
-}
+// Réexport : `api/prix-m2.js` (l'aperçu du curseur) s'en sert, et il n'a aucune
+// raison d'aller le chercher dans deux modules différents.
+export { median } from './statistiques.js'
 
 /**
  * Une année de plus que demandé est toujours réclamée : le millésime de
@@ -96,45 +48,46 @@ async function inBatches(items, run) {
  */
 const YEAR_SLACK = 1
 
+/** Rayon maximal de la cascade — dernier palier. */
+const RAYON_MAX_M = RAYONS_M[RAYONS_M.length - 1]
+
 /**
  * Types DVF comparables à un type détecté sur la carte.
  *
- * Le cas d'un type indéterminé ne se présente plus — la détection tranche
- * toujours, y compris par arbitrage (voir `src/lib/typeBien.js`). Il reste
- * traité ici par sécurité, et pour le local professionnel, dont les surfaces
- * DVF sont trop hétérogènes pour former un échantillon exploitable : mieux vaut
- * une médiane tous logements confondus que pas d'estimation du tout.
+ * **Jamais de mélange maison / appartement.** L'ancienne version renvoyait les
+ * deux pour un type indéterminé ou un local professionnel, au motif qu'une
+ * médiane tous logements confondus valait mieux que pas d'estimation. Elle ne
+ * vaut mieux que rien pour personne : sur le cas marseillais, les maisons du
+ * secteur se négocient à 4 892 €/m² et les appartements à 2 176 €/m², et le
+ * mélange des deux donne 4 761 €/m² — un chiffre qui ne décrit aucun des deux
+ * marchés. Un local ou un type resté indéterminé est aligné sur la maison,
+ * comme le fait déjà `clePrix` dans `pointsReference.js`.
  */
 export function comparableKinds(type) {
-  if (type === 'maison') return ['maison']
   if (type === 'appartement') return ['appartement']
   if (type === 'terrain') return ['terrain']
-  return ['maison', 'appartement']
+  return ['maison']
 }
 
-/**
- * Médiane d'une série de nombres. Retenue plutôt que la moyenne : sur un
- * échantillon de quelques ventes, une seule transaction hors norme — un bien
- * d'exception, une vente entre proches — déplacerait la moyenne de plusieurs
- * dizaines de pour cent.
- */
-export function median(values) {
-  if (values.length === 0) return null
-
-  const sorted = [...values].sort((a, b) => a - b)
-  const middle = Math.floor(sorted.length / 2)
-
-  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
+/** Exécute des tâches par lots, sans jamais en lancer plus de `CHARGEMENT.concurrence`. */
+async function inBatches(items, run) {
+  const resultats = []
+  for (let i = 0; i < items.length; i += CHARGEMENT.concurrence) {
+    resultats.push(...(await Promise.all(items.slice(i, i + CHARGEMENT.concurrence).map(run))))
+  }
+  return resultats
 }
 
 /**
  * Les `limit` ventes les plus proches d'un point, distance comprise.
  *
- * Partagée avec l'aperçu de la fenêtre de surface (`api/prix-m2.js`) : les deux
- * chiffres sont montrés au même utilisateur à quelques secondes d'intervalle, et
- * n'auraient aucune raison de ne pas se ressembler.
+ * Ne sert plus au calcul de l'estimation — qui passe par la cascade cumulée
+ * ci-dessous — mais reste employée par l'aperçu de la fenêtre de surface
+ * (`api/prix-m2.js`), dont le budget de 3,5 s ne permet pas de dérouler la
+ * sélection complète. D'où l'absence de plafond par défaut : c'est à l'appelant
+ * de dire s'il en veut un.
  */
-export function nearestSales(sales, lat, lon, radiusM, limit = MAX_SAMPLE) {
+export function nearestSales(sales, lat, lon, radiusM, limit = Infinity) {
   const inside = []
 
   for (const sale of sales) {
@@ -144,111 +97,266 @@ export function nearestSales(sales, lat, lon, radiusM, limit = MAX_SAMPLE) {
 
   inside.sort((a, b) => a.distanceM - b.distanceM)
 
-  return inside.slice(0, limit)
+  return Number.isFinite(limit) ? inside.slice(0, limit) : inside
 }
 
+/** Écart relatif en logarithme — symétrique : moitié et double s'éloignent autant. */
+const ecartLog = (valeur, cible) => Math.abs(Math.log(valeur / cible))
+
 /**
- * Recherche les ventes comparables autour d'un point, en élargissant les
- * critères tant que l'échantillon reste insuffisant.
- *
- * Le chargement se fait par département et par année, et les fichiers déjà
- * lus restent en mémoire : élargir le rayon ne coûte alors plus aucune requête
- * — seul un palier qui ajoute une année, ou un département voisin, en déclenche
- * de nouvelles. C'est ce qui permet à l'élargissement complet de tenir dans le
- * budget de l'écran de chargement.
- *
- * Ne lève jamais en dehors d'une annulation explicite : un échantillon vide
- * est une réponse, que l'appelant traite par son propre repli.
+ * Les quatre facteurs de poids, et leur produit. Formes et paramètres sont
+ * documentés dans `estimationConfig.js` — c'est là qu'ils se règlent.
  */
-export async function findComparables({ lat, lon, type, departement }, { signal } = {}) {
-  const kinds = new Set(comparableKinds(type))
-  const departements = new Set([departement].filter(Boolean))
-  const loaded = new Map()
-  let probed = null
+function poidsDe(vente, { type, surfaceCible, terrainCible }, maintenant) {
+  const distance = 1 / (1 + (vente.distanceM / POIDS.distance.d0M) ** POIDS.distance.exposant)
 
-  /** Charge les années manquantes de tous les départements retenus. */
-  const ensureLoaded = async (yearCount) => {
-    const years = candidateYears(yearCount + YEAR_SLACK)
-    const missing = []
+  const surface = Math.exp(-ecartLog(vente.surface, surfaceCible) / POIDS.surface.tolerance)
 
-    for (const dep of departements) {
-      for (const year of years) {
-        const key = `${dep}:${year}`
-        if (!loaded.has(key)) missing.push({ key, dep, year })
-      }
-    }
+  const terrainConnu = vente.surfaceTerrain > 0 && terrainCible > 0
+  const terrain =
+    type !== 'maison'
+      ? 1
+      : terrainConnu
+        ? Math.exp(-ecartLog(vente.surfaceTerrain, terrainCible) / POIDS.terrain.tolerance)
+        : POIDS.terrain.penaliteInconnu
 
-    await inBatches(missing, async ({ key, dep, year }) => {
-      loaded.set(key, await loadDepartementYear(dep, year, { signal }))
-    })
-  }
-
-  let sample = []
-  let used = LADDER[0]
-
-  for (const rung of LADDER) {
-    used = rung
-
-    // Le pourtour est sondé au rayon du palier en cours, et non au rayon
-    // maximal : sonder large ferait entrer dès le deuxième palier des
-    // départements dont on n'a pas encore besoin, et chacun coûte le
-    // téléchargement de tous ses millésimes.
-    if (rung.radiusM >= CROSS_BORDER_FROM_M && probed !== rung.radiusM) {
-      probed = rung.radiusM
-      // Une panne du service de découpage administratif laisse simplement la
-      // recherche cantonnée au département de départ, ce qui reste exploitable.
-      const around = await departementsAround(lat, lon, rung.radiusM, { signal }).catch(() => [])
-      for (const dep of around) departements.add(dep)
-    }
-
-    await ensureLoaded(rung.years)
-
-    const candidates = []
-    for (const sales of loaded.values()) {
-      for (const sale of sales) {
-        if (kinds.has(sale.kind)) candidates.push(sale)
-      }
-    }
-
-    sample = nearestSales(candidates, lat, lon, rung.radiusM, MAX_SAMPLE)
-
-    if (sample.length >= rung.minSample) break
-  }
+  const ageAnnees = Math.max((maintenant - Date.parse(vente.date)) / 31557600000, 0)
+  const recence = 0.5 ** (ageAnnees / POIDS.recence.demiVieAnnees)
 
   return {
-    sales: sample,
-    pricePerM2: median(sample.map((sale) => sale.pricePerM2)),
-    radiusM: used.radiusM,
-    // Distance de la vente retenue la plus lointaine : c'est elle, et non le
-    // rayon du palier, qui dit sur quelle étendue la médiane a été prise. Le
-    // journal en a besoin — un palier à 15 km dont toutes les ventes tiennent
-    // en 600 m n'a rien d'une estimation diluée.
-    spanM: sample.length > 0 ? Math.round(sample[sample.length - 1].distanceM) : null,
-    years: used.years,
-    departements: [...departements],
+    poids: distance * surface * terrain * recence,
+    facteurs: {
+      distance: Number(distance.toFixed(4)),
+      surface: Number(surface.toFixed(4)),
+      terrain: Number(terrain.toFixed(4)),
+      recence: Number(recence.toFixed(4)),
+    },
+    // Score de similarité : les seules dimensions éliminatoires, sans la
+    // distance ni la récence. Sert à se relire, pas à sélectionner.
+    similarite: Number((surface * terrain).toFixed(4)),
+    terrainConnu,
   }
 }
 
+/** Le comparable franchit-il les seuils éliminatoires de similarité ? */
+function similaire(vente, { type, surfaceCible, terrainCible }) {
+  const regles = SIMILARITE[type] ?? SIMILARITE.maison
+
+  const ratioSurface = vente.surface / surfaceCible
+  if (ratioSurface < regles.surface[0] || ratioSurface > regles.surface[1]) return false
+
+  // Le terrain n'est éliminatoire que si les deux sont connus : dans DVF, une
+  // `surface_terrain` absente ne veut pas dire « pas de terrain » mais « non
+  // renseigné », et écarter ces ventes reviendrait à jeter un quart de
+  // l'échantillon pour une donnée manquante.
+  if (regles.terrain && vente.surfaceTerrain > 0 && terrainCible > 0) {
+    const ratioTerrain = vente.surfaceTerrain / terrainCible
+    if (ratioTerrain < regles.terrain[0] || ratioTerrain > regles.terrain[1]) return false
+  }
+
+  return true
+}
+
 /**
- * Repli départemental — le prix médian au m² sur tout le département, toutes
- * années confondues.
+ * Filtres de qualité, cascade de rayons cumulés, poids : tout le cœur de la
+ * sélection, sur un jeu de ventes déjà chargé et actualisé.
  *
- * Sert quand l'élargissement géographique n'a rien donné : moins précis qu'un
- * voisinage, mais toujours mieux qu'un ordre de grandeur national.
+ * Isolé en fonction pure pour pouvoir être rejoué à l'identique sur un jeu
+ * élargi aux départements voisins, sans dupliquer une ligne de logique.
  */
-export async function departementPricePerM2(departement, type, { signal } = {}) {
+function selectionne(actualisees, cible, maintenant) {
+  const { lat, lon } = cible
+
+  // 1 — candidates du secteur : le rayon maximal de la cascade. C'est sur elles
+  // que se calibre le filtre relatif, et non sur le département entier — le but
+  // est d'écarter ce qui détonne *ici*.
+  const candidates = actualisees
+    .map((v) => ({ ...v, distanceM: distanceM(lat, lon, v.lat, v.lon) }))
+    .filter((v) => v.distanceM <= RAYON_MAX_M)
+
+  const medianeSecteur = median(candidates.map((v) => v.prixM2Actualise))
+
+  // 2 — filtre relatif. Les bornes absolues (500–25 000 €/m²) ont déjà été
+  // appliquées à la lecture du CSV ; celui-ci se calibre sur le secteur, ce qui
+  // le rend utile partout — y compris là où 500 €/m² est un prix normal.
+  const plausibles = medianeSecteur
+    ? candidates.filter(
+        (v) =>
+          v.prixM2Actualise >= medianeSecteur * QUALITE.ecartMedianeMin &&
+          v.prixM2Actualise <= medianeSecteur * QUALITE.ecartMedianeMax,
+      )
+    : candidates
+
+  // 3 — similarité éliminatoire, puis poids.
+  const similaires = plausibles
+    .filter((v) => similaire(v, cible))
+    .map((v) => ({ ...v, ...poidsDe(v, cible, maintenant) }))
+
+  // 4 — cascade de rayons **cumulés** : chaque palier compte les ventes de tous
+  // les précédents. On s'arrête au premier qui atteint le minimum, et on
+  // n'élargit jamais au-delà pour en avoir davantage — le gain de précision
+  // d'une sixième vente ne compense pas le kilomètre qu'il faut faire pour la
+  // trouver.
+  let rayonAtteintM = null
+  let retenus = []
+
+  for (const rayon of RAYONS_M) {
+    const dedans = similaires.filter((v) => v.distanceM <= rayon)
+    if (dedans.length >= MIN_COMPARABLES) {
+      rayonAtteintM = rayon
+      retenus = dedans
+      break
+    }
+  }
+
+  // 5 — trop de similaires : on garde les mieux notées. Le tri est sur le poids,
+  // donc très majoritairement sur la distance.
+  if (retenus.length > MAX_COMPARABLES) {
+    retenus = [...retenus].sort((a, b) => b.poids - a.poids).slice(0, MAX_COMPARABLES)
+  }
+
+  retenus.sort((a, b) => a.distanceM - b.distanceM)
+
+  return {
+    rayonAtteintM,
+    retenus,
+    journal: {
+      duType: actualisees.length,
+      dansLeSecteur: candidates.length,
+      apresFiltreRelatif: plausibles.length,
+      apresSimilarite: similaires.length,
+      medianeSecteurPrixM2: medianeSecteur ? Math.round(medianeSecteur) : null,
+      parRayon: RAYONS_M.map((rayon) => ({
+        rayonM: rayon,
+        similaires: similaires.filter((v) => v.distanceM <= rayon).length,
+      })),
+    },
+  }
+}
+
+const confianceDe = (rayonM) => {
+  if (rayonM == null) return 'faible'
+  return rayonM <= CONFIANCE.rayonNormalMaxM ? 'normale' : 'moyenne'
+}
+
+/** Charge tous les millésimes utiles d'un département. Lève si l'un d'eux est en panne. */
+const chargeDepartement = (dep, { signal, journal }) =>
+  inBatches(candidateYears(FENETRE_ANNEES + YEAR_SLACK), (year) =>
+    loadDepartementYear(dep, year, { signal, journal }),
+  ).then((batches) => batches.flat())
+
+/**
+ * Sélectionne les comparables d'un bien et en tire le prix au m².
+ *
+ * Lève `DvfIndisponible` si le département du bien n'a pas pu être chargé —
+ * c'est le seul cas où cette fonction ne rend rien, et il est volontairement
+ * bruyant : le repli départemental n'est autorisé que lorsque les données
+ * **sont** là et que les ventes similaires manquent, jamais sur une panne.
+ *
+ * Les départements voisins ne sont sondés que si le département du bien ne
+ * suffit pas. Sonder d'emblée coûterait seize requêtes de découpage
+ * administratif et jusqu'à cinq téléchargements par voisin sur chaque
+ * estimation, pour un gain qui ne concerne que les adresses situées à moins de
+ * deux kilomètres d'une limite départementale. Leur indisponibilité, elle, n'est
+ * jamais bloquante : ils ne sont qu'un complément.
+ */
+export async function selectionComparables(cible, { signal, journal = [] } = {}) {
+  const { lat, lon, type, departement, codeInsee } = cible
   const kinds = new Set(comparableKinds(type))
-  const years = candidateYears(LADDER[LADDER.length - 1].years + YEAR_SLACK)
+  const maintenant = Date.now()
 
-  const batches = []
-  await inBatches(years, async (year) => {
-    batches.push(await loadDepartementYear(departement, year, { signal }))
-  })
+  const duDepartement = (await chargeDepartement(departement, { signal, journal })).filter((v) =>
+    kinds.has(v.kind),
+  )
 
-  const prices = batches
-    .flat()
-    .filter((sale) => kinds.has(sale.kind))
-    .map((sale) => sale.pricePerM2)
+  // Indice temporel : calculé sur le volume du département du bien (ou de sa
+  // commune si elle en a assez), et sur lui seul — c'est le marché du bien
+  // qu'il décrit, pas une réunion de marchés voisins.
+  const indice = construitIndice(duDepartement, { codeInsee, departement })
+  let actualisees = duDepartement.map((v) => actualise(v, indice))
 
-  return { pricePerM2: median(prices), count: prices.length }
+  let resultat = selectionne(actualisees, cible, maintenant)
+  const departements = [departement]
+  const echecsNonEssentiels = []
+
+  // Rien de similaire dans tout le rayon : le bien est peut-être simplement
+  // près d'une limite administrative, et les fichiers DVF sont rangés par
+  // département.
+  if (resultat.rayonAtteintM === null) {
+    const voisins = (
+      await departementsAround(lat, lon, RAYON_TRANSFRONTALIER_M, { signal }).catch(() => [])
+    ).filter((dep) => dep !== departement)
+
+    const complements = await inBatches(voisins, async (dep) => {
+      try {
+        const ventes = await chargeDepartement(dep, { signal, journal })
+        departements.push(dep)
+        return ventes.filter((v) => kinds.has(v.kind))
+      } catch (error) {
+        if (error instanceof DvfIndisponible) {
+          echecsNonEssentiels.push(error.key)
+          return []
+        }
+        throw error
+      }
+    })
+
+    const ajout = complements.flat()
+    if (ajout.length > 0) {
+      actualisees = [...actualisees, ...ajout.map((v) => actualise(v, indice))]
+      resultat = selectionne(actualisees, cible, maintenant)
+    }
+  }
+
+  const commun = {
+    indice,
+    candidats: resultat.journal,
+    chargement: { departements, echecsNonEssentiels },
+    // Les ventes actualisées restent disponibles pour la régression de terrain :
+    // elle n'a pas besoin de comparables, seulement de volume.
+    actualisees,
+  }
+
+  // Pas d'échantillon similaire à deux kilomètres : médiane départementale
+  // actualisée, confiance faible. Les données sont là — ce sont les ventes
+  // comparables qui manquent, une panne n'ayant pu que lever bien avant ce
+  // point. Les critères de similarité ne sont jamais relâchés pour y échapper.
+  if (resultat.rayonAtteintM === null) {
+    const prix = actualisees.map((v) => v.prixM2Actualise)
+
+    return {
+      ...commun,
+      statut: 'departement',
+      confiance: 'faible',
+      prixM2: median(prix),
+      // Dispersion interquartile du département entier : sans pondération et
+      // sans élargissement supplémentaire — elle est déjà, de très loin, plus
+      // large que tout ce que la confiance « faible » pourrait y ajouter.
+      quantiles: { q25: quantile(prix, 0.25), q75: quantile(prix, 0.75) },
+      rayonAtteintM: null,
+      comparables: [],
+      terrainReference: null,
+    }
+  }
+
+  const points = resultat.retenus.map((v) => ({ valeur: v.prixM2Actualise, poids: v.poids }))
+
+  // Terrain de référence : médiane pondérée des terrains **connus** des
+  // comparables retenus. C'est contre lui que se mesure l'écart de terrain du
+  // bien, et non contre une moyenne départementale qui ne dirait rien du
+  // parcellaire local.
+  const terrainsConnus = resultat.retenus
+    .filter((v) => v.surfaceTerrain > 0)
+    .map((v) => ({ valeur: v.surfaceTerrain, poids: v.poids }))
+
+  return {
+    ...commun,
+    statut: 'voisinage',
+    confiance: confianceDe(resultat.rayonAtteintM),
+    prixM2: medianePonderee(points),
+    quantiles: { q25: quantilePondere(points, 0.25), q75: quantilePondere(points, 0.75) },
+    rayonAtteintM: resultat.rayonAtteintM,
+    comparables: resultat.retenus,
+    terrainReference: terrainsConnus.length > 0 ? medianePonderee(terrainsConnus) : null,
+  }
 }

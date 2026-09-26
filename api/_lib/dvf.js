@@ -6,24 +6,50 @@
 // par département. On prend systématiquement le département, gzippé : celui
 // de la Meuse pèse 380 ko pour une année entière là où le seul CSV de Nancy
 // en fait 1,1 Mo. Un seul téléchargement couvre alors n'importe quel rayon de
-// recherche — élargir la zone ne coûte plus une requête de plus, ce qui est
-// exactement ce dont l'élargissement automatique a besoin pour tenir dans son
-// budget de temps.
+// recherche — élargir la zone ne coûte plus une requête de plus.
+//
+// UNE ABSENCE DE DONNÉES N'EST PAS UNE PANNE, et tout ce module tient sur
+// cette distinction. Deux situations que l'appelant doit pouvoir séparer :
+//
+//   • le millésime n'est pas publié, ou le département n'est pas couvert
+//     (Alsace-Moselle, Mayotte) : HTTP 404. C'est une réponse. Elle se met en
+//     cache, elle rend un tableau vide, et l'estimation continue.
+//
+//   • le réseau flanche, le serveur rend une 5xx, la décompression échoue :
+//     c'est une panne. Elle est réessayée, puis **levée** — jamais rendue
+//     sous la forme d'un tableau vide, et jamais mise en cache.
+//
+// Cette frontière n'existait pas. Toute panne rendait `[]`, indiscernable d'un
+// département sans ventes, et le moteur enchaînait silencieusement sur sa
+// médiane départementale : c'est ce qui faisait tomber l'estimation d'une
+// maison marseillaise de 489 000 € (médiane du quartier) à 403 000 €
+// (médiane des Bouches-du-Rhône) sans qu'aucune trace ne le signale.
 
 import { gunzip } from 'node:zlib'
 import { promisify } from 'node:util'
+import { CHARGEMENT, QUALITE } from './estimationConfig.js'
 
 const gunzipAsync = promisify(gunzip)
 
 const BASE_URL = 'https://files.data.gouv.fr/geo-dvf/latest/csv'
 
 /**
- * Au-delà, le téléchargement d'une année coûterait plus qu'il ne rapporte : les
- * autres millésimes portent déjà l'estimation, et le budget de l'analyse est
- * mieux employé ailleurs. Le millésime abandonné n'est pas mis en cache — la
- * prochaine estimation dans le secteur retentera sa chance.
+ * Panne technique d'une source DVF, après épuisement des réessais.
+ *
+ * Porte de quoi la journaliser utilement : le millésime concerné et le nombre
+ * de tentatives consommées. L'appelant décide ce qu'il en fait — le
+ * département du bien est essentiel et fait échouer l'estimation, un
+ * département voisin sondé par débordement ne l'est pas.
  */
-const FETCH_TIMEOUT_MS = 4000
+export class DvfIndisponible extends Error {
+  constructor(key, tentatives, cause) {
+    super(`DVF ${key} indisponible après ${tentatives} tentative(s) — ${cause?.message ?? cause}`)
+    this.name = 'DvfIndisponible'
+    this.key = key
+    this.tentatives = tentatives
+    this.cause = cause
+  }
+}
 
 /**
  * Colonnes exploitées, repérées par leur nom dans l'en-tête plutôt que par
@@ -32,8 +58,13 @@ const FETCH_TIMEOUT_MS = 4000
  */
 const COLUMNS = [
   'id_mutation',
+  'date_mutation',
   'nature_mutation',
   'valeur_fonciere',
+  'adresse_numero',
+  'adresse_suffixe',
+  'adresse_nom_voie',
+  'code_postal',
   'code_commune',
   'id_parcelle',
   'type_local',
@@ -58,17 +89,14 @@ const DWELLING = { Maison: 'maison', Appartement: 'appartement' }
  */
 const BUILDABLE_CULTURES = new Set(['S', 'AB'])
 
-/** Garde-fous : au-delà, la ligne relève de l'erreur de saisie plus que du marché. */
-const LIMITS = {
-  maison: { surface: [15, 1000], pricePerM2: [200, 30000] },
-  appartement: { surface: [8, 500], pricePerM2: [200, 40000] },
-  terrain: { surface: [50, 20000], pricePerM2: [2, 3000] },
-}
-
 /**
  * Ventes d'un département sur une année, déjà réduites et filtrées.
  * Conservées en mémoire : sur Vercel, l'instance est réutilisée d'un appel à
  * l'autre, et deux estimations dans le même secteur ne retéléchargent rien.
+ *
+ * **Seuls des résultats obtenus y entrent.** Un échec technique n'est jamais
+ * mémorisé : la tentative suivante doit repartir sur le réseau, sans quoi une
+ * panne de quelques secondes empoisonnerait le cache pour six heures.
  */
 const cache = new Map()
 
@@ -99,19 +127,67 @@ function readNumber(value) {
   return Number.isFinite(n) ? n : null
 }
 
-function withinLimits(kind, surface, pricePerM2) {
-  const limits = LIMITS[kind]
-  if (!limits) return false
+/**
+ * Semestre d'une mutation, sous forme d'entier ordonnable : `année × 2` pour
+ * un premier semestre, `+ 1` pour un second. Sert de clé à l'indice de prix
+ * (voir `indice.js`) ; un entier plutôt qu'une chaîne parce qu'il faut
+ * pouvoir compter les semestres d'écart entre deux ventes.
+ */
+export function semestreDe(date) {
+  if (typeof date !== 'string' || date.length < 7) return null
+  const annee = Number(date.slice(0, 4))
+  const mois = Number(date.slice(5, 7))
+  if (!Number.isFinite(annee) || !Number.isFinite(mois)) return null
+  return annee * 2 + (mois > 6 ? 1 : 0)
+}
 
-  const [minSurface, maxSurface] = limits.surface
-  const [minPrice, maxPrice] = limits.pricePerM2
+/** Libellé lisible d'un semestre — pour le journal, jamais pour le calcul. */
+export const semestreLabel = (semestre) =>
+  semestre == null ? null : `${Math.floor(semestre / 2)}S${(semestre % 2) + 1}`
+
+function withinLimits(kind, surface, pricePerM2) {
+  const surfaces = QUALITE.bornesSurface[kind]
+  const prix = QUALITE.bornesPrixM2[kind]
+  if (!surfaces || !prix) return false
 
   return (
-    surface >= minSurface &&
-    surface <= maxSurface &&
-    pricePerM2 >= minPrice &&
-    pricePerM2 <= maxPrice
+    surface >= surfaces[0] &&
+    surface <= surfaces[1] &&
+    pricePerM2 >= prix[0] &&
+    pricePerM2 <= prix[1]
   )
+}
+
+/**
+ * Surface de terrain d'une mutation, en m², ou `null` si DVF ne la renseigne
+ * pas.
+ *
+ * Une même parcelle peut revenir sur plusieurs lignes : sommer sans
+ * dédoublonner gonflerait la surface. Un total nul est rendu `null` et non
+ * `0` — dans DVF, une `surface_terrain` vide ne veut pas dire « pas de
+ * terrain » mais « non renseigné », et la nuance change tout pour le filtre de
+ * similarité comme pour la régression de terrain : 10 des 40 comparables du
+ * cas marseillais étaient dans ce cas.
+ */
+function surfaceTerrainDe(rows) {
+  const seen = new Set()
+  let total = 0
+
+  for (const row of rows) {
+    if (seen.has(row.id_parcelle)) continue
+    seen.add(row.id_parcelle)
+    total += readNumber(row.surface_terrain) ?? 0
+  }
+
+  return total > 0 ? total : null
+}
+
+/** Adresse lisible d'une mutation — pour l'explicabilité du calcul, jamais pour le calcul. */
+function adresseDe(rows) {
+  const row = rows.find((r) => r.adresse_nom_voie) ?? rows[0]
+  return [row.adresse_numero, row.adresse_suffixe, row.adresse_nom_voie, row.code_postal]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /**
@@ -128,6 +204,15 @@ function withinLimits(kind, surface, pricePerM2) {
  * Ne sont retenues que les mutations parfaitement lisibles : un seul logement
  * vendu, aucun local professionnel dans le lot. Une vente groupée (immeuble de
  * rapport, maison + commerce) n'a pas de prix au m² interprétable.
+ *
+ * **Le prix est lu une seule fois** (`rows[0].valeur_fonciere`) et la surface
+ * n'est jamais une somme de lignes : il n'y a donc ni double comptage du prix,
+ * ni surface gonflée. Reste une asymétrie assumée, dont `terrain.js` tire
+ * précisément parti : le numérateur porte le prix de *toute* la mutation —
+ * maison, dépendance et terrain compris — quand le dénominateur ne porte que
+ * la surface de plancher du logement. Le €/m² produit est donc un prix du m²
+ * bâti terrain compris, et c'est pour cela qu'il ne faut jamais y rajouter la
+ * valeur du terrain du bien estimé.
  */
 function reduceMutation(rows) {
   const first = rows[0]
@@ -154,14 +239,7 @@ function reduceMutation(rows) {
     if (!rows.every((row) => BUILDABLE_CULTURES.has(row.code_nature_culture))) return null
 
     kind = 'terrain'
-    // Une même parcelle peut revenir sur plusieurs lignes : sommer sans
-    // dédoublonner gonflerait la surface, donc écraserait le prix au m².
-    const seen = new Set()
-    surface = rows.reduce((total, row) => {
-      if (seen.has(row.id_parcelle)) return total
-      seen.add(row.id_parcelle)
-      return total + (readNumber(row.surface_terrain) ?? 0)
-    }, 0)
+    surface = surfaceTerrainDe(rows)
   } else {
     return null
   }
@@ -176,7 +254,26 @@ function reduceMutation(rows) {
   const lon = readNumber(located?.longitude)
   if (lat === null || lon === null) return null
 
-  return { kind, lat, lon, pricePerM2, price, surface, commune: first.code_commune }
+  const semestre = semestreDe(first.date_mutation)
+  if (semestre === null) return null
+
+  return {
+    id: first.id_mutation,
+    kind,
+    lat,
+    lon,
+    price,
+    surface,
+    // Pour un terrain nu, la contenance *est* la surface : la répéter ici
+    // évite à l'appelant d'avoir à connaître cette exception.
+    surfaceTerrain: kind === 'terrain' ? surface : surfaceTerrainDe(rows),
+    pricePerM2,
+    date: first.date_mutation,
+    semestre,
+    commune: first.code_commune,
+    adresse: adresseDe(rows),
+    dependance: rows.some((row) => row.type_local === 'Dépendance'),
+  }
 }
 
 /**
@@ -251,41 +348,110 @@ function cacheSet(key, sales) {
   }
 }
 
+const attendre = (ms, signal) =>
+  new Promise((resolve, reject) => {
+    if (ms <= 0) return resolve()
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason ?? new Error('Attente interrompue'))
+    }, { once: true })
+  })
+
+/**
+ * Un essai de téléchargement. Rend `{ publie: false }` sur 404 — une réponse,
+ * pas une panne — et lève sur tout le reste.
+ */
+async function essaie(url, timeoutMs, signal) {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  const composed = signal ? AbortSignal.any([signal, timeout]) : timeout
+
+  const response = await fetch(url, { signal: composed })
+
+  if (response.status === 404) return { publie: false, sales: [] }
+  if (!response.ok) throw new Error(`réponse HTTP ${response.status}`)
+
+  const buffer = Buffer.from(await response.arrayBuffer())
+  const csv = (await gunzipAsync(buffer)).toString('utf8')
+
+  return { publie: true, sales: parseDvfCsv(csv), octets: buffer.length }
+}
+
 /**
  * Ventes d'un département pour une année donnée.
  *
- * Renvoie un tableau vide — jamais une erreur — quand l'année n'est pas
- * publiée, que le département n'est pas couvert (Alsace-Moselle, voir
- * `reference.js`) ou que le réseau flanche : une année manquante ne doit
- * jamais faire échouer l'estimation, les autres suffisent à la porter.
+ * Rend un tableau vide quand l'année n'est pas publiée ou que le département
+ * n'est pas couvert par DVF (Alsace-Moselle, Mayotte — voir `reference.js`).
+ *
+ * **Lève `DvfIndisponible`** quand la source est en panne, après épuisement
+ * des réessais de `CHARGEMENT`. C'est à l'appelant de trancher : le
+ * département du bien est essentiel, un département voisin ne l'est pas.
+ *
+ * `journal`, s'il est fourni, reçoit une ligne par fichier : de quoi mesurer à
+ * l'usage la fréquence réelle des pannes, qui n'était jusqu'ici visible nulle
+ * part.
  */
-export async function loadDepartementYear(departement, year, { signal } = {}) {
+export async function loadDepartementYear(departement, year, { signal, journal } = {}) {
   const key = `${departement}:${year}`
   const cached = cacheGet(key)
-  if (cached) return cached
+  if (cached) {
+    journal?.push({ fichier: key, issue: 'cache', tentatives: 0, ms: 0, ventes: cached.length })
+    return cached
+  }
 
   const url = `${BASE_URL}/${year}/departements/${departement}.csv.gz`
-  const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS)
-  const composed = signal ? AbortSignal.any([signal, timeout]) : timeout
+  const debut = Date.now()
+  let derniere = null
+  // Comptées et non déduites : le budget global peut interrompre la boucle
+  // avant son terme, et le journal doit dire ce qui a réellement été tenté —
+  // c'est toute la valeur de cette mesure.
+  let consommees = 0
 
-  try {
-    const response = await fetch(url, { signal: composed })
-    if (!response.ok) {
-      // 404 = millésime non publié ou département hors couverture DVF.
-      cacheSet(key, [])
-      return []
+  for (let tentative = 1; tentative <= CHARGEMENT.tentatives; tentative += 1) {
+    // Le signal de l'appelant porte le budget global de l'étape : une fois
+    // épuisé, il n'y a plus rien à réessayer, et s'entêter mangerait le temps
+    // qui reste aux étapes suivantes.
+    if (signal?.aborted) break
+
+    try {
+      await attendre(CHARGEMENT.delaisMs[tentative - 1] ?? 0, signal)
+      consommees = tentative
+
+      const timeoutMs =
+        CHARGEMENT.timeoutsMs[tentative - 1] ??
+        CHARGEMENT.timeoutsMs[CHARGEMENT.timeoutsMs.length - 1]
+
+      const { publie, sales, octets } = await essaie(url, timeoutMs, signal)
+
+      // Un 404 se met en cache : ni le millésime manquant ni le département
+      // hors couverture ne réapparaîtront dans les six heures qui viennent.
+      cacheSet(key, sales)
+      journal?.push({
+        fichier: key,
+        issue: publie ? 'ok' : 'non-publie',
+        tentatives: tentative,
+        ms: Date.now() - debut,
+        ventes: sales.length,
+        ...(octets ? { octets } : {}),
+      })
+      return sales
+    } catch (error) {
+      derniere = error
+      if (signal?.aborted) break
     }
-
-    const buffer = Buffer.from(await response.arrayBuffer())
-    const csv = (await gunzipAsync(buffer)).toString('utf8')
-    const sales = parseDvfCsv(csv)
-
-    cacheSet(key, sales)
-    return sales
-  } catch (error) {
-    if (signal?.aborted) throw error
-    // Réseau, décompression, en-tête inattendu : on repart sans cette année.
-    console.error(`[estimation] DVF ${key} indisponible —`, error?.message ?? error)
-    return []
   }
+
+  journal?.push({
+    fichier: key,
+    issue: 'echec',
+    tentatives: consommees,
+    ms: Date.now() - debut,
+    // Distinguer une source en panne d'un budget épuisé : la première demande
+    // de regarder data.gouv, la seconde de regarder le réglage.
+    motif: signal?.aborted ? 'budget épuisé' : (derniere?.message ?? String(derniere)),
+  })
+
+  // Surtout, aucun `cacheSet` ici : une panne passagère ne doit pas se figer
+  // en « ce département n'a pas de ventes » pour les six prochaines heures.
+  throw new DvfIndisponible(key, consommees, derniere)
 }

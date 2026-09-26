@@ -6,8 +6,7 @@ import { StepBackLink } from './StepBackLink'
 import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
-import { formatEuros, priceRange } from '../../lib/format'
-import { MONACO_RANGE_PCT } from '../../lib/monaco'
+import { formatEuros } from '../../lib/format'
 import { EASE } from '../../lib/motion'
 
 /**
@@ -36,7 +35,7 @@ import { EASE } from '../../lib/motion'
  * `Estimer.jsx`. `onDone` signale cette même bascule finale au parent — sans
  * quitter cet écran, voir `finishChat` dans `Estimer.jsx`.
  */
-export function EstimationResultStep({ address, price, onBack, onDone, onProgress, onClose }) {
+export function EstimationResultStep({ address, estimation, onBack, onDone, onProgress, onClose }) {
   const reduce = useReducedMotion()
   const [started, setStarted] = useState(false)
   // Nombre de questions déjà répondues dans la conversation (0 à
@@ -46,18 +45,23 @@ export function EstimationResultStep({ address, price, onBack, onDone, onProgres
   // Les informations recueillies : la conversation cède alors la place à
   // l'écran de confirmation, et le prix se déflégère intégralement.
   const [contact, setContact] = useState(null)
+  const price = estimation?.price ?? null
   const formatted = formatEuros(price)
   const finished = contact !== null
   // La fourchette n'existe qu'à la révélation finale : elle s'affiche dans une
   // carte à part, sous le montant, jamais avant que celui-ci ne soit
   // intégralement net.
   //
-  // ± 5 % autour d'une estimation française, adossée à des ventes voisines
-  // ; quatre fois plus large en Principauté, où le montant ne repose que sur
-  // une moyenne nationale et où l'écart d'un quartier à l'autre est sans
-  // commune mesure (voir `src/lib/monaco.js`). Annoncer la même précision dans
-  // les deux cas reviendrait à surjouer le second.
-  const range = finished ? priceRange(price, address.monaco ? MONACO_RANGE_PCT : undefined) : null
+  // Elle est **calculée par le serveur** et transmise telle quelle. Ce n'est plus
+  // un ± 5 % décoratif appliqué ici : les bornes viennent de la dispersion réelle
+  // des ventes comparables retenues — quantiles pondérés 25 et 75 —, élargies
+  // selon le niveau de confiance de l'échantillon, et jamais plus serrées que
+  // ± 5 % (voir `FOURCHETTE` dans `api/_lib/estimationConfig.js`). Le front n'a
+  // plus de quoi la recalculer, et c'est voulu : elle dépend de données qui ne
+  // descendent pas jusqu'ici.
+  const range = finished && estimation?.low && estimation?.high
+    ? { low: estimation.low, high: estimation.high }
+    : null
   const showRange = range != null
 
   useEffect(() => {

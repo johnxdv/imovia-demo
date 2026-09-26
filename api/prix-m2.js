@@ -57,6 +57,23 @@ const APERCU_LADDER = [
 const APERCU_YEARS = 3
 
 /**
+ * Plafond d'échantillon de l'aperçu, désormais explicite.
+ *
+ * `nearestSales` ne plafonne plus rien par défaut : c'est le calcul complet qui
+ * a cessé d'en avoir besoin, sa cascade cumulée s'arrêtant à cinq à huit ventes
+ * similaires (voir `_lib/comparables.js`). L'aperçu, lui, garde les quarante
+ * plus proches — il n'a pas le budget de dérouler la sélection complète, et
+ * quarante ventes non filtrées restent le bon compromis pour un ordre de
+ * grandeur affiché en une seconde.
+ *
+ * Il en résulte que l'aperçu et le montant final peuvent désormais s'écarter
+ * davantage qu'avant : le second sélectionne, pondère et actualise, le premier
+ * non. C'est un écart connu, à traiter séparément — l'aperçu n'entre pas dans le
+ * périmètre de cette refonte.
+ */
+const APERCU_MAX_SAMPLE = 40
+
+/**
  * Médiane du voisinage, puis du département entier sur les mêmes millésimes —
  * ce second niveau ne coûte rien de plus, les fichiers sont déjà lus.
  *
@@ -76,7 +93,7 @@ async function apercuDvf({ lat, lon, type, departement }, { signal }) {
   const sales = batches.flat().filter((sale) => kinds.has(sale.kind))
 
   for (const rung of APERCU_LADDER) {
-    const proches = nearestSales(sales, lat, lon, rung.radiusM)
+    const proches = nearestSales(sales, lat, lon, rung.radiusM, APERCU_MAX_SAMPLE)
     if (proches.length >= rung.minSample) {
       return { pricePerM2: median(proches.map((sale) => sale.pricePerM2)), source: 'dvf-apercu' }
     }
