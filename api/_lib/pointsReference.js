@@ -5,7 +5,7 @@
 //
 // La logique de proximité est volontairement la même que celle des ventes DVF
 // — `distanceM` et « les plus proches d'abord » (voir `candidatesDuSecteur` dans
-// `comparables.js`). Ce sont deux chiffres présentés au même utilisateur, et
+// `moteur.js`). Ce sont deux chiffres présentés au même utilisateur, et
 // rien ne justifierait qu'ils ne se ressemblent pas.
 
 import { POINTS_REFERENCE } from '../_data/points-reference.js'

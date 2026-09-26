@@ -117,8 +117,8 @@ api/
 ├── monaco-adresses.js      Fonction serverless — géocodage monégasque
 └── _lib/                   Briques du moteur (préfixe `_` : jamais des routes)
     ├── bien.js             Étape A — surface et année du bien (BDNB, cadastre)
-    ├── comparables.js      Étapes B et C — ventes comparables, médiane au m²
-    ├── dvf.js              Téléchargement, analyse et cache des fichiers DVF
+    ├── moteur.js           TOUT le calcul — fonction pure, sans réseau ni horloge
+    ├── dvf.js              Téléchargement, analyse, cache et tolérance des millésimes
     ├── indice.js           Indice de prix par semestre (actualisation des ventes)
     ├── terrain.js          Ajustement de terrain des maisons (régression)
     ├── statistiques.js     Médianes, quantiles, versions pondérées
@@ -129,6 +129,7 @@ api/
 
 scripts/
 ├── sync-modelo.mjs         Import du flux Modelo — « annule et remplace »
+├── backtest.mjs            Banc de test du moteur sur des ventes déjà réalisées
 ├── check-api-imports.mjs   Contrôle de chargement des fonctions serverless
 └── _lib/
     ├── xml.mjs             Lecture XML ordonnée, entités, balises absentes
@@ -509,6 +510,73 @@ secondes pour le même résultat.
 
 Pour voir cet écran sans couper data.gouv.fr : `npm run dev:panne` (voir `MODE`
 dans les variables d'environnement).
+
+#### Le calcul est une fonction pure
+
+Tout ce qui décide du prix vit dans [`api/_lib/moteur.js`](api/_lib/moteur.js) :
+filtres, cascade, similarité, poids, actualisation, repli, régression de
+terrain, prix, fourchette. Cette fonction ne touche ni au réseau, ni à
+l'horloge. On lui donne un bien, une liste de ventes et une date de référence ;
+elle rend un montant, et deux appels identiques rendent le même euro.
+
+[`api/estimation.js`](api/estimation.js) ne calcule plus rien : il reçoit la
+requête, va chercher les données, appelle `estime()` et met en forme la réponse.
+Le seul dialogue entre les deux tient en un champ — `rayonsASonderM`, la liste
+des rayons pour lesquels le moteur aurait voulu les départements voisins. La
+boucle du handler y répond en chargeant, puis rappelle le moteur. Le calcul est
+donc entièrement décidé d'un côté, le chargement entièrement de l'autre.
+
+Ce n'est pas une élégance gratuite : c'est ce qui permet au banc de test de
+mesurer le moteur **de production**, et non une reconstitution qui en
+divergerait au premier réglage modifié.
+
+#### Banc de test — mesurer l'erreur sur des ventes réelles
+
+[`scripts/backtest.mjs`](scripts/backtest.mjs) prend des ventes qui ont
+réellement eu lieu, cache le prix au moteur, lui demande d'estimer le bien, et
+compare.
+
+```bash
+node scripts/backtest.mjs --n 3000
+```
+
+Options : `--n` (nombre de ventes), `--deps` (départements), `--graine` (le
+tirage est reproductible, et un `--n` plus petit est un sous-ensemble exact du
+plus grand), `--avant` (commit du moteur de comparaison), `--sortie`. Tout ce
+qui est téléchargé — millésimes DVF, cadastre Etalab — atterrit dans `cache/`,
+ignoré par git, et n'est téléchargé qu'une fois.
+
+**Ce qui rend la mesure honnête**, et qu'il ne faut jamais relâcher :
+
+- le banc appelle `estime()`, la fonction de production — il ne contient pas une
+  ligne de logique d'estimation ;
+- un **test d'identité** s'exécute avant toute mesure : le cas de contrôle
+  marseillais doit rendre au banc exactement ce que rend l'API. Au moindre
+  écart, le banc s'arrête ;
+- le moteur ne reçoit que les ventes **strictement antérieures** à la vente
+  testée — laquelle est donc exclue, avec tout ce qui s'est vendu le même jour ;
+- l'indice d'actualisation et la régression de terrain se recalculent sur ce
+  seul passé, puisqu'ils se déduisent des ventes qu'on lui donne ;
+- les entrées sont celles qu'un vendeur donnerait : coordonnées, type, surface
+  habitable, contenance cadastrale. Rien du prix, rien de la mutation.
+
+Le banc sort deux fichiers : une ligne de CSV par vente (prix réel, estimé,
+écart, fourchette, étape, rayon, comparables, confiance, groupe) et un résumé
+court — erreur absolue médiane, part des estimations à ±10 % et ±20 %, 90ᵉ
+centile, biais signé, part des prix réels dans la fourchette — global puis par
+département, type, étape, tranche de surface et confiance. L'échantillon est
+partagé en **calibration (70 %)** et **validation (30 %)** : un réglage qu'on
+ajuste en regardant la première se juge sur la seconde, jamais l'inverse.
+
+Le moteur d'avant la refonte (300 m, quarante ventes les plus proches, aucune
+pondération) tourne sur le même échantillon et sous les mêmes règles, et figure
+dans le même résumé. Les deux reçoivent exactement le même jeu de ventes : la
+comparaison isole la sélection, la pondération et l'actualisation.
+
+**Ce que le banc ne mesure pas** : les départements voisins ne sont pas chargés,
+le moteur travaille sur le seul département de la vente. Un bien proche d'une
+limite départementale y est donc un peu moins bien servi qu'en production — pour
+les deux moteurs, de la même façon.
 
 #### DVF ne couvre pas la Moselle
 

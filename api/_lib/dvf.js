@@ -24,10 +24,18 @@
 // médiane départementale : c'est ce qui faisait tomber l'estimation d'une
 // maison marseillaise de 489 000 € (médiane du quartier) à 403 000 €
 // (médiane des Bouches-du-Rhône) sans qu'aucune trace ne le signale.
+//
+// Ce module porte **toute la récupération des ventes**, et elle seule : le
+// fichier, le cache, les réessais, la tolérance d'un millésime manquant et le
+// débordement sur les départements voisins. Le calcul, lui, vit entièrement
+// dans `moteur.js`, qui ne connaît ni le réseau ni l'horloge — c'est ce qui
+// permet au banc de test (`scripts/backtest.mjs`) de faire tourner le moteur de
+// production sur des ventes lues depuis le disque.
 
 import { gunzip } from 'node:zlib'
 import { promisify } from 'node:util'
-import { CHARGEMENT, QUALITE } from './estimationConfig.js'
+import { departementsAround } from './geo.js'
+import { CHARGEMENT, FENETRE_ANNEES, QUALITE } from './estimationConfig.js'
 
 const gunzipAsync = promisify(gunzip)
 
@@ -265,8 +273,14 @@ function reduceMutation(rows) {
   const semestre = semestreDe(first.date_mutation)
   if (semestre === null) return null
 
+  // Parcelle porteuse du logement — celle du lot d'habitation, à défaut la
+  // première ligne (cas d'un terrain nu). Le moteur ne s'en sert pas : elle est
+  // là pour le banc de test, qui y rattache la contenance cadastrale.
+  const porteuse = dwellings[0] ?? first
+
   return {
     id: first.id_mutation,
+    idParcelle: porteuse.id_parcelle,
     kind,
     lat,
     lon,
@@ -288,13 +302,18 @@ function reduceMutation(rows) {
  * Parse un CSV DVF départemental et le réduit à la liste des ventes
  * comparables exploitables.
  *
+ * Exporté pour le banc de test, qui lit les mêmes fichiers depuis un cache
+ * disque : les filtres de qualité et la réduction des mutations doivent être
+ * rigoureusement les mêmes qu'en production, sans quoi le banc mesurerait un
+ * autre moteur que celui qui tourne.
+ *
  * Les lignes d'une même mutation se suivent toujours dans le fichier ; on les
  * accumule au fil de la lecture et on referme le groupe au changement
  * d'identifiant, plutôt que de bâtir une table de toutes les mutations du
  * département — sur un gros département, cela ferait plusieurs centaines de
  * milliers d'objets vivants en même temps.
  */
-function parseDvfCsv(text) {
+export function parseDvfCsv(text) {
   const lines = text.split('\n')
   const header = splitLine(lines[0] ?? '')
   const index = Object.fromEntries(COLUMNS.map((name) => [name, header.indexOf(name)]))
@@ -423,7 +442,7 @@ async function essaie(url, timeoutMs, signal) {
  * `reference.js`). `publie` est ce qui permet à l'appelant de savoir jusqu'où
  * va réellement l'historique disponible, donc si un millésime tombé en panne
  * était ou non le plus récent — sans quoi la tolérance d'un millésime manquant
- * ne pourrait pas se décider (voir `chargeDepartement` dans `comparables.js`).
+ * ne pourrait pas se décider (voir `chargeDepartement`, plus bas).
  *
  * **Lève `DvfIndisponible`** quand la source est en panne, après épuisement
  * des réessais de `CHARGEMENT`. C'est à l'appelant de trancher : le
@@ -506,4 +525,112 @@ export async function loadDepartementYear(departement, year, { signal, journal }
   // Surtout, aucun `cacheSet` ici : une panne passagère ne doit pas se figer
   // en « ce département n'a pas de ventes » pour les six prochaines heures.
   throw new DvfIndisponible(key, consommees, derniere)
+}
+
+/**
+ * Une année de plus que demandé est toujours réclamée : le millésime de
+ * l'année en cours n'est publié qu'avec plusieurs mois de retard, et la
+ * requête qui revient vide ne doit pas amputer la profondeur d'historique.
+ */
+const YEAR_SLACK = 1
+
+/** Exécute des tâches par lots, sans jamais en lancer plus de `CHARGEMENT.concurrence`. */
+async function inBatches(items, run) {
+  const resultats = []
+  for (let i = 0; i < items.length; i += CHARGEMENT.concurrence) {
+    resultats.push(...(await Promise.all(items.slice(i, i + CHARGEMENT.concurrence).map(run))))
+  }
+  return resultats
+}
+
+/**
+ * Charge tous les millésimes utiles d'un département.
+ *
+ * TOLÈRE L'ÉCHEC D'UN SEUL MILLÉSIME, et seulement s'il est plus ancien qu'un
+ * millésime effectivement chargé et publié. Perdre 2022 sur six fichiers retire
+ * quelques ventes d'un échantillon qui en compte cinq à huit, et l'indice
+ * temporel ramène de toute façon tout au dernier semestre ; perdre le millésime
+ * le plus récent, c'est estimer sur un marché dépassé sans pouvoir le savoir.
+ *
+ * D'où le rôle de `publie`, que `loadDepartementYear` rend maintenant : une
+ * année absente (404 — l'année en cours l'est presque toujours) n'est pas un
+ * échec, mais elle ne prouve pas non plus qu'un millésime plus récent existe.
+ * La tolérance exige donc un millésime **strictement plus récent, publié et
+ * lu**. Sans lui — parce que c'est justement le plus récent qui a lâché — il n'y
+ * a aucun moyen de savoir ce qu'on manque, et l'estimation s'arrête.
+ *
+ * Lève `DvfIndisponible` (celui du millésime le plus récent tombé) dès que la
+ * tolérance est dépassée. Rend les ventes et la liste des millésimes tolérés,
+ * qui remonte jusque dans `meta.chargement`.
+ */
+export async function chargeDepartement(dep, { signal, journal } = {}) {
+  const issues = await inBatches(candidateYears(FENETRE_ANNEES + YEAR_SLACK), async (annee) => {
+    try {
+      const { sales, publie } = await loadDepartementYear(dep, annee, { signal, journal })
+      return { annee, sales, publie, echec: null }
+    } catch (error) {
+      if (error instanceof DvfIndisponible) return { annee, sales: [], publie: false, echec: error }
+      throw error
+    }
+  })
+
+  const echecs = issues.filter((i) => i.echec).sort((a, b) => b.annee - a.annee)
+
+  if (echecs.length > 0) {
+    const dernierPublie = issues
+      .filter((i) => i.publie)
+      .reduce((max, i) => Math.max(max, i.annee), -Infinity)
+
+    const tolerable =
+      echecs.length <= CHARGEMENT.echecsToleres && echecs.every((i) => i.annee < dernierPublie)
+
+    if (!tolerable) throw echecs[0].echec
+  }
+
+  return {
+    ventes: issues.flatMap((i) => i.sales),
+    millesimesEnEchec: echecs.map((i) => i.echec.key),
+  }
+}
+
+/**
+ * Ventes des départements traversés par un disque de rayon donné, hors ceux
+ * déjà chargés.
+ *
+ * Leur indisponibilité n'est **jamais** bloquante, contrairement à celle du
+ * département du bien : ils ne sont qu'un complément, et une estimation sans
+ * eux reste une estimation. D'où le `try` qui avale `DvfIndisponible` et se
+ * contente de le signaler.
+ *
+ * Sonder coûte seize requêtes de découpage administratif, et chaque
+ * département retenu jusqu'à six téléchargements : c'est pour cela que l'appel
+ * n'a lieu que lorsque le moteur a dit en avoir besoin (`rayonsASonderM`), et
+ * jamais d'emblée.
+ */
+export async function chargeVoisins(lat, lon, rayonM, { exclure = [], signal, journal } = {}) {
+  const voisins = (await departementsAround(lat, lon, rayonM, { signal }).catch(() => [])).filter(
+    (dep) => !exclure.includes(dep),
+  )
+
+  if (voisins.length === 0) return { departements: [], ventes: [], echecs: [] }
+
+  const departements = []
+  const echecs = []
+
+  const lots = await inBatches(voisins, async (dep) => {
+    try {
+      const voisin = await chargeDepartement(dep, { signal, journal })
+      departements.push(dep)
+      echecs.push(...voisin.millesimesEnEchec)
+      return voisin.ventes
+    } catch (error) {
+      if (error instanceof DvfIndisponible) {
+        echecs.push(error.key)
+        return []
+      }
+      throw error
+    }
+  })
+
+  return { departements, ventes: lots.flat(), echecs }
 }

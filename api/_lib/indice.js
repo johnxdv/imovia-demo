@@ -33,10 +33,18 @@ import { median } from './statistiques.js'
  * voisinage — c'est même tout l'intérêt de le séparer de la sélection des
  * comparables.
  *
+ * `semestreCible`, s'il est fourni ET qu'il porte un point d'indice, désigne le
+ * semestre auquel les ventes seront ramenées. Sinon — et c'est le cas en
+ * production, où la date du jour devance toujours le dernier millésime publié —
+ * la référence reste le dernier semestre réellement disponible. Ce paramètre
+ * n'existe que pour le banc de test, qui doit actualiser les comparables au
+ * semestre de la vente qu'il cache au moteur, et non au dernier semestre connu
+ * de nous aujourd'hui.
+ *
  * Rend de quoi actualiser (`coefficient`) et de quoi se relire (`zone`,
  * `semestreReference`, `points`).
  */
-export function construitIndice(ventes, { codeInsee, departement }) {
+export function construitIndice(ventes, { codeInsee, departement, semestreCible = null }) {
   const semestres = [...new Set(ventes.map((v) => v.semestre))].sort((a, b) => a - b)
 
   // La fenêtre est bornée par le dernier semestre réellement publié, et non
@@ -94,8 +102,13 @@ export function construitIndice(ventes, { codeInsee, departement }) {
 
   const lisse = lissage(fenetre, brut, INDICE.lissageSemestres)
 
-  // Référence : le dernier semestre qui porte réellement un point d'indice.
-  const reference = [...lisse.keys()].sort((a, b) => a - b).pop()
+  // Référence : le semestre demandé s'il porte un point d'indice, à défaut le
+  // dernier semestre qui en porte un.
+  const reference =
+    semestreCible != null && lisse.has(semestreCible)
+      ? semestreCible
+      : [...lisse.keys()].sort((a, b) => a - b).pop()
+
   const valeurReference = lisse.get(reference)
 
   /**

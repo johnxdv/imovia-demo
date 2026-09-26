@@ -10,11 +10,25 @@
 // un prix au m² de référence (voir `../src/lib/monaco.js`).
 //
 //   A. Caractéristiques du bien       → `_lib/bien.js`          (BDNB, cadastre)
-//   B. Sélection des comparables      → `_lib/comparables.js`   (DVF / Etalab)
+//   B. Récupération des ventes        → `_lib/dvf.js`           (DVF / Etalab)
+//   C. Tout le calcul                 → `_lib/moteur.js`        (fonction pure)
 //      ├ indice de prix par semestre  → `_lib/indice.js`
 //      └ valeur du m² de terrain      → `_lib/terrain.js`
-//   C. Prix, ajustement, fourchette   → ci-dessous
 //   D. Zones hors couverture DVF      → `_lib/reference.js`
+//
+// CE FICHIER NE CALCULE PLUS RIEN. Il reçoit la requête, va chercher les
+// données, appelle `estime()` et met en forme la réponse. Tout ce qui décide du
+// prix — filtres, cascade, similarité, poids, actualisation, repli, terrain,
+// fourchette — vit dans `_lib/moteur.js`, qui est une fonction pure : mêmes
+// entrées, même euro. C'est ce qui permet au banc de test
+// (`scripts/backtest.mjs`) de faire tourner le moteur **de production** sur des
+// ventes anciennes, au lieu d'une reconstitution qui en divergerait au premier
+// réglage modifié.
+//
+// Le seul dialogue entre les deux : `estime()` rend `rayonsASonderM`, la liste
+// des rayons qu'il aurait voulu voir couverts par les départements voisins. La
+// boucle ci-dessous y répond en chargeant, puis rappelle le moteur. Le calcul
+// reste entièrement décidé là-bas, le chargement entièrement décidé ici.
 //
 // CE QUI PEUT ÉCHOUER, ET CE QUI NE PEUT PAS. Une panne technique de DVF
 // **interrompt** l'estimation, avec une erreur explicite que le front traduit
@@ -42,13 +56,11 @@
 // tout ceci : elles passent par `reference.js`, dont rien n'a changé.
 
 import { describeBien } from './_lib/bien.js'
-import { DvfIndisponible } from './_lib/dvf.js'
-import { selectionComparables } from './_lib/comparables.js'
+import { DvfIndisponible, chargeDepartement, chargeVoisins, semestreLabel } from './_lib/dvf.js'
+import { estime, fourchetteSymetrique, montantAffichable } from './_lib/moteur.js'
 import { communeAtPoint, departementFromInsee } from './_lib/geo.js'
 import { estHorsCouvertureDvf, majoreHorsDvf, prixReference } from './_lib/reference.js'
-import { ajustementTerrain, estimeValeurTerrain, valeurM2Terrain } from './_lib/terrain.js'
-import { semestreLabel } from './_lib/dvf.js'
-import { CHARGEMENT, FOURCHETTE, TERRAIN } from './_lib/estimationConfig.js'
+import { CHARGEMENT, FOURCHETTE } from './_lib/estimationConfig.js'
 import { arbitreTypeResidentiel, detectPropertyType } from '../src/lib/typeBien.js'
 import { coefficientEtage, normaliseEtage } from '../src/lib/etage.js'
 import { MONACO_PRICE_PER_M2, MONACO_RANGE_PCT } from '../src/lib/monaco.js'
@@ -106,96 +118,8 @@ const TYPES_CONNUS = new Set(['maison', 'appartement', 'terrain', 'local'])
 
 const typeRecu = (value) => (TYPES_CONNUS.has(value) ? value : null)
 
-/** Bornes du montant renvoyé — au-delà, le calcul relève de la donnée aberrante. */
-const PRICE_RANGE = [15000, 20000000]
-
-const clampPrice = (value) => Math.min(Math.max(value, PRICE_RANGE[0]), PRICE_RANGE[1])
-
-/**
- * Le montant est arrondi au millier : une estimation au dernier euro
- * afficherait une précision qu'elle n'a pas.
- */
-const round = (value) => Math.round(value / 1000) * 1000
-
-/** Borne de fourchette — au millier au-delà de 100 000 €, à la centaine en deçà. */
-const arrondiBorne = (value) => {
-  const pas = value >= 100000 ? 1000 : 100
-  return Math.round(value / pas) * pas
-}
-
 function badRequest(res, message, code) {
   return res.status(400).json({ ok: false, error: message, code })
-}
-
-/**
- * Demi-largeur de fourchette, ramenée entre le plancher et le plafond.
- *
- * Le plafond (±20 % du prix) s'applique **dans tous les cas** et quel que soit
- * le chemin de calcul : une fourchette plus large n'informe plus personne —
- * « entre 250 000 et 750 000 € » revient à ne rien annoncer. C'est exactement ce
- * que produisait la dispersion interquartile d'un département entier, élargie
- * ×2,5 par la confiance faible.
- */
-const demiLargeur = (prix, demi) =>
-  Math.min(Math.max(demi, prix * FOURCHETTE.demiLargeurMinPct), prix * FOURCHETTE.demiLargeurMaxPct)
-
-/**
- * Fourchette autour d'un montant, à partir d'une dispersion en €/m².
- *
- * Les bornes viennent des quantiles pondérés 25 et 75 de l'échantillon retenu,
- * converties en euros par la même formule que le prix lui-même — ajustement de
- * terrain compris, puisqu'il s'applique identiquement aux trois. La
- * demi-largeur est ensuite élargie selon la confiance, sans jamais descendre
- * sous `FOURCHETTE.demiLargeurMinPct` — une médiane sur cinq à huit ventes ne
- * peut pas prétendre mieux, même quand ces ventes s'accordent parfaitement — ni
- * dépasser `FOURCHETTE.demiLargeurMaxPct`.
- */
-function fourchetteDepuisQuantiles({ prix, quantiles, versEuros, confiance }) {
-  const facteur = FOURCHETTE.elargissement[confiance] ?? 1
-
-  const basBrut = quantiles?.q25 != null ? versEuros(quantiles.q25) : null
-  const hautBrut = quantiles?.q75 != null ? versEuros(quantiles.q75) : null
-
-  const demiBas = demiLargeur(prix, basBrut != null ? (prix - basBrut) * facteur : 0)
-  const demiHaut = demiLargeur(prix, hautBrut != null ? (hautBrut - prix) * facteur : 0)
-
-  return {
-    low: arrondiBorne(Math.max(prix - demiBas, PRICE_RANGE[0])),
-    high: arrondiBorne(Math.min(prix + demiHaut, PRICE_RANGE[1])),
-  }
-}
-
-/**
- * Fourchette symétrique en pourcentage — pour Monaco et les prix de référence.
- *
- * Passe par le même plafond : Monaco est aujourd'hui pile à 20 %, la borne ne
- * mord donc pas, mais elle interdit qu'une révision du barème monégasque
- * s'affiche un jour en fourchette de ±40 %.
- */
-function fourchetteSymetrique(prix, pct) {
-  const demi = demiLargeur(prix, prix * pct)
-  return { low: arrondiBorne(prix - demi), high: arrondiBorne(prix + demi) }
-}
-
-/**
- * Étape B + C pour une zone couverte par DVF.
- *
- * Lève `DvfIndisponible` si le département du bien n'a pas pu être chargé.
- * Rend `null` si, données en main, aucune médiane n'a pu être calculée — cas
- * théorique (un département sans la moindre vente du type) que l'appelant
- * traite comme une indisponibilité plutôt que d'inventer un chiffre.
- */
-async function calculeDepuisDvf(cible, { signal, journal }) {
-  const selection = await selectionComparables(cible, { signal, journal })
-
-  if (!selection.prixM2) {
-    // Les fichiers sont là mais ne contiennent aucune vente de ce type dans
-    // tout le département : il n'y a rien à estimer, et le repli départemental
-    // n'y changerait rien puisque c'est exactement ce qu'il calculerait.
-    return null
-  }
-
-  return selection
 }
 
 export default async function handler(req, res) {
@@ -228,7 +152,7 @@ export default async function handler(req, res) {
     // Pas de bornage ici, contrairement au calcul français : les facteurs sont
     // déjà bornés — la surface par le curseur (10 à 800 m²), le prix au m² par
     // une constante, l'étage par un barème qui ne s'écarte jamais de 5 % de 1.
-    const price = round(MONACO_PRICE_PER_M2 * surfaceM2 * coefficient)
+    const price = montantAffichable(MONACO_PRICE_PER_M2 * surfaceM2 * coefficient)
 
     // Quatre fois plus large qu'une estimation adossée à des ventes voisines :
     // le montant ne repose que sur une moyenne nationale, et l'écart d'un
@@ -363,7 +287,9 @@ export default async function handler(req, res) {
         anneeConstruction: null,
       }))
 
-      const price = clampPrice(round(reference.pricePerM2 * surfaceM2 * coefficientEtageApplique))
+      const price = montantAffichable(
+        reference.pricePerM2 * surfaceM2 * coefficientEtageApplique,
+      )
       const { low, high } = fourchetteSymetrique(price, FOURCHETTE.demiLargeurMinPct)
 
       const meta = {
@@ -401,83 +327,86 @@ export default async function handler(req, res) {
     }
 
     // ------------------------------------------------------------------
-    // Zones couvertes par DVF — le moteur proprement dit.
+    // Zones couvertes par DVF — chargement, puis appel du moteur.
     // ------------------------------------------------------------------
     const dvfDeadline = AbortSignal.timeout(CHARGEMENT.budgetTotalMs)
     const dvfSignal = AbortSignal.any([signal, dvfDeadline])
 
+    const bienDecrit = describeBien(selection, { signal }).catch(() => ({
+      surfaceM2: null,
+      surfaceSource: 'aucune',
+      anneeConstruction: null,
+      codeInsee: null,
+    }))
+
     // Étapes A et B en parallèle : les caractéristiques du bien (désormais
-    // purement documentaires — la surface vient du curseur) et le marché local
-    // ne dépendent pas l'une de l'autre.
-    const [bien, marche] = await Promise.all([
-      describeBien(selection, { signal }).catch(() => ({
-        surfaceM2: null,
-        surfaceSource: 'aucune',
-        anneeConstruction: null,
-        codeInsee: null,
-      })),
-      calculeDepuisDvf(
-        { lat, lon, type, departement, codeInsee, surfaceCible: surfaceM2, terrainCible },
-        { signal: dvfSignal, journal },
-      ),
+    // purement documentaires — la surface vient du curseur) et les ventes du
+    // département ne dépendent pas les unes des autres.
+    const [bien, essentiel] = await Promise.all([
+      bienDecrit,
+      chargeDepartement(departement, { signal: dvfSignal, journal }),
     ])
 
-    if (!marche) {
+    const cible = {
+      lat,
+      lon,
+      type,
+      surfaceM2,
+      contenance: terrainCible,
+      etage,
+      codeInsee,
+      departement,
+    }
+
+    let ventes = essentiel.ventes
+    const departements = [departement]
+    const millesimesEnEchec = [...essentiel.millesimesEnEchec]
+    const echecsNonEssentiels = []
+
+    let marche = estime({ bien: cible, ventes })
+
+    // Le moteur a dit de quels rayons il aurait eu besoin : on va les chercher,
+    // un par un, du plus resserré au plus large, et on le rappelle. Sonder
+    // coûte seize requêtes de découpage administratif et jusqu'à six
+    // téléchargements par département retenu — d'où l'ordre, et d'où le fait
+    // qu'un rayon déjà sondé ne le soit jamais deux fois.
+    const sondes = new Set()
+
+    for (;;) {
+      const rayon = marche.rayonsASonderM.find((r) => !sondes.has(r))
+      if (rayon == null) break
+      sondes.add(rayon)
+
+      const voisins = await chargeVoisins(lat, lon, rayon, {
+        exclure: departements,
+        signal: dvfSignal,
+        journal,
+      })
+
+      echecsNonEssentiels.push(...voisins.echecs)
+      if (voisins.ventes.length === 0) continue
+
+      departements.push(...voisins.departements)
+      ventes = [...ventes, ...voisins.ventes]
+      marche = estime({ bien: cible, ventes })
+    }
+
+    if (!marche.prix) {
+      // Les fichiers sont là mais ne contiennent aucune vente de ce type, même
+      // en débordant sur les voisins : il n'y a rien à estimer, et inventer un
+      // chiffre serait exactement ce que cette version a supprimé.
       return indisponible(res, 'aucune-vente-du-type', journal, startedAt)
     }
 
-    // --- Terrain : valeur du m² supplémentaire, puis ajustement.
-    const valeurTerrain =
-      type === 'maison'
-        ? estimeValeurTerrain(marche.actualisees, { lat, lon, codeInsee, departement })
-        : null
-
-    const terrainReference =
-      marche.terrainReference ?? (type === 'maison' ? valeurTerrain?.terrainMedian ?? null : null)
-
-    const partBati = marche.prixM2 * surfaceM2 * (type === 'appartement' ? coefficientEtageApplique : 1)
-
-    // Pas d'ajustement de terrain sur le seul dernier filet départemental : le
-    // €/m² y est celui du département entier, et lui adosser une valeur de
-    // terrain mesurée dans un rayon de deux kilomètres mélangerait deux
-    // échelles. Les replis par les surfaces, eux, y ont droit comme la cascade
-    // normale : leurs ventes sont bien celles du secteur, et l'écart de terrain
-    // entre le bien et elles se valorise de la même façon — c'est même sur un
-    // bien atypique que cet ajustement a le plus de sens.
-    const ajustement =
-      type !== 'maison'
-        ? { montant: 0, motif: 'sans-objet', plafonne: false }
-        : marche.statut === 'departement'
-          ? { montant: 0, motif: 'repli-departemental', plafonne: false }
-          : ajustementTerrain(valeurTerrain, {
-              terrainBien: terrainCible,
-              terrainReference,
-              partBati,
-            })
-
-    const price = clampPrice(round(partBati + ajustement.montant))
-
-    // La fourchette suit la même formule que le prix : quantiles pondérés en
-    // €/m², passés par le même produit et le même ajustement.
-    const versEuros = (prixM2) =>
-      prixM2 * surfaceM2 * (type === 'appartement' ? coefficientEtageApplique : 1) +
-      ajustement.montant
-
-    const { low, high } = fourchetteDepuisQuantiles({
-      prix: price,
-      quantiles: marche.quantiles,
-      versEuros,
-      confiance: marche.confiance,
-    })
-
-    // --- Décomposition lisible bâti / terrain. Purement indicative : elle ne
-    // participe pas au calcul, elle l'explique. La valeur foncière du bien est
-    // mesurée contre un « terrain plancher » du secteur (5ᵉ centile), faute de
-    // quoi le modèle logarithmique n'a pas d'origine naturelle.
-    const valeurTerrainBien =
-      valeurTerrain?.significatif && terrainCible > 0 && valeurTerrain.terrainPlancher > 0
-        ? valeurTerrain.coefficientLog * Math.log(terrainCible / valeurTerrain.terrainPlancher)
-        : null
+    if (marche.etape === 'departement') {
+      // Ce cas doit rester exceptionnel : même vingt kilomètres n'ont pas donné
+      // cinq ventes du type. S'il remonte dans les journaux, c'est la sélection
+      // qu'il faut regarder, pas la donnée.
+      console.warn(
+        '[estimation] repli départemental',
+        JSON.stringify({ departement, codeInsee, type, departements, ventes: ventes.length }),
+      )
+    }
 
     const echecs = journal.filter((f) => f.issue === 'echec')
 
@@ -496,7 +425,7 @@ export default async function handler(req, res) {
       anneeConstruction: bien.anneeConstruction,
       contenance: terrainCible,
       etage,
-      coefficientEtage: coefficientEtageApplique,
+      coefficientEtage: marche.coefficientEtage,
 
       codeInsee,
       departement,
@@ -534,57 +463,9 @@ export default async function handler(req, res) {
       // 300 m² comparée à des 220 m², par exemple.
       repli: marche.repli,
 
-      // Terrain.
-      terrain: {
-        terrainBienM2: terrainCible,
-        terrainReferenceM2: terrainReference != null ? Math.round(terrainReference) : null,
-        coefficientLog: valeurTerrain?.coefficientLog != null
-          ? Number(valeurTerrain.coefficientLog.toFixed(1))
-          : null,
-        // Le « b » de la méthode, rendu lisible : la valeur d'un m² de terrain
-        // supplémentaire au voisinage du terrain de référence. Il n'est pas
-        // constant — c'est tout l'intérêt des rendements décroissants.
-        bEuroParM2: (() => {
-          const b = valeurM2Terrain(valeurTerrain, terrainReference)
-          return b != null ? Number(b.toFixed(2)) : null
-        })(),
-        tStat: valeurTerrain?.tStat != null ? Number(valeurTerrain.tStat.toFixed(2)) : null,
-        significatif: valeurTerrain?.significatif ?? false,
-        motif: valeurTerrain?.motif ?? ajustement.motif,
-        echantillon: valeurTerrain?.echantillon ?? 0,
-        echantillonZone: valeurTerrain?.zone ?? null,
-        echantillonZoneDetail: valeurTerrain?.zoneDetail ?? null,
-        tStatMin: TERRAIN.tStatMin,
-        ajustementEuros: Math.round(ajustement.montant),
-        ajustementBrutEuros: ajustement.brut != null ? Math.round(ajustement.brut) : null,
-        plafonne: ajustement.plafonne,
-        plafondEuros: ajustement.plafond != null ? Math.round(ajustement.plafond) : null,
-      },
-
-      // Décomposition lisible — n'entre pas dans le calcul du prix final.
-      decomposition: {
-        prixFinal: price,
-        partBatiEuros: Math.round(partBati),
-        ajustementTerrainEuros: Math.round(ajustement.montant),
-        // Indicatif : valeur foncière du terrain du bien selon le modèle,
-        // mesurée contre le terrain plancher du secteur.
-        valeurTerrainIndicativeEuros:
-          valeurTerrainBien != null ? Math.round(valeurTerrainBien) : null,
-        partBatiHorsTerrainIndicativeEuros:
-          valeurTerrainBien != null ? Math.round(price - valeurTerrainBien) : null,
-        terrainPlancherM2: valeurTerrain?.terrainPlancher
-          ? Math.round(valeurTerrain.terrainPlancher)
-          : null,
-      },
-
-      fourchette: {
-        low,
-        high,
-        q25PrixM2: marche.quantiles.q25 != null ? Math.round(marche.quantiles.q25) : null,
-        q75PrixM2: marche.quantiles.q75 != null ? Math.round(marche.quantiles.q75) : null,
-        elargissement: FOURCHETTE.elargissement[marche.confiance] ?? 1,
-        demiLargeurMinPct: FOURCHETTE.demiLargeurMinPct,
-      },
+      terrain: marche.terrain,
+      decomposition: marche.decomposition,
+      fourchette: marche.fourchette,
 
       // Chaque comparable retenu, avec de quoi refaire le calcul à la main.
       comparables: marche.comparables.map((v) => ({
@@ -608,21 +489,23 @@ export default async function handler(req, res) {
 
       // Fiabilité du chargement — la mesure demandée.
       chargement: {
-        departements: marche.chargement.departements,
+        departements,
         fichiers: journal.length,
         echecs: echecs.length,
         // Millésimes perdus sur le département du bien et **tolérés** : un seul
         // peut l'être, et seulement s'il est plus ancien qu'un millésime
         // effectivement chargé (voir `CHARGEMENT.echecsToleres`). Non vide, ce
         // champ dit que l'estimation a été calculée sur un historique incomplet.
-        millesimesEnEchec: marche.chargement.millesimesEnEchec,
-        echecsNonEssentiels: marche.chargement.echecsNonEssentiels,
+        millesimesEnEchec,
+        echecsNonEssentiels,
         tentatives: journal.reduce((somme, f) => somme + f.tentatives, 0),
         detail: journal,
       },
 
       elapsedMs: Date.now() - startedAt,
     }
+
+    const { prix: price, low, high } = marche
 
     console.log('[estimation]', JSON.stringify(meta))
 
