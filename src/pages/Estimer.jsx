@@ -10,7 +10,7 @@ const DroneScene = lazy(() =>
   import('../components/estimation/DroneScene').then((module) => ({ default: module.DroneScene })),
 )
 import { RailEtapes } from '../components/estimation/RailEtapes'
-import { ChantierContext, niveauxReleves } from '../components/estimation/chantier'
+import { ChantierContext, contenanceParcelle } from '../components/estimation/chantier'
 import { EstimationIntro } from '../components/estimation/EstimationIntro'
 import { EstimationAddressStep } from '../components/estimation/EstimationAddressStep'
 import { EstimationBuildingStep } from '../components/estimation/EstimationBuildingStep'
@@ -33,20 +33,6 @@ import { useMediaQuery } from '../lib/useMediaQuery'
 const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
 
 /**
- * Stade de chantier du décor 3D pour l'étape en cours — et rien d'autre : cette
- * fonction ne commande aucun écran, aucune validation, aucun calcul. Elle
- * traduit seulement « où en est le parcours » en « où en est la construction »
- * derrière le panneau (voir
- * [`DroneScene`](../components/estimation/DroneScene.jsx) pour ce que chaque
- * stade donne à voir).
- *
- * L'avancement local (`stageProgress`, déjà remonté par les écrans pour la
- * progression globale) sert de second cran là où une étape dure : les douze
- * secondes d'analyse valent trois stades de chantier — un par ligne qui se
- * coche —, et l'étape résultat ne passe au halo doré qu'à la confirmation
- * finale, une fois les coordonnées recueillies.
- */
-/**
  * TEMPS DE CHANTIER — la respiration entre deux étapes.
  *
  * Le panneau s'efface, la scène reste seule à l'écran le temps que le geste de
@@ -68,7 +54,20 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  */
 const PAUSE_CHANTIER_S = 0.95
 
-function stadeChantier(step, avancement) {
+/**
+ * Stade du décor pour l'étape en cours — et rien d'autre : cette fonction ne
+ * commande aucun écran, aucune validation, aucun calcul. Elle traduit « où en
+ * est le parcours » en « où en est la construction », et c'est tout.
+ *
+ * LES TROIS TEMPS DE L'ANALYSE ONT CHACUN LE LEUR, et chacun son point de
+ * vue : la première ligne se coche devant la PORTE, la deuxième à l'ANGLE
+ * trois-quarts gauche, la troisième AU-DESSUS DU TOIT — et à chaque fois, le
+ * drone arrive là où quelque chose va se construire (voir `PLANS` et
+ * `CHANTIER` dans le décor). `avancement` vaut ici la fraction d'étapes
+ * cochées (0, 1/3, 2/3, 1) : les seuils tombent entre deux crans, jamais
+ * dessus.
+ */
+function stadeChantier(step, avancement, affinage) {
   switch (step) {
     case 'intro':
       return 0
@@ -76,16 +75,14 @@ function stadeChantier(step, avancement) {
       return 1
     case 'batiment':
       return 2
-    // L'analyse compte trois étapes de quatre secondes, et chacune a son stade
-    // de chantier : le toit se pose sur la première, les menuiseries arrivent
-    // sur la deuxième, l'entrée sur la troisième. `avancement` vaut ici la
-    // fraction d'étapes cochées (0, 1/3, 2/3, 1) — les seuils tombent donc
-    // entre deux crans, jamais dessus.
     case 'analyse':
       return avancement < 0.34 ? 3 : avancement < 0.67 ? 4 : 5
     // Le soir tombe sur l'écran du prix ; le halo n'arrive qu'à la
-    // confirmation, une fois les coordonnées recueillies.
+    // confirmation, une fois les coordonnées recueillies ; et l'affinage
+    // reprend tout le recul, parce qu'il faut alors voir le bien entier — son
+    // jardin, sa piscine, son toit.
     case 'resultat':
+      if (affinage) return 8
       return avancement >= 1 ? 7 : 6
     default:
       return 0
@@ -119,7 +116,7 @@ function stadeChantier(step, avancement) {
  * Three.js survolée par un drone, où le bien se construit au fil des étapes
  * (voir [`DroneScene`](../components/estimation/DroneScene.jsx)). Elle est
  * branchée sur les données réelles du parcours — type détecté au clic sur la
- * carte, surface déclarée au curseur, niveaux relevés sur le bâtiment — et
+ * carte, surface et étage déclarés au curseur, atouts cochés à l'affinage — et
  * n'influe sur rien : ni validation, ni navigation, ni calcul. Les étapes lui
  * parlent par `ChantierContext`, jamais l'inverse.
  */
@@ -145,14 +142,25 @@ export default function Estimer() {
   const reduce = useReducedMotion()
 
   // Ce que les étapes déclarent au DÉCOR, et à lui seul : le type de bien
-  // retenu par l'étape carte (déduction locale, puis détection réseau), le
-  // nombre de niveaux relevé sur le bâtiment cliqué, et la surface en cours de
-  // déclaration au curseur. Aucune de ces valeurs ne participe au calcul ni à
-  // la navigation — celles-là continuent de remonter par `onEstimate`, qui n'a
-  // pas changé. Elles ne servent qu'à ce que la scène 3D montre le bon bâtiment
-  // au bon moment (voir `ChantierContext`).
-  const [bien, setBien] = useState({ type: null, niveaux: null })
+  // retenu par l'étape carte (déduction locale, puis détection réseau), la
+  // surface et l'étage en cours de déclaration, l'ouverture de la visite, les
+  // options d'affinage. Aucune de ces valeurs ne participe au calcul ni à la
+  // navigation — celles-là continuent de remonter par `onEstimate`, qui n'a pas
+  // changé. Elles ne servent qu'à ce que la scène 3D montre le bon bien au bon
+  // moment (voir `ChantierContext`).
+  const [typeDeclare, setTypeDeclare] = useState(null)
   const [surfaceDeclaree, setSurfaceDeclaree] = useState(null)
+  // Étage en cours de déclaration : le décor s'en sert pour compter les tours
+  // d'escalier de la visite, et pour poser le balcon à la bonne hauteur.
+  const [etageDeclare, setEtageDeclare] = useState(null)
+  // Visite en cours : vrai tant que la fenêtre de surface est ouverte sur un
+  // appartement. C'est le seul moment du parcours où la caméra entre dans le
+  // bâtiment.
+  const [visite, setVisite] = useState(false)
+  // Options d'affinage traduites en ouvrages à révéler (voir
+  // `src/lib/affinage.js`), et bascule de l'écran d'affinage lui-même.
+  const [optionsDecor, setOptionsDecor] = useState(null)
+  const [affinage, setAffinage] = useState(false)
 
   // Identité stable : les étapes appellent ces deux fonctions depuis un effet,
   // un objet recréé à chaque rendu les relancerait en boucle. Les mises à jour
@@ -160,18 +168,26 @@ export default function Estimer() {
   // type, et un rendu par déclaration identique ne servirait à rien.
   const chantier = useMemo(
     () => ({
-      declarerBien: (infos) =>
-        setBien((precedent) => {
-          const type = infos?.type ?? null
-          const niveaux = infos?.niveaux ?? null
-          return precedent.type === type && precedent.niveaux === niveaux
-            ? precedent
-            : { type, niveaux }
-        }),
+      declarerBien: (infos) => setTypeDeclare(infos?.type ?? null),
       declarerSurface: (m2) =>
         setSurfaceDeclaree((precedente) => {
           const valeur = Number.isFinite(m2) ? m2 : null
           return precedente === valeur ? precedente : valeur
+        }),
+      declarerEtage: (n) =>
+        setEtageDeclare((precedent) => {
+          const valeur = Number.isFinite(n) ? n : null
+          return precedent === valeur ? precedent : valeur
+        }),
+      declarerVisite: (ouverte) => setVisite(Boolean(ouverte)),
+      declarerOptions: (options) =>
+        setOptionsDecor((precedentes) => {
+          // Même filtrage sur l'égalité que les autres déclarations : le
+          // panneau d'affinage redéclare volontiers les mêmes options à chaque
+          // rendu, et un rendu par déclaration identique ne servirait à rien.
+          const avant = JSON.stringify(precedentes ?? null)
+          const apres = JSON.stringify(options ?? null)
+          return avant === apres ? precedentes : options
         }),
     }),
     [],
@@ -191,6 +207,9 @@ export default function Estimer() {
   const goToStep = useCallback((nextStep, localProgress = 0) => {
     setStageProgress(localProgress)
     setStep(nextStep)
+    // Quitter l'écran de résultat referme l'affinage : sans cela, le décor
+    // resterait au plan d'ensemble pendant qu'on refait sa sélection.
+    setAffinage(false)
     // Retour en haut à chaque changement d'écran. Sans cela, la position de
     // défilement héritée de l'étape précédente — celle de la carte, qui
     // déborde, ou celle laissée par la mise au point d'un champ — laisserait le
@@ -268,10 +287,10 @@ export default function Estimer() {
   // se recentre (voir la section, plus bas).
   const panneauEnBas = useMediaQuery('(max-width: 1023px)')
 
-  const stade = stadeChantier(step, stageProgress)
-  const typeScene = selection?.type ?? bien.type
-  const niveauxScene = niveauxReleves(selection) ?? bien.niveaux
+  const stade = stadeChantier(step, stageProgress, affinage)
+  const typeScene = selection?.type ?? typeDeclare
   const surfaceScene = selection?.surfaceM2 ?? surfaceDeclaree ?? 100
+  const etageScene = selection?.etage ?? etageDeclare
 
   // Glissement horizontal léger ; réduit à un simple fondu si l'utilisateur
   // a demandé moins d'animations.
@@ -333,7 +352,9 @@ export default function Estimer() {
                 stade={stade}
                 type={typeScene}
                 surface={surfaceScene}
-                niveaux={niveauxScene}
+                etage={etageScene}
+                visite={visite}
+                options={optionsDecor}
                 zone={panneauEnBas ? 'haut' : 'centre'}
               />
             </Suspense>
@@ -409,9 +430,12 @@ export default function Estimer() {
                 <EstimationResultStep
                   address={address}
                   estimation={estimation}
+                  type={typeScene}
+                  contenance={contenanceParcelle(selection)}
                   onBack={() => goToStep('batiment')}
                   onDone={finishChat}
                   onProgress={setStageProgress}
+                  onAffinage={setAffinage}
                   onClose={goHome}
                 />
               ) : (

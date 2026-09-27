@@ -10,7 +10,7 @@ const BuildingMap = lazy(() =>
 )
 import { BuildingConfirmModal } from './BuildingConfirmModal'
 import { StepBackLink } from './StepBackLink'
-import { niveauxReleves, useChantier } from './chantier'
+import { useChantier } from './chantier'
 import { detectPropertyType, typeImmediat } from '../../lib/typeBien'
 import { EASE } from '../../lib/motion'
 
@@ -80,13 +80,12 @@ const ATTENTE_CADASTRE_MS = 2500
  * `onEstimate` remonte la sélection enrichie du type retenu, de la surface et
  * de l'étage déclarés, sans que l'utilisateur ait eu à s'en préoccuper.
  *
- * ET CE TYPE SE VOIT, désormais : c'est lui qui décide de
- * l'architecture du bâtiment qui se construit dans le décor 3D derrière le
- * panneau — villa d'architecte pour une maison, immeuble haussmannien pour un
- * appartement, terrain nu pour un repérage libre (voir `DroneScene`). Il y est
- * déclaré par `ChantierContext`, à côté du nombre de niveaux relevé sur le
- * bâtiment cliqué, et la silhouette se précise avec la détection : la déduction
- * locale d'abord, la réponse du réseau ensuite.
+ * ET CE TYPE SE VOIT, désormais : c'est lui qui décide de l'architecture du
+ * bâtiment qui se construit dans le décor 3D derrière le panneau — la villa
+ * d'architecte pour une maison, l'immeuble haussmannien pour un appartement,
+ * l'ossature du chantier tant que rien n'est repéré (voir `DroneScene`). Il y
+ * est déclaré par `ChantierContext`, et la silhouette se précise avec la
+ * détection : la déduction locale d'abord, la réponse du réseau ensuite.
  */
 export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
   const chantier = useChantier()
@@ -109,12 +108,12 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // moins cher que la comparaison de dépendances qui l'éviterait.
   const typeAffiche = detection?.type ?? typeImmediat(selection)
 
-  // Le décor n'a que ces deux informations à connaître, et elles ne servent
-  // qu'à lui : l'architecture à monter, et le nombre d'étages à lui donner s'il
-  // s'agit d'un immeuble.
+  // Le décor n'a que cette information à connaître, et elle ne sert qu'à lui :
+  // l'architecture à monter. Une maison, c'est toujours la même villa
+  // d'architecte ; un appartement, toujours le même immeuble.
   useEffect(() => {
-    chantier.declarerBien({ type: typeAffiche, niveaux: niveauxReleves(selection) })
-  }, [chantier, typeAffiche, selection])
+    chantier.declarerBien({ type: typeAffiche })
+  }, [chantier, typeAffiche])
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {

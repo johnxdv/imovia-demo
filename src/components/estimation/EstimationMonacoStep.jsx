@@ -55,7 +55,7 @@ export function EstimationMonacoStep({ address, onBack, onEstimate, onProgress }
   // Plus de repérage, plus de type : le décor repart de son chantier nu plutôt
   // que de garder la silhouette du bâtiment précédent.
   useEffect(() => {
-    if (!selection) chantier.declarerBien({ type: null, niveaux: null })
+    if (!selection) chantier.declarerBien({ type: null })
   }, [chantier, selection])
 
   // Avancement local remonté à la barre globale : la moitié dès qu'un bien est

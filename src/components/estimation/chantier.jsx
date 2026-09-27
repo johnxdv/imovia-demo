@@ -17,24 +17,53 @@ import { createContext, useContext } from 'react'
  * tunnel réutilisé ailleurs n'a donc pas à savoir qu'un décor existe.
  */
 const RIEN = {
-  /** Type de bien retenu par l'étape carte, et nombre de niveaux relevé. */
+  /**
+   * Type de bien retenu par l'étape carte — et rien d'autre.
+   *
+   * Le nombre de niveaux relevé sur le bâtiment cliqué y figurait tant que
+   * l'immeuble du décor comptait ses étages d'après la BD TOPO®. Il n'en compte
+   * plus : un appartement, c'est toujours le même immeuble, et c'est l'ÉTAGE
+   * DÉCLARÉ qui compte désormais — celui qu'on monte (voir `declarerEtage`).
+   */
   declarerBien: () => {},
   /** Surface habitable en cours de déclaration au curseur. */
   declarerSurface: () => {},
+  /**
+   * Étage en cours de déclaration. Le décor s'en sert pour deux choses, et
+   * deux seulement : le nombre de tours d'escalier que le drone monte pendant
+   * la visite, et la hauteur à laquelle le balcon d'affinage se pose.
+   */
+  declarerEtage: () => {},
+  /**
+   * Ouvre et ferme la VISITE. Vrai tant que la fenêtre de surface est ouverte
+   * sur un appartement : le drone entre alors dans l'immeuble et monte au
+   * logement. Faux dès qu'elle se referme — l'estimation part, et on ressort
+   * par la fenêtre.
+   */
+  declarerVisite: () => {},
+  /**
+   * Options d'affinage retenues à la dernière étape : piscine, terrain,
+   * panneaux, terrasse ou balcon, standing. Elles ne dessinent quelque chose
+   * qu'une fois l'estimation rendue — avant, rien n'a été demandé au vendeur.
+   */
+  declarerOptions: () => {},
 }
 
 export const ChantierContext = createContext(RIEN)
 
 export const useChantier = () => useContext(ChantierContext)
 
+
 /**
- * Nombre de niveaux du bâtiment cliqué, tel que la BD TOPO® le livre avec le
- * polygone — la seule donnée de gabarit que la carte remonte sans un appel de
- * plus. Le décor s'en sert pour compter les étages de l'immeuble ; `null` quand
- * l'attribut manque (le cas courant hors des villes), et le décor retombe alors
- * sur la surface déclarée.
+ * Contenance cadastrale de la parcelle, en mètres carrés — la surface de
+ * terrain relevée par la chaîne cadastre au clic sur le bâtiment.
+ *
+ * L'écran d'affinage s'en sert comme valeur d'ouverture de son curseur de
+ * terrain : le vendeur corrige une valeur relevée, il n'en invente pas une.
+ * `null` quand la parcelle n'a pas été retrouvée — le curseur part alors de
+ * zéro, et rien n'est affirmé du terrain.
  */
-export function niveauxReleves(selection) {
-  const niveaux = Number(selection?.properties?.nombre_d_etages)
-  return Number.isFinite(niveaux) && niveaux > 0 ? niveaux : null
+export function contenanceParcelle(selection) {
+  const m2 = Number(selection?.parcelle?.contenance)
+  return Number.isFinite(m2) && m2 > 0 ? m2 : null
 }

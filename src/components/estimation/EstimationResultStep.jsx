@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Check, MapPin } from 'lucide-react'
+import { Check, MapPin, SlidersHorizontal } from 'lucide-react'
 import { StepBackLink } from './StepBackLink'
 import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
+import { EstimationAffinagePanel } from './EstimationAffinagePanel'
+import { affinerEstimation, OPTIONS_DEFAUT } from '../../lib/affinage'
 import { formatEuros } from '../../lib/format'
 import { EASE } from '../../lib/motion'
 
@@ -37,10 +39,33 @@ import { EASE } from '../../lib/motion'
  * `finishChat` dans `Estimer.jsx`.
  *
  * Cette dernière bascule est aussi ce qui achève le chantier du décor : le
- * drone reprend de la hauteur et un halo doré entoure le bien (stade 6, voir
+ * drone reprend de la hauteur et un halo doré entoure le bien (voir
  * `DroneScene`).
+ *
+ * PUIS VIENT L'AFFINAGE. Le montant rendu repose sur ce que les bases
+ * publiques savent du bien ; elles ignorent la piscine, le terrain, les
+ * panneaux, la terrasse et l'état intérieur. Un bouton les demande — et, au
+ * clic, l'estimation se retire dans le coin de l'écran pendant que le bien
+ * reprend toute la place : chaque case cochée s'y dessine (voir
+ * `EstimationAffinagePanel` et `src/lib/affinage.js`). C'est le seul écran du
+ * parcours où le décor n'est plus un fond mais le sujet, et la mise en page le
+ * dit — un panneau étroit rangé à gauche, un montant réduit à droite, et tout
+ * le milieu au bien.
+ *
+ * `onAffinage` prévient la page de cette bascule : c'est elle qui fait reculer
+ * le drone jusqu'au plan d'ensemble.
  */
-export function EstimationResultStep({ address, estimation, onBack, onDone, onProgress, onClose }) {
+export function EstimationResultStep({
+  address,
+  estimation,
+  type = null,
+  contenance = null,
+  onBack,
+  onDone,
+  onProgress,
+  onAffinage,
+  onClose,
+}) {
   const reduce = useReducedMotion()
   const [started, setStarted] = useState(false)
   // Nombre de questions déjà répondues dans la conversation (0 à
@@ -50,7 +75,24 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
   // Les informations recueillies : la conversation cède alors la place à
   // l'écran de confirmation, et le prix se déflégère intégralement.
   const [contact, setContact] = useState(null)
-  const price = estimation?.price ?? null
+  // L'écran d'affinage, et ce qui y a été déclaré. La surface de terrain part
+  // de la contenance relevée sur la parcelle cadastrale : le vendeur corrige
+  // une valeur, il n'en invente pas une.
+  const [affinage, setAffinage] = useState(false)
+  // Vrai dès la première ouverture de l'écran d'affinage, et pour de bon : le
+  // montant corrigé ne redevient pas le montant brut parce qu'on referme le
+  // panneau. Ce qui a été déclaré reste déclaré.
+  const [affine, setAffine] = useState(false)
+  const [options, setOptions] = useState(() => ({
+    ...OPTIONS_DEFAUT,
+    terrainM2: Number.isFinite(contenance) ? Math.round(contenance) : 0,
+  }))
+
+  const estimationAffinee = useMemo(
+    () => (affine ? affinerEstimation(estimation, options, type) : estimation),
+    [affine, estimation, options, type],
+  )
+  const price = estimationAffinee?.price ?? null
   const formatted = formatEuros(price)
   const finished = contact !== null
   // La fourchette n'existe qu'à la révélation finale : elle s'affiche dans une
@@ -64,8 +106,8 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
   // ± 5 % (voir `FOURCHETTE` dans `api/_lib/estimationConfig.js`). Le front n'a
   // plus de quoi la recalculer, et c'est voulu : elle dépend de données qui ne
   // descendent pas jusqu'ici.
-  const range = finished && estimation?.low && estimation?.high
-    ? { low: estimation.low, high: estimation.high }
+  const range = finished && estimationAffinee?.low && estimationAffinee?.high
+    ? { low: estimationAffinee.low, high: estimationAffinee.high }
     : null
   const showRange = range != null
 
@@ -76,6 +118,60 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
   const handleChatDone = (collected) => {
     setContact(collected)
     onDone?.(collected)
+  }
+
+  const ouvrirAffinage = (ouvert) => {
+    setAffinage(ouvert)
+    if (ouvert) setAffine(true)
+    onAffinage?.(ouvert)
+    // L'écran d'affinage rend la place au bien : encore faut-il le voir. Sans
+    // ce retour en haut, on arrive sur le panneau d'options avec le décor
+    // au-dessus de l'écran, comme à chaque changement d'étape (voir
+    // `goToStep` dans `Estimer.jsx`).
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }
+
+  // Les compléments proposés dépendent du bien : une maison a une piscine et
+  // du terrain, un appartement un balcon. Le libellé doit le dire, sinon il
+  // promet à l'un ce qui n'est offert qu'à l'autre.
+  const complements =
+    type === 'appartement'
+      ? 'Balcon, panneaux, standing\u00a0: ce que les bases publiques ignorent.'
+      : 'Piscine, terrain, terrasse, standing\u00a0: ce que les bases publiques ignorent.'
+
+  // L'ÉCRAN D'AFFINAGE. Le montant se retire dans le coin et le panneau se
+  // range à gauche : tout le reste de l'écran revient au bien, qui est ce
+  // qu'on est venu regarder.
+  if (affinage) {
+    return (
+      <div className="w-full max-w-6xl">
+        <div className="flex justify-end">
+          <motion.div
+            layout
+            initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: reduce ? 0.2 : 0.45, ease: EASE }}
+            className="panneau-verre flex items-baseline gap-3 px-5 py-3"
+          >
+            <span className="font-mono text-[0.56rem] uppercase tracking-micro text-ink/55">
+              Estimation
+            </span>
+            <span className="titre-etape whitespace-nowrap text-[1.35rem] leading-none text-laiton-texte tabular-nums">
+              {formatted ?? '— €'}
+            </span>
+          </motion.div>
+        </div>
+
+        <div className="mt-5 w-full max-w-sm">
+          <EstimationAffinagePanel
+            type={type}
+            options={options}
+            onChange={setOptions}
+            onTermine={() => ouvrirAffinage(false)}
+          />
+        </div>
+      </div>
+    )
   }
 
   if (!started) {
@@ -239,6 +335,34 @@ export function EstimationResultStep({ address, estimation, onBack, onDone, onPr
               </div>
             </motion.div>
           )}
+
+          {/* AFFINER — le bouton qui rend la parole au vendeur. Il n'apparaît
+              qu'une fois l'estimation rendue : avant, il n'y aurait rien à
+              affiner. Volontairement de la taille d'une action principale, et
+              non d'un lien discret — c'est la seule chose qui reste à faire sur
+              cet écran, et elle change le montant. */}
+          {finished ? (
+            <motion.div
+              initial={{ opacity: 0, y: reduce ? 0 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE, delay: reduce ? 0 : 0.25 }}
+              className="mt-4"
+            >
+              <button
+                type="button"
+                onClick={() => ouvrirAffinage(true)}
+                className="bouton-tunnel flex w-full items-center justify-center gap-2.5 px-6 py-4"
+              >
+                <SlidersHorizontal className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                <span className="text-[0.82rem] font-semibold uppercase tracking-[0.07em]">
+                  Affiner mon estimation
+                </span>
+              </button>
+              <p className="mt-2.5 text-center text-[0.75rem] leading-relaxed text-ink/60">
+                {complements}
+              </p>
+            </motion.div>
+          ) : null}
         </div>
 
         <div className="md:col-span-7">
