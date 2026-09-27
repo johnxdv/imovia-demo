@@ -16,8 +16,8 @@ const FACT_ROTATE_MS = 4000
  * n'ont qu'une fonction d'habillage, en attendant le vrai enchaînement DVF.
  * Le composant se contente d'égrener les étapes puis d'appeler `onDone`.
  *
- * Les deux planches à l'encre qui flanquaient cet écran pendant les douze
- * secondes d'attente ont été retirées, comme tous les dessins du parcours :
+ * Les deux planches à l'encre qui flanquaient cet écran pendant l'attente ont
+ * été retirées, comme tous les dessins du parcours :
  * c'est le chantier du fond qui tient l'attente désormais — le toit se pose au
  * début de l'analyse, les fenêtres apparaissent avant qu'elle s'achève (voir
  * `stadeChantier` dans `src/pages/Estimer.jsx`).
@@ -60,7 +60,7 @@ export function EstimationLoadingStep({ onDone, onProgress }) {
       timers.push(setTimeout(() => setCompleted(index + 1), elapsed))
     })
 
-    timers.push(setTimeout(() => onDone?.(), elapsed + 450))
+    timers.push(setTimeout(() => onDone?.(), elapsed + 200))
 
     // La barre est lancée sur toute la durée en une seule transition, plutôt
     // que par paliers : elle se remplit sans à-coups pendant que les étapes se

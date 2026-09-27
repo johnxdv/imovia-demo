@@ -8,8 +8,12 @@ import { StepBackLink } from './StepBackLink'
  * rester ressenti comme immédiat, assez long pour que la pastille « Adresse
  * confirmée » soit vue : sans elle, l'écran changerait sans que l'utilisateur
  * sache ce qui a été retenu.
+ *
+ * Ramené de 550 à 260 ms avec le reste des temps morts du parcours : la
+ * pastille s'aperçoit encore — elle paraît en même temps que le panneau
+ * commence à sortir — et l'enchaînement cesse d'être une attente.
  */
-const HANDOFF_DELAY_MS = 550
+const HANDOFF_DELAY_MS = 260
 
 /**
  * Étape 2 — saisie de l'adresse du bien.

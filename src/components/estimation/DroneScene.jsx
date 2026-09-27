@@ -2,16 +2,10 @@ import { useEffect, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import * as THREE from 'three'
 import * as M from './scene/matieres'
+import { creerVoliere } from './scene/oiseaux'
 import { creerOssature } from './scene/ossature'
 import { creerVilla, palierVilla } from './scene/villa'
-import {
-  creerImmeuble,
-  PROFONDEUR as PROFONDEUR_IMMEUBLE,
-  travee,
-  TRAVEE_LOGEMENT,
-  TRAVEE_PORTE,
-} from './scene/immeuble'
-import { creerInterieur, ECHELLE_VISITE, Z_FACADE_LOCAL } from './scene/interieur'
+import { creerImmeuble, ETAGES as ETAGES_IMMEUBLE } from './scene/immeuble'
 import {
   azimutDuPlan,
   BANDE_HAUTE,
@@ -21,6 +15,7 @@ import {
   ECART_FACE_MAX,
   FACE,
   MARGE_CADRAGE,
+  MARGE_CADRAGE_BANDE,
   PLANS,
   pivotDuPlan,
 } from './scene/plans'
@@ -47,15 +42,16 @@ import {
  *   qui apparaît, une aile qui se greffe, un porche qui s'ouvre. Jamais la
  *   même maison en plus grand (voir `scene/villa.js`).
  *
- *   Un appartement, c'est TOUJOURS LE MÊME immeuble haussmannien — et comme
- *   un appartement ne se voit pas de la rue, on y ENTRE (voir ci-dessous).
+ *   Un appartement, c'est TOUJOURS LE MÊME immeuble haussmannien. Il se bâtit
+ *   sous le curseur comme la maison le fait, et LES FENÊTRES DE L'ÉTAGE
+ *   DÉCLARÉ s'y allument dès que le vendeur le règle — c'est tout ce qu'un
+ *   immeuble peut honnêtement dire d'un logement qu'on ne voit pas de la rue.
  *
- * LA VISITE. Dès que la fenêtre de surface s'ouvre sur un appartement, le
- * drone se pose devant la porte cochère, elle s'ouvre, il traverse le hall,
- * monte le puits de l'escalier — UN TOUR PAR ÉTAGE DÉCLARÉ, et d'autant plus
- * vite qu'il y en a —, la porte du palier s'ouvre vers l'intérieur, et le
- * logement se meuble sous le curseur, palier de 30 m² après palier de 30 m².
- * Au clic sur l'estimation, une fenêtre s'ouvre et le drone ressort par là.
+ * IL N'Y A PLUS DE VISITE INTÉRIEURE. Le drone entrait par la porte cochère,
+ * montait le puits de l'escalier un tour par étage et parcourait un
+ * appartement meublé. C'était juste, et c'était une demi-minute passée loin du
+ * bien qu'on estime — dans un intérieur qui n'était celui de personne. La
+ * séquence et son décor ont été retirés en entier.
  *
  * LES TROIS TEMPS DE L'ANALYSE ONT CHACUN LEUR PLAN, et chacun son ouvrage :
  *
@@ -72,9 +68,8 @@ import {
  * qu'il faut pour que tout tienne dans le cadre.
  *
  * `prefers-reduced-motion` immobilise le drone — la caméra se cale sur un
- * point de vue fixe —, supprime les trajectoires de visite et fige les
- * transitions de géométrie sur leur valeur d'arrivée : la scène reste juste,
- * elle ne bouge plus.
+ * point de vue fixe — et fige les transitions de géométrie sur leur valeur
+ * d'arrivée : la scène reste juste, elle ne bouge plus.
  */
 
 /**
@@ -122,7 +117,8 @@ const CHANTIER = {
   },
   immeuble: {
     montage: [0.22, 0.58, 1, 1, 1, 1, 1, 1, 1],
-    // L'entrée arrive tôt : c'est par elle qu'on entre visiter.
+    // L'entrée arrive tôt : porte cochère, marquise et perron sont ce à quoi
+    // l'on reconnaît un immeuble avant même d'en avoir compté les étages.
     entree: [0, 0, 1, 1, 1, 1, 1, 1, 1],
     menuiserie: [0, 0, 0.3, 0.45, 1, 1, 1, 1, 1],
     couronnement: [0, 0, 0.15, 0.25, 0.5, 1, 1, 1, 1],
@@ -160,7 +156,9 @@ function creerScene(canvas, { mouvementReduit }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFShadowMap
+  // Ombres adoucies : le filtrage simple dessinait des bords en escalier sur
+  // les arêtes obliques — une ombre de toiture en pente s'y lisait crénelée.
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
   // Le plan de coupe du chantier a besoin du détourage local.
   renderer.localClippingEnabled = true
 
@@ -175,22 +173,6 @@ function creerScene(canvas, { mouvementReduit }) {
   const camera = new THREE.PerspectiveCamera(42, 1, 0.08, 400)
   scene.add(camera)
 
-  /**
-   * LE VOILE. Un rectangle sombre accroché à l'objectif, transparent en temps
-   * normal. Il ne sert qu'aux deux instants où la scène bascule d'un décor à
-   * l'autre — on passe la porte, on passe la fenêtre — et où un échange sec
-   * entre l'extérieur et l'intérieur se verrait. Trois dixièmes de seconde de
-   * pénombre, et la bascule est celle d'un seuil franchi.
-   */
-  const voile = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1),
-    new THREE.MeshBasicMaterial({ color: 0x14100c, transparent: true, opacity: 0, depthTest: false }),
-  )
-  voile.position.z = -0.2
-  voile.renderOrder = 999
-  voile.frustumCulled = false
-  camera.add(voile)
-
   // L'INTENSITÉ DES LUMIÈRES, et pourquoi elle est basse.
   //
   // La gestion des couleurs est coupée (voir plus haut) : les matières ne sont
@@ -200,31 +182,77 @@ function creerScene(canvas, { mouvementReduit }) {
   // l'enduit et le zinc cessent de se distinguer les uns des autres. Ces
   // valeurs-là sont celles où la façade garde ses nuances et où les ombres
   // portées se lisent encore.
-  const ciel = new THREE.HemisphereLight(0xdfeeff, 0x8a7a5e, 0.5 * FACTEUR_LUMIERE)
+  const ciel = new THREE.HemisphereLight(0xdfeeff, 0x8a7a5e, 0.44 * FACTEUR_LUMIERE)
   scene.add(ciel)
 
-  const soleil = new THREE.DirectionalLight(0xfff3df, 0.86 * FACTEUR_LUMIERE)
+  const soleil = new THREE.DirectionalLight(0xfff1d8, 0.94 * FACTEUR_LUMIERE)
   soleil.position.set(26, 42, 22)
   soleil.castShadow = true
   soleil.shadow.mapSize.set(2048, 2048)
-  soleil.shadow.camera.left = -44
-  soleil.shadow.camera.right = 44
-  soleil.shadow.camera.top = 52
-  soleil.shadow.camera.bottom = -34
+  // LE CADRE D'OMBRE A ÉTÉ RESSERRÉ DE MOITIÉ. Il couvrait quatre-vingt-huit
+  // unités de large pour un bien qui en fait douze : la carte d'ombre y
+  // dépensait les trois quarts de sa définition sur de la pelouse vide, et
+  // l'ombre d'une baie n'y tenait pas dans un texel. Resserré sur l'emprise
+  // réelle du bien et de ses abords, le même budget rend une ombre deux fois
+  // plus fine.
+  soleil.shadow.camera.left = -26
+  soleil.shadow.camera.right = 26
+  soleil.shadow.camera.top = 34
+  soleil.shadow.camera.bottom = -22
   soleil.shadow.camera.near = 1
-  soleil.shadow.camera.far = 120
-  soleil.shadow.bias = -0.0016
+  soleil.shadow.camera.far = 110
+  soleil.shadow.bias = -0.0009
+  soleil.shadow.normalBias = 0.022
   scene.add(soleil)
+
+  /**
+   * LA LUMIÈRE DE RETOUR — le rebond du sol sur les faces à l'ombre.
+   *
+   * Sans elle, tout ce que le soleil ne touche pas retombe sur la seule
+   * hémisphérique, et les pignons nord de la maison comme les retours de
+   * l'immeuble s'y aplatissent en un gris uniforme. Une seconde directionnelle,
+   * très faible, tiède et venue d'en bas à l'opposé du soleil, leur rend le
+   * modelé — c'est le rôle du réflecteur qu'on pose au sol en prise de vue.
+   * Elle ne porte pas d'ombre : une lumière de rebond n'en porte pas.
+   */
+  const retour = new THREE.DirectionalLight(0xdfe8f2, 0.2 * FACTEUR_LUMIERE)
+  retour.position.set(-30, 9, -20)
+  scene.add(retour)
 
   const sol = new THREE.Mesh(
     new THREE.CircleGeometry(120, 56),
     // La teinte du sol est proche de celle de la pelouse du jardin : celle-ci
     // est un disque posé dessus, et un écart marqué en dessinerait le bord.
-    new THREE.MeshStandardMaterial({ color: 0x85a468, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: M.textureSolPre(), color: 0x9ab87e, roughness: 0.97 }),
   )
   sol.rotation.x = -Math.PI / 2
   sol.receiveShadow = true
   scene.add(sol)
+
+  /**
+   * L'ENVIRONNEMENT. Le ciel, replié en carte d'éclairage, sert de reflet à
+   * tout ce qui en a un : les vitrages, le zinc, le laiton, le fer forgé. Sans
+   * lui, un métal sans source à refléter rend un gris mat — c'est ce qui
+   * donnait à la ferronnerie des balcons l'aspect du plastique peint.
+   *
+   * Son intensité est basse, et il le faut : la gestion des couleurs est coupée
+   * (voir plus haut), si bien qu'un éclairage d'environnement à pleine
+   * puissance s'ajouterait tel quel aux lumières déjà réglées et délaverait la
+   * scène entière. À un tiers, il ne se voit que là où il doit se voir — dans
+   * les reflets.
+   */
+  const fabriqueEnv = new THREE.PMREMGenerator(renderer)
+  const scenette = new THREE.Scene()
+  scenette.background = M.textureCiel()
+  const environnement = fabriqueEnv.fromScene(scenette, 0.04).texture
+  scene.environment = environnement
+  scene.environmentIntensity = 0.34
+  fabriqueEnv.dispose()
+
+  /* ------------------------------ les oiseaux -------------------------------- */
+
+  const voliere = creerVoliere()
+  scene.add(voliere.groupe)
 
   const halo = new THREE.Sprite(
     new THREE.SpriteMaterial({
@@ -271,7 +299,6 @@ function creerScene(canvas, { mouvementReduit }) {
     type: null,
     surface: 100,
     etage: null,
-    visite: false,
     options: {},
     zone: 'centre',
   }
@@ -292,13 +319,15 @@ function creerScene(canvas, { mouvementReduit }) {
     panneaux: 0,
     terrasse: 0,
     balcon: 0,
+    // Appartements : le jardin privatif au pied de l'immeuble, et le rooftop
+    // qui prend la place du comble.
+    rezDeJardin: 0,
+    rooftop: 0,
     standing: 0,
+    // Les fenêtres de l'étage déclaré, sur la façade de l'immeuble.
+    etageAllume: 0,
   }
   const cible = { ...val }
-
-  /** Bascule franche extérieur ↔ intérieur, couverte par le voile. */
-  let dedans = false
-  let opaciteVoile = 0
 
   /* ------------------------- le bâtiment courant ---------------------------- */
 
@@ -329,12 +358,18 @@ function creerScene(canvas, { mouvementReduit }) {
    */
   const mue = { phase: null, t: 0, vise: -1, ecart: 0 }
 
-  /** Le temps que met une maison à se défaire, puis à se refaire. */
-  const DUREE_DEMONTAGE = 0.95
-  const DUREE_REMONTAGE = 1.5
+  /**
+   * Le temps que met une maison à se défaire, puis à se refaire.
+   *
+   * RAMENÉ DE 2,45 s À 1,4 s POUR LA MUE ENTIÈRE. Le geste est le même — la
+   * maison se démonte planche par planche et la suivante se rassemble —, mais
+   * il se joue à la vitesse d'un montage et non d'une démonstration : le
+   * vendeur traverse volontiers trois paliers d'affilée au curseur, et chaque
+   * mue qui traîne le laisse devant une maison en morceaux.
+   */
+  const DUREE_DEMONTAGE = 0.5
+  const DUREE_REMONTAGE = 0.9
 
-  let interieur = null
-  let niveauMonte = null
 
   function demonterOuvrage() {
     if (!ouvrage) return
@@ -354,7 +389,11 @@ function creerScene(canvas, { mouvementReduit }) {
     familleMontee = famille
     palierMonte = palier
 
-    sol.material.color.setHex(famille === 'immeuble' ? 0x76786f : 0x85a468)
+    // Pré pour une maison, enrobé pour un immeuble — la matière change avec
+    // l'adresse, pas seulement la teinte.
+    sol.material.map = famille === 'immeuble' ? M.textureSolVille() : M.textureSolPre()
+    sol.material.color.setHex(famille === 'immeuble' ? 0x97998f : 0x9ab87e)
+    sol.material.needsUpdate = true
   }
 
   /** Engage — ou réoriente — la mue vers le palier demandé. */
@@ -412,28 +451,6 @@ function creerScene(canvas, { mouvementReduit }) {
    * cent vingt marches et un appartement meublé — et une maison n'en a que
    * faire.
    */
-  function assurerInterieur() {
-    if (interieur) return interieur
-    // L'écart entre la travée du logement et celle de la porte cochère est une
-    // donnée de la FAÇADE : c'est elle qui dit où l'on entre et où l'on
-    // ressort. La visite la reçoit plutôt que de la redeviner, et le hall s'y
-    // ajuste — sans quoi on entrerait par un mur.
-    interieur = creerInterieur({
-      entreeX: (travee(TRAVEE_PORTE) - travee(TRAVEE_LOGEMENT)) / ECHELLE_VISITE,
-    })
-    // La visite s'aligne sur la travée du logement, et son nu de façade sur
-    // celui de l'immeuble : la fenêtre par laquelle on ressort tombe alors
-    // exactement dans la façade, et la sortie se joue au bon endroit.
-    interieur.groupe.position.set(
-      travee(TRAVEE_LOGEMENT),
-      0,
-      PROFONDEUR_IMMEUBLE / 2 - Z_FACADE_LOCAL * interieur.echelle,
-    )
-    interieur.groupe.visible = false
-    scene.add(interieur.groupe)
-    return interieur
-  }
-
   monterOuvrage('ossature', -1)
 
   /* ------------------------------- caméra ----------------------------------- */
@@ -509,16 +526,50 @@ function creerScene(canvas, { mouvementReduit }) {
     // plus proche qui remplit le cadre.
     const surLargeur = envergure.largeur / 2 / Math.tan(ouvertureH / 2)
     const surHauteur = envergure.hauteur / 2 / Math.tan(ouvertureUtile / 2)
+    const marge = etat.zone === 'haut' ? MARGE_CADRAGE_BANDE : MARGE_CADRAGE
     const calculee =
       envergure.largeur / 2 +
-      (p.cadrage === 'largeur' ? surLargeur : Math.max(surLargeur, surHauteur)) * MARGE_CADRAGE
+      (p.cadrage === 'largeur' ? surLargeur : Math.max(surLargeur, surHauteur)) * marge
 
-    const distance = (p.distance ?? calculee) * p.recul
+    let distance = (p.distance ?? calculee) * p.recul
+    let ancrePivot = pivotDuPlan(p, ouvrage?.ancrages)
+    let ancreCible = cibleDuPlan(p, ouvrage?.ancrages, ouvrage?.ancrages?.hauteur ?? envergure.hauteur)
+
+    /**
+     * LE BALCON SE FILME DE PRÈS.
+     *
+     * C'est le seul ouvrage de l'affinage qui se construise à mi-hauteur d'une
+     * façade, et le plan d'ensemble de l'affinage — composé pour tenir une
+     * maison, son jardin et sa piscine — le réduisait à une saillie de quelques
+     * pixels. Quand il est déclaré, le drone quitte donc le plan large : il
+     * descend à sa hauteur, se rapproche, et c'est le balcon — et non plus le
+     * centre du bâtiment — qui devient le point autour duquel il tourne.
+     *
+     * La terrasse d'une maison a droit au même traitement, pour la même
+     * raison — c'est le même bouton, et c'est le même ouvrage vu d'une autre
+     * architecture.
+     *
+     * Un peu moins de six dixièmes de la distance : c'est le rapprochement le
+     * plus franc qu'on puisse se permettre. En deçà, le bâtiment déborde du
+     * cadre et revient derrière le panneau — on aurait gagné sur le balcon ce
+     * qu'on aurait perdu sur tout le reste.
+     */
+    const ancreExterieur =
+      etat.stade >= DERNIER_PLAN && (etat.options?.balcon || etat.options?.terrasse)
+        ? ouvrage?.ancrages?.exterieur
+        : null
+
+    if (ancreExterieur) {
+      distance *= 0.58
+      ancrePivot = ancreExterieur.clone()
+      ancreCible = ancreExterieur.clone()
+    }
+
     droneCible.rayon = distance
-    droneCible.hauteur = Math.max(0.9, distance * p.elevation)
+    droneCible.hauteur = Math.max(0.9, distance * (ancreExterieur ? 0.16 : p.elevation))
 
-    pivotVise.copy(pivotDuPlan(p, ouvrage?.ancrages))
-    vise.copy(cibleDuPlan(p, ouvrage?.ancrages, ouvrage?.ancrages?.hauteur ?? envergure.hauteur))
+    pivotVise.copy(ancrePivot)
+    vise.copy(ancreCible)
 
     if (mouvementReduit) {
       pivot.copy(pivotVise)
@@ -527,18 +578,11 @@ function creerScene(canvas, { mouvementReduit }) {
     decentrer()
   }
 
-  /**
-   * Décentrement voulu par l'étape en cours.
-   *
-   * Une fonction, et pas une valeur rangée : elle dépend de `dedans`, qui
-   * bascule au milieu d'une trajectoire de visite et non à un changement de
-   * stade. Rangée, elle serait périmée pendant tout le temps qu'on passe
-   * dedans.
-   */
+  /** Décentrement voulu par l'étape en cours. */
   function cadreVise() {
-    // Pendant la visite, la caméra est pilotée au point près : tout
-    // décentrement y décollerait le regard de ce qu'on est venu voir.
-    if (dedans || etat.zone === 'haut') return 0
+    // Panneau rangé en bas (téléphone) : le bien est cadré dans la bande du
+    // haut, et un décentrement latéral n'aurait plus rien à dégager.
+    if (etat.zone === 'haut') return 0
     return -plan().cadre
   }
 
@@ -554,7 +598,7 @@ function creerScene(canvas, { mouvementReduit }) {
 
     const enHaut = etat.zone === 'haut'
     const decalageX = cadreCourant * largeur
-    const decalageY = enHaut && !dedans ? (hauteur * (1 - BANDE_HAUTE)) / 2 : 0
+    const decalageY = enHaut ? (hauteur * (1 - BANDE_HAUTE)) / 2 : 0
 
     // Un décalage d'un demi-pixel ne se voit pas, et le remettre à chaque image
     // recalculerait la matrice de projection pour rien.
@@ -565,495 +609,32 @@ function creerScene(canvas, { mouvementReduit }) {
     camera.setViewOffset(largeur, hauteur, decalageX, decalageY, largeur, hauteur)
   }
 
-  /* ------------------------- trajectoires de visite -------------------------- */
+  /* -------------------------- le drone, et lui seul ------------------------- */
 
   /**
-   * UNE TRAJECTOIRE, C'EST UNE SUITE DE SEGMENTS.
+   * IL N'Y A PLUS DE VISITE INTÉRIEURE.
    *
-   * Chacun porte ses deux extrémités — d'où part la caméra, où elle va, ce
-   * qu'elle regarde au départ et à l'arrivée —, sa durée, et ce qu'il actionne
-   * au passage : une porte qui s'ouvre, une fenêtre, le voile de la bascule.
-   * Le segment `helice` est le seul à ne pas aller droit : il enroule la
-   * caméra autour de l'axe du puits, un tour par étage.
+   * Le drone entrait par la porte cochère, traversait le hall, montait le puits
+   * de l'escalier un tour par étage déclaré et parcourait l'appartement pièce
+   * par pièce. La séquence était juste, et elle coûtait une demi-minute pendant
+   * laquelle on ne voyait plus le bien qu'on estimait — seulement un intérieur
+   * qui n'était celui de personne. Elle a été retirée en entier, avec le décor
+   * qu'elle demandait (`scene/interieur.js`), le voile de bascule et toute la
+   * machinerie de trajectoires qui n'existait que pour elle.
+   *
+   * Ce qui reste est ce que le vendeur voulait voir : l'IMMEUBLE, filmé du
+   * dehors comme la maison l'est, avec SON ÉTAGE QUI S'ALLUME dès qu'il le
+   * déclare (voir `designerEtage` dans `immeuble.js`). Un geste, pas une visite.
    */
-  const trajet = { segments: [], index: 0, t: 0, actif: false, nom: null }
-
-  function lancerTrajet(nom, segments) {
-    trajet.nom = nom
-    trajet.segments = segments
-    trajet.index = 0
-    trajet.t = 0
-    trajet.actif = segments.length > 0
-  }
-
-  function arreterTrajet() {
-    trajet.actif = false
-    trajet.segments = []
-    trajet.nom = null
-  }
-
-  const positionCourante = () => camera.position.clone()
 
   /**
-   * Point que la caméra regarde en ce moment — six unités devant elle.
-   *
-   * C'est de là que repart chaque trajectoire : un segment qui commencerait
-   * par un regard neuf ferait faire un à-coup à la caméra au moment précis où
-   * elle prend son élan.
+   * Étage retenu par le décor. Il sert à deux choses, et deux seulement :
+   * l'étage qui s'allume sur la façade, et la hauteur à laquelle le balcon
+   * d'affinage se pose. Faute de déclaration, le deuxième — l'étage le plus
+   * banal d'un immeuble, et celui où le balcon se lit le mieux.
    */
-  function regardCourant() {
-    const avant = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-    return camera.position.clone().add(avant.multiplyScalar(6))
-  }
-
-  /** Niveau de la visite, tel que l'étage déclaré le commande. */
   const niveauDemande = () =>
-    Math.max(0.5, Math.min(12, Number.isFinite(etat.etage) ? etat.etage : 2))
-
-  /** Point du puits, à l'angle et à la hauteur donnés. */
-  const surPuits = (h, psi, y, dr = 0) =>
-    new THREE.Vector3(
-      h.axe.x + Math.cos(psi) * (h.rayon + dr),
-      y,
-      h.axe.z - Math.sin(psi) * (h.rayon + dr),
-    )
-
-  /**
-   * LE TEMPS DE LA MONTÉE, pour le nombre d'étages déclaré.
-   *
-   * On monte à pied, et lentement : une seconde et demie pour le premier, puis
-   * un peu moins d'une seconde par étage supplémentaire. La progression
-   * ralentit — douze étages ne peuvent pas coûter douze fois le temps d'un
-   * seul, on y passerait la minute — mais elle ne disparaît jamais : entre le
-   * deuxième et le troisième, il y a une volée de plus, et elle se voit.
-   *
-   * Plafonné à sept secondes : c'est déjà long, et c'est le prix d'un douzième
-   * étage — le vendeur qui l'a déclaré doit sentir qu'il habite haut.
-   */
-  const dureeMontee = (niveau) => Math.min(7, 1.4 + 0.86 * niveau ** 0.75)
-
-  /**
-   * L'ENTRÉE — porte cochère, hall, escalier, palier, séjour.
-   *
-   * TOUT EST À HAUTEUR D'ŒIL, ET ON MONTE LES MARCHES. Ce n'est pas un drone qui
-   * visite un appartement : c'est quelqu'un qui pousse une porte cochère,
-   * traverse un hall et gravit un escalier. Un appartement, contrairement à une
-   * maison, ne se regarde pas — il se parcourt, et le seul point de vue qui le
-   * dise est celui d'une personne debout (voir `volee` dans `interieur.js`).
-   *
-   * LES DURÉES SONT LE DOUBLE DE CE QU'ELLES ÉTAIENT. La séquence était juste
-   * mais expédiée : on n'avait pas le temps de comprendre qu'on venait d'entrer
-   * quelque part avant d'être déjà dans le séjour.
-   */
-  function trajetEntree() {
-    const visite = assurerInterieur()
-    const niveau = niveauDemande()
-    visite.placerEtage(niveau)
-    niveauMonte = niveau
-
-    const r = visite.reperes()
-    const v = visite.volee(niveau)
-    const pied = surPuits(v, v.psiDepart, v.yDepart)
-
-    const devantPorte = r.entree.clone().add(new THREE.Vector3(0.35, 0.5, 6.2))
-
-    const segments = [
-      // On s'approche de la porte cochère, qui s'ouvre à mesure.
-      {
-        duree: 2.0,
-        p0: positionCourante(),
-        c0: regardCourant(),
-        p1: devantPorte,
-        c1: r.entree.clone(),
-        porteImmeuble: [0.35, 1],
-      },
-      // On franchit le seuil, et le hall se découvre.
-      {
-        duree: 1.8,
-        p0: devantPorte,
-        c0: r.entree.clone(),
-        p1: r.hall.clone(),
-        c1: r.piedEscalier.clone(),
-        porteImmeuble: [1, 1],
-        voile: [0.3, 0.82],
-        basculeDedans: 0.45,
-      },
-      // On traverse le hall jusqu'au pied de l'escalier, le regard déjà posé sur
-      // les premières marches. Viser le haut de la volée, comme on le faisait,
-      // ne montrait que le dessous des marches — un plafond de bois qui remplit
-      // le cadre juste avant qu'on ne s'engage.
-      {
-        duree: 1.5,
-        p0: r.hall.clone(),
-        c0: r.piedEscalier.clone(),
-        p1: pied,
-        c1: surPuits(v, v.psiDepart + 1.25, v.yDepart - 0.3),
-      },
-    ]
-
-    // L'ESCALIER, un tour par étage — et rien du tout au rez-de-chaussée, où
-    // l'on entre de plain-pied dans le logement.
-    if (v.marches > 0.5) {
-      segments.push({ duree: dureeMontee(niveau), volee: v })
-    }
-
-    const arrivee = surPuits(v, v.psiArrivee, v.yArrivee)
-
-    segments.push(
-      // On se retourne vers la porte du logement, qui s'ouvre.
-      {
-        duree: 1.35,
-        p0: arrivee,
-        c0: r.palier.clone(),
-        p1: r.palier.clone(),
-        c1: r.seuil.clone(),
-        portePalier: [0.2, 1],
-      },
-      // Et l'on entre.
-      {
-        duree: 2.1,
-        p0: r.palier.clone(),
-        c0: r.seuil.clone(),
-        p1: r.sejour.clone(),
-        c1: r.foyer.clone(),
-        portePalier: [1, 1],
-      },
-    )
-
-    return segments
-  }
-
-  /**
-   * LE CHANGEMENT D'ÉTAGE, sans ressortir de l'immeuble.
-   *
-   * Le vendeur règle son étage pendant qu'il est déjà dans le logement : il ne
-   * doit pas être renvoyé sur le trottoir pour autant. Le drone ressort sur le
-   * palier, reprend le puits et monte — ou descend — d'autant de tours que
-   * d'étages franchis, puis rentre par la même porte. C'est exactement le geste
-   * qu'on vient de lui demander : un étage, un tour.
-   */
-  function trajetEtage(precedent) {
-    const visite = assurerInterieur()
-    const niveau = niveauDemande()
-    // La volée du niveau qu'on quitte se lit AVANT de déplacer le logement :
-    // c'est de là que l'on repart.
-    const depart = visite.volee(precedent)
-    visite.placerEtage(niveau)
-    niveauMonte = niveau
-
-    const r = visite.reperes()
-    const v = visite.volee(niveau)
-    const ecart = Math.abs(niveau - precedent)
-
-    return [
-      {
-        duree: 1.1,
-        p0: positionCourante(),
-        c0: regardCourant(),
-        p1: surPuits(depart, depart.psiArrivee, depart.yArrivee),
-        c1: surPuits(depart, depart.psiArrivee + 1.1, depart.yArrivee + 0.4),
-        // Le logement change de hauteur sous nos pieds : une pénombre brève
-        // couvre le saut, comme au franchissement d'un seuil.
-        voile: [0, 0.7],
-        portePalier: [1, 0],
-      },
-      {
-        // On reprend l'escalier — d'autant de volées qu'on franchit d'étages,
-        // dans un sens comme dans l'autre.
-        duree: Math.min(5, 0.9 + 0.8 * ecart ** 0.75),
-        volee: {
-          ...v,
-          psiDepart: depart.psiArrivee,
-          yDepart: depart.yArrivee,
-          marches: Math.abs(v.marches - depart.marches),
-        },
-      },
-      {
-        duree: 1.2,
-        p0: surPuits(v, v.psiArrivee, v.yArrivee),
-        c0: r.palier.clone(),
-        p1: r.palier.clone(),
-        c1: r.seuil.clone(),
-        portePalier: [0.2, 1],
-      },
-      {
-        duree: 1.8,
-        p0: r.palier.clone(),
-        c0: r.seuil.clone(),
-        p1: r.sejour.clone(),
-        c1: r.foyer.clone(),
-        portePalier: [1, 1],
-      },
-    ]
-  }
-
-  /**
-   * LA SORTIE — la fenêtre s'ouvre, on la franchit, et l'immeuble se découvre
-   * depuis la rue.
-   *
-   * C'est le geste qui referme la visite, et il doit être posé : on ne se jette
-   * pas par une fenêtre, on s'en approche, on l'ouvre, on passe. Trois temps
-   * plutôt que deux, et trois fois le temps qu'il y avait — l'ancienne sortie
-   * durait une seconde et demie, on n'avait pas vu la fenêtre s'ouvrir qu'on
-   * était déjà dehors.
-   *
-   * LE PREMIER TEMPS S'ALLONGE AVEC LA DISTANCE. On peut être au fond de la
-   * chambre quand l'estimation part (voir `trajetPieces`) : traverser
-   * l'enfilade entière dans le temps qu'il faut pour traverser le séjour
-   * donnerait une course, et c'est précisément ce qu'on veut éviter.
-   */
-  function trajetSortie() {
-    if (!interieur) return []
-    const r = interieur.reperes()
-    const devant = r.fenetre.clone().add(new THREE.Vector3(0, 0, -1.3))
-    const depart = positionCourante()
-    const approche = borne(1.5 + depart.distanceTo(devant) * 0.42, 1.5, 4.2)
-
-    return [
-      // On revient vers la fenêtre, qui s'ouvre à mesure qu'on s'en approche.
-      {
-        duree: approche,
-        p0: depart,
-        c0: regardCourant(),
-        p1: devant,
-        c1: r.fenetre.clone(),
-        fenetre: [0.25, 1],
-      },
-      // On se penche au balcon : le regard passe de la croisée à la rue.
-      {
-        duree: 1.6,
-        p0: devant,
-        c0: r.fenetre.clone(),
-        p1: r.fenetre.clone().add(new THREE.Vector3(0, 0.1, 0.5)),
-        c1: r.dehors.clone(),
-        fenetre: [1, 1],
-      },
-      // Et l'on prend du champ, jusqu'à voir l'immeuble entier.
-      {
-        duree: 2.6,
-        p0: r.fenetre.clone().add(new THREE.Vector3(0, 0.1, 0.5)),
-        c0: r.dehors.clone(),
-        p1: r.dehors.clone().add(new THREE.Vector3(0, 2.4, 7)),
-        c1: r.dehors.clone().add(new THREE.Vector3(0, -1.5, -8)),
-        fenetre: [1, 1],
-        voile: [0.28, 0.5],
-        basculeDedans: 0.42,
-      },
-    ]
-  }
-
-  /**
-   * LA PROMENADE — on traverse les trois pièces, l'une après l'autre.
-   *
-   * Un appartement ne se juge pas depuis le seuil du séjour. Une fois entré, on
-   * le PARCOURT : le séjour et sa cheminée, la salle à manger et sa table, la
-   * chambre au bout de l'enfilade — puis l'on revient sur ses pas. Trois pièces,
-   * dans l'ordre où elles se suivent le long de la façade (voir `enfilade` dans
-   * `interieur.js`).
-   *
-   * TROIS TEMPS PAR PIÈCE, et ils sont toujours les mêmes :
-   *   on franchit la porte en regardant où l'on entre ;
-   *   on avance jusqu'au milieu, le regard sur ce qui fait la pièce ;
-   *   on s'attarde, et le regard glisse vers la fenêtre.
-   *
-   * C'est long — près d'une demi-minute pour la boucle entière — et c'est voulu :
-   * la fenêtre de surface reste ouverte le temps qu'on veut, et rien ne presse.
-   * Une visite qui courrait d'une pièce à l'autre donnerait l'agitation d'un
-   * diaporama là où l'on cherche le calme d'une visite.
-   *
-   * La boucle se rejoue indéfiniment (voir `jouerTrajet`) : on repasse dans les
-   * pièces pendant que le curseur les meuble, et l'on finit toujours par revenir
-   * au séjour — d'où l'on ressortira par la fenêtre.
-   */
-  function trajetPieces() {
-    if (!interieur) return []
-    const salles = interieur.enfilade()
-    if (salles.length === 0) return []
-
-    const segments = []
-    let depuis = positionCourante()
-    let versQuoi = regardCourant()
-
-    const aller = (p1, c1, duree) => {
-      segments.push({ duree, p0: depuis.clone(), c0: versQuoi.clone(), p1: p1.clone(), c1: c1.clone() })
-      depuis = p1.clone()
-      versQuoi = c1.clone()
-    }
-
-    salles.forEach((salle) => {
-      // ON FRANCHIT LA PORTE LE REGARD DÉJÀ POSÉ SUR LA PIÈCE — sur sa cheminée,
-      // sa table, son lit. Viser le point où l'on va se tenir, comme on le
-      // faisait, revenait à regarder un point en l'air à deux mètres : on
-      // traversait trois pièces en ne voyant que des murs.
-      if (salle.seuil) aller(salle.seuil, salle.mire, 2.7)
-      // On gagne l'angle d'où la pièce se lit, sans quitter ce qu'on regarde.
-      aller(salle.poste, salle.mire, 2.3)
-      // Et l'on s'attarde, le regard qui glisse vers la fenêtre.
-      aller(salle.poste.clone().lerp(salle.croisee, 0.22), salle.croisee, 3.0)
-    })
-
-    // LE RETOUR. On repasse les portes en sens inverse jusqu'au séjour : c'est
-    // de là qu'on ressort au moment de l'estimation, et une visite qui
-    // s'achèverait au fond de la chambre obligerait à la traverser en hâte.
-    const retour = salles.slice(0, -1).reverse()
-    retour.forEach((salle, index) => {
-      const porte = salles[salles.length - 1 - index].seuil
-      if (porte) aller(porte, salle.mire, 2.5)
-      aller(salle.poste, salle.mire, 2.2)
-    })
-
-    return segments
-  }
-
-  /** Point de vue fixe dans le séjour — le repli des mouvements réduits. */
-  function poserCameraSejour() {
-    if (!interieur) return
-    const salles = interieur.enfilade()
-    const salle = salles[0]
-    if (!salle) return
-    camera.position.copy(salle.poste)
-    cibleLissee.copy(salle.mire)
-    camera.lookAt(cibleLissee)
-  }
-
-  /** Avance la trajectoire d'une image, et place la caméra. */
-  function jouerTrajet(dt) {
-    const segment = trajet.segments[trajet.index]
-    if (!segment) {
-      arreterTrajet()
-      return false
-    }
-
-    trajet.t += dt
-    const brut = borne(trajet.t / segment.duree, 0, 1)
-    const e = adouci(brut)
-
-    // Le voile retombe de lui-même : sans cela, il resterait posé sur les
-    // segments suivants, qui n'y touchent pas.
-    opaciteVoile *= Math.max(0, 1 - dt * 5)
-
-    if (segment.volee) {
-      /**
-       * ON MONTE L'ESCALIER, MARCHE PAR MARCHE.
-       *
-       * Le regard se tient au milieu du giron, à hauteur d'œil au-dessus du nez
-       * de marche, et il avance sur la spirale. Trois choses le distinguent d'un
-       * survol du puits, et ce sont elles qui font qu'on y monte :
-       *
-       *   • LE REGARD PORTE EN AVANT SUR LA VOLÉE — un demi-quart de tour plus
-       *     loin, à peine au-dessus de l'horizontale. C'est ce qu'on regarde en
-       *     montant un escalier : les marches à venir, pas le vide.
-       *   • LA TÊTE MONTE ET DESCEND AU RYTHME DU PAS, d'un tiers de marche. Sans
-       *     ce balancement, la montée est celle d'un ascenseur.
-       *   • ELLE S'INCLINE LÉGÈREMENT DANS LE VIRAGE, du côté du jour : on
-       *     s'appuie sur la rampe en tournant.
-       */
-      const { axe, rayon, psiDepart, psiArrivee, yDepart, yArrivee, marches, pas } = segment.volee
-      const psi = lisser(psiDepart, psiArrivee, e)
-      const monte = lisser(yDepart, yArrivee, e)
-
-      // Le pas : une oscillation par marche franchie, amortie au départ et à
-      // l'arrivée pour qu'on ne se mette pas à tanguer à l'arrêt.
-      const enMarche = Math.sin(brut * Math.PI)
-      const cadence = Math.sin(e * (marches ?? 0) * Math.PI) * (pas ?? 0.02) * 0.34 * enMarche
-
-      camera.position.set(
-        axe.x + Math.cos(psi) * rayon,
-        monte + cadence,
-        axe.z - Math.sin(psi) * rayon,
-      )
-
-      // LE REGARD PORTE SUR LES MARCHES À VENIR, un quart de tour plus loin et
-      // nettement plus bas que l'œil.
-      //
-      // C'est une affaire de géométrie autant que de vérité : dans une cage
-      // d'escalier, les marches qu'on s'apprête à gravir restent un bon mètre
-      // sous le regard, et l'horizontale ne rencontre que le mur d'en face — un
-      // aplat clair à deux mètres quatre-vingts, qui remplissait le cadre et ne
-      // disait rien. Vingt-cinq degrés de plongée, et l'on retrouve ce qu'on
-      // regarde vraiment en montant : le tapis, les barres de laiton, la rampe
-      // qui s'enroule et le vide du puits qui tourne à côté de soi.
-      const sens = Math.sign(psiArrivee - psiDepart) || 1
-      const avant = psi + sens * 1.25
-      cibleLissee.set(
-        axe.x + Math.cos(avant) * rayon,
-        monte - 0.3,
-        axe.z - Math.sin(avant) * rayon,
-      )
-      camera.lookAt(cibleLissee)
-      camera.rotateZ(-sens * 0.045 * enMarche)
-    } else {
-      camera.position.lerpVectors(segment.p0, segment.p1, e)
-      cibleLissee.lerpVectors(segment.c0, segment.c1, e)
-      camera.lookAt(cibleLissee)
-    }
-
-    if (segment.porteImmeuble && ouvrage?.ouvrirPorte) {
-      const [a, b] = segment.porteImmeuble
-      ouvrage.ouvrirPorte(borne(lisser(a, b, e), 0, 1))
-    }
-    if (segment.portePalier && interieur) {
-      const [a, b] = segment.portePalier
-      interieur.ouvrirPortePalier(borne(lisser(a, b, e), 0, 1))
-    }
-    if (segment.fenetre && interieur) {
-      const [a, b] = segment.fenetre
-      interieur.ouvrirFenetre(borne(lisser(a, b, e), 0, 1))
-    }
-    if (segment.voile) {
-      const [debut, sommet] = segment.voile
-      // Une cloche : le voile monte, culmine au passage du seuil, retombe.
-      const x = borne((brut - debut) / (1 - debut), 0, 1)
-      opaciteVoile = Math.max(opaciteVoile, Math.sin(x * Math.PI) * sommet)
-    }
-    if (segment.basculeDedans !== undefined && brut >= segment.basculeDedans) {
-      const dehors = trajet.nom !== 'entree' && trajet.nom !== 'etage' && trajet.nom !== 'pieces'
-      // Le décentrement suit de lui-même : il est recalculé à chaque image à
-      // partir de `dedans` (voir `cadreVise`).
-      if (dedans === dehors) dedans = !dehors
-    }
-
-    if (brut >= 1) {
-      trajet.index += 1
-      trajet.t = 0
-      if (trajet.index >= trajet.segments.length) {
-        const nom = trajet.nom
-        arreterTrajet()
-        if (nom === 'sortie') reprendreOrbite()
-        // Arrivé dans le séjour, on visite ; la visite finie, on la reprend. La
-        // fenêtre de surface reste ouverte aussi longtemps que le vendeur le
-        // veut, et il n'y a rien d'autre à faire pendant ce temps que d'habiter
-        // l'appartement qu'il décrit.
-        else lancerTrajet('pieces', trajetPieces())
-        return false
-      }
-    }
-    return true
-  }
-
-  /**
-   * Rend la main au drone orbital en repartant d'où la caméra se trouve : sans
-   * cela, la sortie de l'immeuble se terminerait par un saut.
-   */
-  function reprendreOrbite() {
-    cadrer()
-    // Ici, et ici seulement, le pivot se pose d'un coup : la continuité du
-    // mouvement est reprise juste après sur la position réelle de la caméra,
-    // dont on déduit rayon, hauteur et angle. Un pivot en cours de route
-    // fausserait ce calcul.
-    pivot.copy(pivotVise)
-    cadreCourant = cadreVise()
-    const relatif = camera.position.clone().sub(pivot)
-    drone.rayon = Math.max(1, Math.hypot(relatif.x, relatif.z))
-    drone.hauteur = relatif.y
-    let angle = Math.atan2(relatif.z, relatif.x)
-    const azimut = azimutDuPlan(plan(), verrouFacade())
-    // On ramène l'angle courant au tour le plus proche de l'azimut visé : le
-    // drone rejoint son plan par le chemin court, sans faire de tour sur lui.
-    angle += Math.round((azimut - angle) / TOUR) * TOUR
-    drone.angle = angle
-    derive = 0
-  }
+    Math.max(0, Math.min(ETAGES_IMMEUBLE, Number.isFinite(etat.etage) ? etat.etage : 2))
 
   /* --------------------------- état → cibles -------------------------------- */
 
@@ -1095,47 +676,32 @@ function creerScene(canvas, { mouvementReduit }) {
     cible.panneaux = o.panneaux ? 1 : 0
     cible.terrasse = o.terrasse ? 1 : 0
     cible.balcon = o.balcon ? 1 : 0
+    cible.rezDeJardin = o.rezDeJardin ? 1 : 0
+    cible.rooftop = borne(Number(o.rooftop) || 0, 0, 1)
     cible.standing = borne(Number(o.standing) || 0, 0, 1)
 
     if (famille === 'immeuble' && ouvrage?.placerBalcon) {
-      ouvrage.placerBalcon(Number.isFinite(etat.etage) ? etat.etage : 2)
+      ouvrage.placerBalcon(niveauDemande())
     }
 
-    // LA VISITE commence quand la fenêtre de surface s'ouvre sur un appartement,
-    // et se termine quand l'estimation part. Entre les deux, le vendeur peut
-    // changer d'étage autant qu'il veut — et refermer puis rouvrir la fenêtre.
-    // Les quatre cas sont écrits ici, et pas ailleurs : c'est la seule bascule
-    // du décor qui ait une mémoire, et une bascule à mémoire se lit d'un bloc
-    // ou ne se lit pas.
-    const veutVisite = famille === 'immeuble' && etat.visite && !mouvementReduit
-    const niveau = niveauDemande()
-
-    if (veutVisite) {
-      // ENCORE DEHORS — on (re)part de la porte cochère. Le second cas est celui
-      // d'un étage changé pendant l'approche : le vendeur règle volontiers son
-      // étage dans la seconde qui suit l'ouverture de la fenêtre, et la séquence
-      // se recompose alors sur le bon étage. Elle repart de la position courante
-      // (voir `positionCourante`), donc sans saut.
-      if (
-        trajet.nom === 'sortie' ||
-        (!dedans && (trajet.nom !== 'entree' || niveau !== niveauMonte))
-      ) {
-        lancerTrajet('entree', trajetEntree())
-      } else if (dedans && niveau !== niveauMonte) {
-        // Déjà dedans, l'étage a changé : on reprend l'escalier sans ressortir.
-        lancerTrajet('etage', trajetEtage(niveauMonte ?? niveau))
-      }
-    } else if ((dedans || trajet.nom === 'entree' || trajet.nom === 'etage') && trajet.nom !== 'sortie') {
-      lancerTrajet('sortie', trajetSortie())
+    /**
+     * L'ÉTAGE DU VENDEUR S'ALLUME, et c'est tout ce qui lui arrive.
+     *
+     * Un appartement ne se voit pas de la rue : on y entrait donc, et la visite
+     * coûtait une demi-minute pour montrer un intérieur qui n'était celui de
+     * personne. Elle est remplacée par le geste le plus court qui dise la même
+     * chose — SES fenêtres, à SON étage, qui s'éclairent sur la façade pendant
+     * qu'il règle son curseur. Il se reconnaît dans l'immeuble sans qu'on ait
+     * eu à lui en inventer l'intérieur.
+     *
+     * Ça ne s'allume qu'une fois la façade percée (stade 2 et au-delà) : avant,
+     * il n'y a pas encore de fenêtres où mettre de la lumière.
+     */
+    if (famille === 'immeuble' && ouvrage?.designerEtage) {
+      ouvrage.designerEtage(niveauDemande())
     }
-
-    if (mouvementReduit && veutVisite) {
-      // Mouvements réduits : pas de survol, mais le logement reste visité —
-      // on s'y pose, simplement, sans y voler.
-      const visite = assurerInterieur()
-      visite.placerEtage(Number.isFinite(etat.etage) ? etat.etage : 2)
-      dedans = true
-    }
+    cible.etageAllume =
+      famille === 'immeuble' && Number.isFinite(etat.etage) && stade >= 2 ? 1 : 0
 
     cadrer()
   }
@@ -1158,8 +724,13 @@ function creerScene(canvas, { mouvementReduit }) {
     // ralenti, le reste suit. `montage` est le geste principal de la scène —
     // un bâtiment qui s'élève — et à la vitesse commune il était fini avant
     // qu'on l'ait vu.
-    const pas = mouvementReduit ? 1 : Math.min(1, dt * 1.7)
-    const pasMontage = mouvementReduit ? 1 : Math.min(1, dt * 0.85)
+    //
+    // `pasMontage` est passé de 0,85 à 1,55 : la constante de temps du plan de
+    // coupe tombe d'un peu plus d'une seconde à sept dixièmes. Les murs montent
+    // toujours à vue — c'est le seul geste de la scène qu'on regarde vraiment —
+    // mais ils ont fini de monter avant que le panneau suivant ne revienne.
+    const pas = mouvementReduit ? 1 : Math.min(1, dt * 1.9)
+    const pasMontage = mouvementReduit ? 1 : Math.min(1, dt * 1.55)
 
     Object.keys(val).forEach((cle) => {
       val[cle] += (cible[cle] - val[cle]) * (cle === 'montage' ? pasMontage : pas)
@@ -1178,22 +749,19 @@ function creerScene(canvas, { mouvementReduit }) {
     if (mue.phase) avancerMue(dt)
 
     ouvrage?.poser?.({ ...val, surface: etat.surface })
-    if (interieur) {
-      interieur.poser({
-        ...val,
-        dedans: dedans ? 1 : 0,
-        surface: etat.surface,
-        yCamera: camera.position.y,
-      })
-    }
 
-    // Dedans, le soleil ne sert plus à rien — ce sont les appliques de la cage
-    // et le lustre du séjour qui éclairent — et le laisser à pleine puissance
-    // planterait des ombres de façade au milieu du salon.
-    const dehors = dedans ? 0.14 : 1
-    soleil.intensity = 0.86 * FACTEUR_LUMIERE * dehors
-    ciel.intensity = (dedans ? 0.2 : 0.5) * FACTEUR_LUMIERE
-    batiment.visible = !dedans
+    /**
+     * LES OISEAUX passent toutes les cinq secondes environ, et leur espèce suit
+     * l'architecture : pigeons au-dessus de l'immeuble, colombes au-dessus de
+     * la maison. Ils traversent une sphère un peu plus large que le cadrage du
+     * drone — assez pour entrer et sortir du champ, jamais pour disparaître
+     * derrière le brouillard.
+     */
+    voliere.poser(dt, {
+      espece: familleMontee === 'immeuble' ? 'pigeon' : 'colombe',
+      hauteurBien: ouvrage?.ancrages?.hauteur ?? ouvrage?.envergure?.hauteur ?? 6,
+      rayon: Math.max(34, drone.rayon * 1.15),
+    })
 
     /* --- caméra --- */
 
@@ -1207,11 +775,7 @@ function creerScene(canvas, { mouvementReduit }) {
       decentrer()
     }
 
-    if (trajet.actif) {
-      jouerTrajet(dt)
-    } else if (dedans) {
-      poserCameraSejour()
-    } else if (mouvementReduit) {
+    if (mouvementReduit) {
       // MOUVEMENTS RÉDUITS — le drone ne vole plus, mais il se pose AU BON
       // ENDROIT. Il se calait jusqu'ici sur l'axe +X, c'est-à-dire sur le côté
       // du bien, quel que soit le plan : une maison s'y montrait de profil, et
@@ -1228,11 +792,11 @@ function creerScene(canvas, { mouvementReduit }) {
       // LE DRONE REJOINT SON PLAN EN DEUX SECONDES ENVIRON, et pas en une.
       //
       // C'est le plus lent qu'on puisse se permettre : les trois temps de
-      // l'analyse durent quatre secondes chacun, et il faut que le drone soit
+      // l'analyse durent trois secondes chacun, et il faut que le drone soit
       // arrivé avant la fin de sa station, sinon on ne voit rien s'y construire.
-      // En deçà de cette valeur, le mouvement se voyait comme un déplacement ;
-      // à celle-ci, il se voit comme une dérive.
-      const pasDrone = Math.min(1, dt * 0.58)
+      // Relevé de 0,58 à 0,74 avec le raccourcissement de l'analyse — le
+      // mouvement se lit toujours comme une dérive, mais il se pose à temps.
+      const pasDrone = Math.min(1, dt * 0.74)
       drone.rayon += (droneCible.rayon - drone.rayon) * pasDrone
       drone.hauteur += (droneCible.hauteur - drone.hauteur) * pasDrone
 
@@ -1271,24 +835,20 @@ function creerScene(canvas, { mouvementReduit }) {
       camera.lookAt(cibleLissee)
     }
 
-    /* --- halo, voile --- */
+    /* --- halo --- */
 
     const hauteurBien = ouvrage?.ancrages?.hauteur ?? ouvrage?.envergure?.hauteur ?? 4
     const largeurBien = ouvrage?.envergure?.largeur ?? 6
     const enveloppe = Math.max(largeurBien, hauteurBien) * 2.3
     halo.material.opacity = val.halo
-    halo.visible = val.halo > 0.01 && !dedans
+    halo.visible = val.halo > 0.01
     halo.scale.set(enveloppe, enveloppe, 1)
     halo.position.set(0, Math.max(1, hauteurBien * 0.5), 0)
 
     const rayonCercle = largeurBien * 0.52 + 1.4
     cercleOr.scale.set(rayonCercle, rayonCercle, 1)
     cercleOr.material.opacity = val.halo * 0.9
-    cercleOr.visible = val.halo > 0.01 && !dedans
-
-    if (!trajet.actif) opaciteVoile *= Math.max(0, 1 - dt * 5)
-    voile.material.opacity = opaciteVoile
-    voile.visible = opaciteVoile > 0.005
+    cercleOr.visible = val.halo > 0.01
 
     renderer.render(scene, camera)
   }
@@ -1310,22 +870,14 @@ function creerScene(canvas, { mouvementReduit }) {
       camera.aspect = largeur / hauteur
       camera.updateProjectionMatrix()
       renderer.setSize(largeur, hauteur, false)
-
-      // Le voile doit couvrir le champ, quelle que soit la fenêtre.
-      const h = 2 * 0.2 * Math.tan(((camera.fov / 2) * Math.PI) / 180) * 1.2
-      voile.scale.set(h * camera.aspect, h, 1)
-
       cadrer()
     },
 
     detruire() {
       cancelAnimationFrame(image)
       demonterOuvrage()
-      if (interieur) {
-        scene.remove(interieur.groupe)
-        M.viderGroupe(interieur.groupe)
-        interieur = null
-      }
+      voliere.detruire()
+      environnement.dispose()
       scene.traverse((objet) => {
         if (!objet.isMesh && !objet.isSprite) return
         objet.geometry?.dispose()
@@ -1346,7 +898,6 @@ export function DroneScene({
   type = null,
   surface = 100,
   etage = null,
-  visite = false,
   options = null,
   zone = 'centre',
 }) {
@@ -1395,11 +946,10 @@ export function DroneScene({
       type,
       surface,
       etage,
-      visite,
       options: JSON.parse(signatureOptions),
       zone,
     })
-  }, [stade, type, surface, etage, visite, signatureOptions, zone])
+  }, [stade, type, surface, etage, signatureOptions, zone])
 
   return <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full" />
 }

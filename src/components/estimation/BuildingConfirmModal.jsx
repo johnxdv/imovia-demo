@@ -89,14 +89,13 @@ const SURFACE_DEFAULT = 100
  * une vignette à côté (voir `DroneScene`). La surface en cours de déclaration
  * lui est transmise par `ChantierContext`, sans attendre la validation.
  *
- * ET CE N'EST PAS LE MÊME GESTE SELON LE BIEN. Une maison se regarde du
- * dehors : elle change de PROGRAMME à chaque palier de surface — 50, 100, 150,
- * 200, 300 m² —, un étage apparaît, une aile se greffe, un porche s'ouvre. Un
- * appartement, lui, ne se voit pas de la rue : la fenêtre ouverte, le drone
- * entre dans l'immeuble, monte un tour d'escalier par étage déclaré, et c'est
- * le LOGEMENT qui se meuble sous le curseur, palier de 30 m² après palier de
- * 30 m². C'est aussi pourquoi cette fenêtre déclare son étage au décor : il lui
- * sert à compter les tours.
+ * ET CE N'EST PAS TOUT À FAIT LE MÊME GESTE SELON LE BIEN. Une maison change
+ * de PROGRAMME à chaque palier de surface — 50, 100, 150, 200, 300 m² —, un
+ * étage apparaît, une aile se greffe, un porche s'ouvre. Un appartement, lui,
+ * se lit sur la FAÇADE de son immeuble : celui-ci se bâtit sous le curseur
+ * comme la maison le fait, et les fenêtres de l'étage déclaré s'y allument dès
+ * qu'il est réglé. C'est pour cela que cette fenêtre déclare l'étage au décor,
+ * et pour rien d'autre.
  *
  * AUCUN MONTANT NE S'AFFICHE ICI, et c'est un retrait délibéré. La fenêtre
  * montrait un prix d'aperçu qui suivait le curseur : prix au m² du secteur,
@@ -202,23 +201,13 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
   }, [chantier, monaco, monacoType])
 
   // L'étage commande deux choses dans le décor, et rien encore dans le calcul :
-  // le NOMBRE DE TOURS D'ESCALIER que le drone monte pendant la visite, et la
-  // hauteur à laquelle le balcon se posera si le vendeur le déclare à
-  // l'affinage. Un étage qui change pendant la visite fait donc remonter
-  // l'escalier — c'est exactement le geste qu'on vient de demander.
+  // les FENÊTRES DE CE NIVEAU-LÀ qui s'allument sur la façade de l'immeuble
+  // pendant que le vendeur règle son curseur, et la hauteur à laquelle le
+  // balcon se posera s'il le déclare à l'affinage. Il en change autant qu'il
+  // veut : la lumière passe d'un étage à l'autre, et c'est tout ce qui bouge.
   useEffect(() => {
     chantier.declarerEtage(estAppartement ? etage : null)
   }, [chantier, estAppartement, etage])
-
-  // LA VISITE dure le temps de cette fenêtre. Elle s'ouvre avec elle — la
-  // porte cochère s'ouvre, le drone traverse le hall et monte — et se referme
-  // quand elle se referme, que ce soit par « Modifier ma sélection » ou par le
-  // départ de l'estimation. Un appartement ne se montre pas de la rue : de la
-  // rue, on ne voit qu'un immeuble, et l'immeuble n'est pas le bien.
-  useEffect(() => {
-    chantier.declarerVisite(estAppartement)
-    return () => chantier.declarerVisite(false)
-  }, [chantier, estAppartement])
 
   const atMin = surface <= SURFACE_MIN
   const atMax = surface >= SURFACE_MAX
@@ -253,7 +242,10 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
       // Tant que les panneaux d'étape sont rangés en bas (sous 1024 px), la
       // fenêtre s'y range aussi : c'est la bande du haut qui montre le bien, et
       // elle doit rester libre.
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/10 px-5 pb-6 pt-24 lg:items-center lg:py-10"
+      // La fenêtre se range du même côté que les panneaux d'étape (voir
+      // `Estimer.jsx`) : c'est sous son curseur que le bâtiment se construit,
+      // et elle le couvrirait si elle restait au milieu.
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/10 px-5 pb-6 pt-24 lg:items-center lg:justify-start lg:py-10 lg:pl-[3vw] xl:pl-[5vw]"
     >
       {/* Le fond ferme la fenêtre ; le panneau, posé au-dessus, retient le clic. */}
       <button

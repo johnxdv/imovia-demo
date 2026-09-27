@@ -2,11 +2,17 @@ import { useEffect } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Check, Minus, Plus } from 'lucide-react'
 import { useChantier } from './chantier'
-import { OPTIONS_DEFAUT, STANDINGS, TERRAIN_PLAFOND_M2, optionsDecor } from '../../lib/affinage'
+import {
+  OPTIONS_DEFAUT,
+  ROOFTOP_SAISIE_MAX,
+  STANDINGS,
+  TERRAIN_SAISIE_MAX,
+  optionsDecor,
+} from '../../lib/affinage'
 import { EASE } from '../../lib/motion'
 
 /**
- * AFFINAGE — les cinq compléments que le vendeur déclare lui-même.
+ * AFFINAGE — ce que le vendeur déclare lui-même, et que personne ne sait.
  *
  * L'estimation est rendue ; elle repose sur ce que les bases publiques savent
  * du bien. Ce qu'elles ne savent pas — une piscine, un terrain, des panneaux,
@@ -21,9 +27,15 @@ import { EASE } from '../../lib/motion'
  * qu'on vient demander au vendeur de regarder.
  *
  * Ce qui est proposé dépend du bien. Une maison se voit offrir sa piscine, son
- * terrain et sa terrasse ; un appartement, son balcon — et ni piscine ni
- * terrain, qu'il n'a pas. Le barème, lui, est commun et écrit une seule fois
- * (voir `src/lib/affinage.js`).
+ * terrain et sa terrasse ; un appartement, son balcon, son REZ-DE-JARDIN et son
+ * ROOFTOP — et ni piscine ni terrain, qu'il n'a pas. Le barème, lui, est commun
+ * et écrit une seule fois (voir `src/lib/affinage.js`).
+ *
+ * DEUX DÉCLARATIONS NE SONT PAS DES OUI OU DES NON, et ce sont les deux
+ * surfaces : le terrain d'une maison, jusqu'à 5 000 m², et le rooftop d'un
+ * appartement, jusqu'à 120. Toutes deux se règlent au curseur, et toutes deux
+ * se voient grandir sur le bien à mesure qu'on le pousse — le terrain s'étend
+ * et se plante d'arbres, le rooftop gagne la toiture.
  */
 export function EstimationAffinagePanel({ type, options, onChange, onTermine }) {
   const reduce = useReducedMotion()
@@ -41,7 +53,11 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
 
   const terrain = Math.round(Number(options.terrainM2) || 0)
   const ajusterTerrain = (delta) =>
-    modifier('terrainM2', Math.min(Math.max(terrain + delta, 0), TERRAIN_PLAFOND_M2))
+    modifier('terrainM2', Math.min(Math.max(terrain + delta, 0), TERRAIN_SAISIE_MAX))
+
+  const rooftop = Math.round(Number(options.rooftopM2) || 0)
+  const ajusterRooftop = (delta) =>
+    modifier('rooftopM2', Math.min(Math.max(rooftop + delta, 0), ROOFTOP_SAISIE_MAX))
 
   return (
     <motion.div
@@ -100,6 +116,18 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
             detail={maison ? 'Deck et salon d’extérieur' : 'À votre étage, sur la façade'}
           />
 
+          {/* Rez-de-jardin : la seule façon dont un appartement a un extérieur
+              au sol. Une maison en a un par définition, on ne le lui demande
+              donc pas. */}
+          {maison ? null : (
+            <Atout
+              actif={options.rezDeJardin}
+              onClick={() => bascule('rezDeJardin')}
+              titre="Rez-de-jardin"
+              detail="Jardin privatif de plain-pied"
+            />
+          )}
+
           <Atout
             actif={options.panneaux}
             onClick={() => bascule('panneaux')}
@@ -117,24 +145,27 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-[0.9rem] text-ink/70">Surface de terrain</p>
             <p className="text-[1.05rem] text-laiton-texte tabular-nums">
-              {terrain >= TERRAIN_PLAFOND_M2 ? `${TERRAIN_PLAFOND_M2}+` : terrain} m²
+              {terrain >= TERRAIN_SAISIE_MAX ? `${TERRAIN_SAISIE_MAX}+` : terrain} m²
             </p>
           </div>
 
           <div className="mt-1 flex items-center gap-2 sm:gap-3">
             <PetitBouton
               icon={Minus}
-              label="Retirer cinquante mètres carrés de terrain"
+              label="Retirer cent mètres carrés de terrain"
               disabled={terrain <= 0}
-              onClick={() => ajusterTerrain(-50)}
+              onClick={() => ajusterTerrain(-100)}
             />
             <div className="min-w-0 flex-1">
               <input
                 type="range"
                 min={0}
-                max={TERRAIN_PLAFOND_M2}
-                step={50}
-                value={Math.min(terrain, TERRAIN_PLAFOND_M2)}
+                max={TERRAIN_SAISIE_MAX}
+                // Cent mètres carrés par cran : l'échelle est deux fois et demie
+                // plus longue qu'avant, et un pas de cinquante y ferait cent
+                // crans de piste que personne ne distingue sous le doigt.
+                step={100}
+                value={Math.min(terrain, TERRAIN_SAISIE_MAX)}
                 onChange={(event) => modifier('terrainM2', Number(event.target.value))}
                 aria-label="Surface de terrain, en mètres carrés"
                 className="surface-slider"
@@ -142,13 +173,54 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
             </div>
             <PetitBouton
               icon={Plus}
-              label="Ajouter cinquante mètres carrés de terrain"
-              disabled={terrain >= TERRAIN_PLAFOND_M2}
-              onClick={() => ajusterTerrain(50)}
+              label="Ajouter cent mètres carrés de terrain"
+              disabled={terrain >= TERRAIN_SAISIE_MAX}
+              onClick={() => ajusterTerrain(100)}
             />
           </div>
         </div>
       ) : null}
+
+      {/* Rooftop — appartements seulement. Même grammaire que le terrain : une
+          surface au curseur, et le toit de l'immeuble qui s'aménage d'autant.
+          À zéro, il n'y en a pas : le comble mansardé reste en place. */}
+      {maison ? null : (
+        <div className="mt-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-[0.9rem] text-ink/70">Rooftop</p>
+            <p className="text-[1.05rem] text-laiton-texte tabular-nums">
+              {rooftop === 0 ? 'Aucun' : `${rooftop} m²`}
+            </p>
+          </div>
+
+          <div className="mt-1 flex items-center gap-2 sm:gap-3">
+            <PetitBouton
+              icon={Minus}
+              label="Retirer dix mètres carrés de rooftop"
+              disabled={rooftop <= 0}
+              onClick={() => ajusterRooftop(-10)}
+            />
+            <div className="min-w-0 flex-1">
+              <input
+                type="range"
+                min={0}
+                max={ROOFTOP_SAISIE_MAX}
+                step={10}
+                value={Math.min(rooftop, ROOFTOP_SAISIE_MAX)}
+                onChange={(event) => modifier('rooftopM2', Number(event.target.value))}
+                aria-label="Surface de rooftop, en mètres carrés"
+                className="surface-slider"
+              />
+            </div>
+            <PetitBouton
+              icon={Plus}
+              label="Ajouter dix mètres carrés de rooftop"
+              disabled={rooftop >= ROOFTOP_SAISIE_MAX}
+              onClick={() => ajusterRooftop(10)}
+            />
+          </div>
+        </div>
+      )}
 
       <button
         type="button"

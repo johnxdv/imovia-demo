@@ -137,21 +137,27 @@
      opposé, qui donnent à la plaque son épaisseur et son inclinaison. Sans
      elles, une surface aussi transparente ne se lit plus comme du verre mais
      comme un trou dans l'écran. */
+  /* LE VERRE S'EST OPACIFIÉ D'UN CRAN. Le fond passait de 42 % à 20 % de blanc
+     selon l'endroit de la plaque, et le texte se lisait par-dessus un chantier
+     en mouvement : au-dessus d'une façade sombre ou d'un arbre, il fallait s'y
+     reprendre. Il monte à 62 %–45 %, et le flou de deux tiers de pixel de plus.
+     La plaque reste du verre — on voit toujours le bien à travers, et c'était
+     tout l'objet — mais elle en est un plus épais. */
   .panneau-verre {
     position: relative;
     background: linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.42) 0%,
-      rgba(255, 255, 255, 0.24) 38%,
-      rgba(255, 255, 255, 0.2) 64%,
-      rgba(255, 255, 255, 0.36) 100%
+      rgba(255, 255, 255, 0.62) 0%,
+      rgba(255, 255, 255, 0.48) 38%,
+      rgba(255, 255, 255, 0.45) 64%,
+      rgba(255, 255, 255, 0.57) 100%
     );
-    backdrop-filter: blur(6px) saturate(1.4) brightness(1.07) contrast(0.96);
-    -webkit-backdrop-filter: blur(6px) saturate(1.4) brightness(1.07) contrast(0.96);
-    border: 1px solid rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(10px) saturate(1.35) brightness(1.06) contrast(0.97);
+    -webkit-backdrop-filter: blur(10px) saturate(1.35) brightness(1.06) contrast(0.97);
+    border: 1px solid rgba(255, 255, 255, 0.62);
     border-radius: 14px;
     box-shadow:
-      0 22px 55px rgba(20, 20, 20, 0.16),
+      0 22px 55px rgba(20, 20, 20, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.95),
       inset 0 -1px 0 rgba(255, 255, 255, 0.4);
     /* Détourage de lecture : un blanc très court, jamais un halo visible. */
@@ -201,10 +207,10 @@
   .panneau-interne {
     background: linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.34) 0%,
-      rgba(255, 255, 255, 0.16) 100%
+      rgba(255, 255, 255, 0.52) 0%,
+      rgba(255, 255, 255, 0.34) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.55);
     border-radius: 10px;
   }
 

@@ -53,8 +53,7 @@ import {
 /**
  * ÉCHELLE DE LA SCÈNE : une unité vaut environ 1,80 m.
  *
- * C'est celle de l'immeuble et de la visite, et toutes les cotes de ce fichier
- * s'y tiennent — un niveau d'habitation fait donc 1,7 unité, pas 3. Une maison
+ * C'est celle de l'immeuble, et toutes les cotes de ce fichier s'y tiennent — un niveau d'habitation fait donc 1,7 unité, pas 3. Une maison
  * dont les hauteurs seraient écrites en mètres et les plans à l'échelle de la
  * scène monterait deux fois trop haut : elle se lirait comme une tour, et c'est
  * exactement ce qu'une maison d'architecte n'est pas.
@@ -533,6 +532,33 @@ export function creerVilla(indexPalier) {
   abords.add(bosquet)
 
   /**
+   * LES SUJETS DU TERRAIN — ceux qui n'existent que si le vendeur a du terrain.
+   *
+   * Ils sortent de terre au fil du curseur d'affinage, du premier are au
+   * cinquantième (voir `poser`). Ils sont plantés LOIN, et de part et d'autre :
+   * c'est la seule chose qui distingue une propriété d'un pavillon à pelouse —
+   * ce qu'il y a entre la maison et la limite, et la distance qu'il faut pour
+   * l'atteindre. Six sujets d'essences et de tailles inégales : une rangée
+   * régulière ferait une plantation, pas un parc.
+   */
+  const haie = []
+  ;[
+    [-14, 6, 3.4],
+    [13, 3, 3.9],
+    [-11, -9, 3.1],
+    [16, -6, 3.6],
+    [-6, 14, 2.8],
+    [8, 16, 3.3],
+  ].forEach(([x, z, h]) => {
+    const sujet = arbre(h)
+    sujet.position.set(x, 0, z)
+    sujet.userData.base = { x, z }
+    sujet.visible = false
+    haie.push(sujet)
+    abords.add(sujet)
+  })
+
+  /**
    * LES TROIS SUJETS QUI SORTENT DE TERRE — et où il faut les planter.
    *
    * Pendant l'analyse, le jardin ne se contente pas de paraître : trois arbres
@@ -690,6 +716,37 @@ export function creerVilla(indexPalier) {
    */
   const disloquer = disloquant(bati, { hauteur: hauteurToit })
 
+  /**
+   * LE STANDING SUR LES MATIÈRES — l'enduit, la couverture, le bois, les
+   * menuiseries, le dallage.
+   *
+   * Ce que le niveau déclaré change, et pourquoi :
+   *
+   *   L'ENDUIT passe d'un blanc cassé mat à un enduit taloché fin, plus clair
+   *   et moins rugueux. C'est le premier écart qu'on voit sur une façade, et
+   *   de loin le plus lisible.
+   *
+   *   LA COUVERTURE quitte la terre cuite pour l'ARDOISE. Ce n'est pas une
+   *   nuance, c'est un changement de matériau — et c'est exactement ce qui
+   *   sépare, en France, la maison correcte de la maison d'architecte.
+   *
+   *   LE BARDAGE passe du tasseau sombre au bois huilé, plus chaud ; les
+   *   MENUISERIES, de l'alu peint à l'alu laqué qui prend la lumière ; le
+   *   DALLAGE, de la pierre reconstituée à la pierre adoucie.
+   *
+   * Le rang 0 est l'état dessiné de la maison : rien ne se dégrade jamais.
+   */
+  const accorderStanding = M.accorderStanding(bati, {
+    enduit: { couleur: 0xfbf8f1, roughness: 0.4 },
+    'enduit-ombre': { couleur: 0xeee8dc, roughness: 0.48 },
+    tuile: { couleur: 0x4e545c, roughness: 0.42, metalness: 0.2 },
+    bois: { couleur: 0x6f4d2c, roughness: 0.5, metalness: 0.03 },
+    menuiserie: { couleur: 0x16171b, roughness: 0.19, metalness: 0.82 },
+    beton: { couleur: 0xa6a096, roughness: 0.48 },
+    dallage: { couleur: 0xfcf8ef, roughness: 0.52 },
+    moulure: { couleur: 0xf6eeda, roughness: 0.54 },
+  })
+
   const revelerAbords = revelable(abords)
   const revelerPiscine = revelable(piscine)
   const revelerPanneaux = revelable(panneaux)
@@ -721,9 +778,20 @@ export function creerVilla(indexPalier) {
       porte: new THREE.Vector3(xPorte, y0 + hauteurPorte * 0.55, corps.profondeur / 2 + 0.6),
       toit: new THREE.Vector3(0, hauteurToit, 0),
       hauteur: hauteurToit,
+      /**
+       * La terrasse de bois — le point que le drone vient filmer de près quand
+       * elle est déclarée (voir `cadrer` dans `DroneScene`). C'est le pendant
+       * du balcon de l'immeuble : le même bouton, le même geste de caméra.
+       */
+      exterieur: new THREE.Vector3(
+        -corps.largeur * 0.06,
+        1.0,
+        corps.profondeur / 2 + palier.terrasse.avance + 1.25,
+      ),
     },
 
     poser(v) {
+      accorderStanding(v.standing)
       revelerAbords(v.abords)
 
       // LES ARBRES SORTENT DE TERRE, l'un après l'autre. Chacun part d'un tiers
@@ -741,13 +809,43 @@ export function creerVilla(indexPalier) {
         sujet.visible = e > 0.015
       })
 
-      // La pelouse s'étend avec la surface de terrain déclarée : c'est le seul
-      // ouvrage dont la TAILLE change, et non la seule présence.
-      const rayon = 9 + v.terrain * 12
+      /**
+       * LE TERRAIN S'ÉTEND, ET IL SE PLANTE.
+       *
+       * Le curseur monte désormais à 5 000 m² au lieu de 2 000 (voir
+       * `TERRAIN_SAISIE_MAX` dans `src/lib/affinage.js`), et le terrain va avec :
+       * la pelouse passe de neuf à trente-deux unités de rayon là où elle
+       * s'arrêtait à vingt et une, l'allée s'allonge d'autant, et le bosquet de
+       * fond de parcelle recule.
+       *
+       * ET DES ARBRES SORTENT DE TERRE À MESURE. Ce n'est pas la même chose
+       * qu'une pelouse plus large : un terrain de cinq mille mètres carrés se
+       * reconnaît à ce qu'il porte, pas à son rayon — sans sujets, on ne voit
+       * qu'un disque vert qui grandit. Les six sujets de la haie arrivent l'un
+       * après l'autre, échelonnés sur toute la course du curseur, et chacun
+       * pousse comme poussent ceux de l'analyse : d'un tiers de sa largeur et
+       * de rien du tout en hauteur.
+       */
+      const rayon = 9 + v.terrain * 23
       pelouse.scale.set(rayon, rayon, 1)
-      allee.scale.z = 1 + v.terrain * 0.45
-      bosquet.scale.setScalar(1 + v.terrain * 0.28)
-      bosquet.position.z = -v.terrain * 2.4
+      allee.scale.z = 1 + v.terrain * 1.1
+      bosquet.scale.setScalar(1 + v.terrain * 0.42)
+      bosquet.position.z = -v.terrain * 6.5
+
+      haie.forEach((sujet, i) => {
+        const retard = (i / haie.length) * 0.82
+        const t = Math.max(0, Math.min(1, (v.terrain - retard) / Math.max(0.18, 1 - retard)))
+        const e = t < 1 ? 1 - (1 - t) ** 3 : 1
+        sujet.scale.set(0.34 + 0.66 * e, e, 0.34 + 0.66 * e)
+        sujet.visible = e > 0.015
+        // Ils s'éloignent avec la parcelle : plantés à poste fixe, ils
+        // finiraient au milieu d'une pelouse trois fois plus large qu'eux.
+        sujet.position.set(
+          sujet.userData.base.x * (1 + v.terrain * 1.5),
+          0,
+          sujet.userData.base.z * (1 + v.terrain * 1.5),
+        )
+      })
 
       revelerPiscine(v.piscine)
       revelerPanneaux(v.panneaux)

@@ -30,14 +30,14 @@ export const CARTE_ASPIREE = {
   opacity: 0,
   scale: 0.88,
   filter: 'blur(8px)',
-  transition: { duration: 0.75, ease: EASE },
+  transition: { duration: 0.3, ease: EASE },
 }
 
 export const CARTE_EN_PLACE = {
   opacity: 1,
   scale: 1,
   filter: 'blur(0px)',
-  transition: { duration: 0.55, ease: EASE },
+  transition: { duration: 0.26, ease: EASE },
 }
 
 /**
@@ -108,12 +108,30 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   // moins cher que la comparaison de dépendances qui l'éviterait.
   const typeAffiche = detection?.type ?? typeImmediat(selection)
 
-  // Le décor n'a que cette information à connaître, et elle ne sert qu'à lui :
-  // l'architecture à monter. Une maison, c'est toujours la même villa
-  // d'architecte ; un appartement, toujours le même immeuble.
+  /**
+   * LE DÉCOR ATTEND LA DÉTECTION ; LE PANNEAU, NON.
+   *
+   * `typeImmediat` est une déduction faite sur les seuls attributs du polygone
+   * cliqué, et son repli est « maison » — le cas le plus fréquent du parc, pas
+   * une caractéristique lue sur ce bâtiment-ci. C'est exactement ce qu'il faut
+   * au panneau, qui n'y joue que l'apparition du champ étage : au pire, le
+   * champ arrive une demi-seconde plus tard.
+   *
+   * C'ÉTAIT EN REVANCHE UN BUG POUR LE DÉCOR. Un immeuble dont la BD TOPO® ne
+   * compte pas les logements y passait pour une maison : une villa d'architecte
+   * se bâtissait sous le curseur du vendeur, puis disparaissait d'un coup pour
+   * laisser place à l'immeuble quand la BDNB répondait. On lui montrait le
+   * mauvais bien, et on le lui reprenait.
+   *
+   * Le décor ne reçoit donc que le type ÉTABLI. Le temps qu'il arrive — quelques
+   * centaines de millisecondes —, l'ossature du chantier continue de monter, ce
+   * qui est précisément ce qu'elle veut dire : on n'a pas encore reconnu le
+   * bien. Et si la détection venait à ne jamais répondre, elle continuerait de
+   * monter sans jamais affirmer quoi que ce soit de faux.
+   */
   useEffect(() => {
-    chantier.declarerBien({ type: typeAffiche })
-  }, [chantier, typeAffiche])
+    chantier.declarerBien({ type: detection?.type ?? null })
+  }, [chantier, detection])
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {

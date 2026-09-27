@@ -347,17 +347,82 @@ export const textureToile = (index) =>
     ctx.stroke()
   })
 
-/** Dégradé de ciel, peint puis posé en fond de scène. */
+/**
+ * CIEL — dégradé du zénith à l'horizon, et ses voiles.
+ *
+ * Le dégradé seul se lit comme un fond de studio : un vrai ciel a des couches.
+ * Trois bandes très douces s'y ajoutent donc, à peine plus claires que le fond,
+ * posées dans le tiers bas — là où s'empilent les brumes d'horizon. Elles sont
+ * HORIZONTALES à dessein : le fond de scène ne tourne pas avec la caméra, et
+ * tout ce qui aurait une position lisible s'y verrait comme collé à l'objectif.
+ * Une stratification, elle, reste juste sous tous les angles.
+ */
 export const textureCiel = () =>
-  texture('ciel', 8, 256, (ctx, l, h) => {
+  texture('ciel', 16, 512, (ctx, l, h) => {
     const degrade = ctx.createLinearGradient(0, 0, 0, h)
-    degrade.addColorStop(0, '#6ba3e0')
-    degrade.addColorStop(0.42, '#a8cbe8')
-    degrade.addColorStop(0.74, '#dfeaee')
-    degrade.addColorStop(1, '#f6f1e4')
+    degrade.addColorStop(0, '#5f9bdd')
+    degrade.addColorStop(0.38, '#a3c9e8')
+    degrade.addColorStop(0.72, '#dfeaee')
+    degrade.addColorStop(0.93, '#f3eee2')
+    degrade.addColorStop(1, '#efe6d4')
     ctx.fillStyle = degrade
     ctx.fillRect(0, 0, l, h)
+
+    ;[
+      [0.62, 0.05, 0.1],
+      [0.74, 0.035, 0.14],
+      [0.85, 0.028, 0.1],
+    ].forEach(([position, epaisseur, alpha]) => {
+      const voile = ctx.createLinearGradient(0, (position - epaisseur) * h, 0, (position + epaisseur) * h)
+      voile.addColorStop(0, 'rgba(255,255,255,0)')
+      voile.addColorStop(0.5, `rgba(255,255,255,${alpha})`)
+      voile.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = voile
+      ctx.fillRect(0, (position - epaisseur) * h, l, epaisseur * 2 * h)
+    })
   })
+
+/**
+ * LE SOL DE LA SCÈNE — pelouse rase pour une maison, enrobé pour un immeuble.
+ *
+ * Le disque de sol était un aplat de couleur. À la distance où le drone
+ * travaille, un aplat se voit : c'est ce qui donnait à la scène son air de
+ * maquette posée sur un carton. Deux textures très douces, sans motif lisible
+ * de près, suffisent à le faire tenir — ce qu'on doit y voir, ce n'est pas le
+ * sol, c'est qu'il n'est pas peint.
+ */
+export const textureSolPre = () =>
+  texture('sol-pre', 256, 256, (ctx, l, h) => {
+    ctx.fillStyle = '#8ba36c'
+    ctx.fillRect(0, 0, l, h)
+    // Larges plages inégales : le pré n'est pas tondu de la même main partout.
+    // Très peu contrastées — il ne s'agit pas de dessiner des taches, mais
+    // d'empêcher l'aplat.
+    for (let i = 0; i < 90; i += 1) {
+      const r = 18 + Math.random() * 54
+      const v = 150 + Math.floor(Math.random() * 26)
+      ctx.fillStyle = `rgba(${Math.round(v * 0.68)},${v},${Math.round(v * 0.58)},0.11)`
+      ctx.beginPath()
+      ctx.ellipse(Math.random() * l, Math.random() * h, r, r * 0.7, Math.random() * Math.PI, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    grain(ctx, l, h, 3600, 0.07)
+  }, { repeter: [9, 9] })
+
+export const textureSolVille = () =>
+  texture('sol-ville', 256, 256, (ctx, l, h) => {
+    ctx.fillStyle = '#787a73'
+    ctx.fillRect(0, 0, l, h)
+    for (let i = 0; i < 70; i += 1) {
+      const r = 14 + Math.random() * 46
+      const v = 108 + Math.floor(Math.random() * 30)
+      ctx.fillStyle = `rgba(${v},${v + 2},${v - 4},0.2)`
+      ctx.beginPath()
+      ctx.ellipse(Math.random() * l, Math.random() * h, r, r * 0.8, Math.random() * Math.PI, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    grain(ctx, l, h, 5200, 0.16)
+  }, { repeter: [11, 11] })
 
 /** Halo doré de l'étape finale : un disque dégradé tourné vers la caméra. */
 export const textureHalo = () =>
@@ -380,46 +445,55 @@ const std = (options) => new THREE.MeshStandardMaterial(options)
 /* --- La villa d'architecte ------------------------------------------------ */
 
 /** Enduit blanc cassé : la matière dominante de la maison d'architecte. */
-export const enduitClair = () => std({ color: 0xf2ece1, roughness: 0.66, metalness: 0.02 })
+export const enduitClair = () =>
+  std({ name: 'enduit', color: 0xf2ece1, roughness: 0.66, metalness: 0.02 })
 /** Le même, en retrait : volumes secondaires, joues, tableaux de baie. */
-export const enduitOmbre = () => std({ color: 0xe2dacd, roughness: 0.72, metalness: 0.02 })
+export const enduitOmbre = () =>
+  std({ name: 'enduit-ombre', color: 0xe2dacd, roughness: 0.72, metalness: 0.02 })
 /** Béton lissé des dalles, terrasses et seuils. */
 export const betonLisse = () => std({ color: 0xd8d2c5, roughness: 0.8, metalness: 0.02 })
 /** Béton des acrotères et couvertines, plus sombre que la dalle. */
-export const betonSombre = () => std({ color: 0x8e8a82, roughness: 0.7, metalness: 0.05 })
+export const betonSombre = () =>
+  std({ name: 'beton', color: 0x8e8a82, roughness: 0.7, metalness: 0.05 })
 /** Terre cuite du toit à faible pente des grandes villas. */
-export const tuile = () => std({ color: 0xa8603c, roughness: 0.85, metalness: 0.02 })
+export const tuile = () => std({ name: 'tuile', color: 0xa8603c, roughness: 0.85, metalness: 0.02 })
 /** Bardage de tasseaux sombres, sur les volumes hauts. */
-export const boisBardage = () => std({ color: 0x40301f, roughness: 0.82, metalness: 0.02 })
+export const boisBardage = () =>
+  std({ name: 'bois', color: 0x40301f, roughness: 0.82, metalness: 0.02 })
 
 /* --- L'immeuble haussmannien --------------------------------------------- */
 
 export const pierreTaille = () =>
-  std({ map: texturePierre(), color: 0xf3ecdd, roughness: 0.78, metalness: 0.02 })
+  std({ name: 'pierre', map: texturePierre(), color: 0xf3ecdd, roughness: 0.78, metalness: 0.02 })
 export const pierreSocle = () =>
-  std({ map: texturePierreSocle(), color: 0xe8e0cf, roughness: 0.86, metalness: 0.02 })
+  std({ name: 'pierre-socle', map: texturePierreSocle(), color: 0xe8e0cf, roughness: 0.86, metalness: 0.02 })
 /** Pierre moulurée : corniches, bandeaux, appuis, clés. Sans texture — ces
     pièces sont trop fines pour qu'un appareil s'y lise, et il y clignoterait. */
-export const pierreMoulure = () => std({ color: 0xece2cd, roughness: 0.74, metalness: 0.02 })
+export const pierreMoulure = () =>
+  std({ name: 'moulure', color: 0xece2cd, roughness: 0.74, metalness: 0.02 })
 export const zincToiture = () =>
-  std({ map: textureZinc(), color: 0xaeb6bf, roughness: 0.48, metalness: 0.32 })
+  std({ name: 'zinc', map: textureZinc(), color: 0xaeb6bf, roughness: 0.48, metalness: 0.32 })
 /** Terre cuite des souches de cheminée, sur la toiture de zinc. */
 export const terreCuite = () => std({ color: 0xb4764f, roughness: 0.88, metalness: 0.02 })
 
 /* --- Menuiseries et ferronneries ----------------------------------------- */
 
 /** Aluminium noir mat des menuiseries contemporaines. */
-export const aluNoir = () => std({ color: 0x22242a, roughness: 0.38, metalness: 0.66 })
+export const aluNoir = () =>
+  std({ name: 'menuiserie', color: 0x22242a, roughness: 0.38, metalness: 0.66 })
 /** Fer forgé des garde-corps, balcons et rampes. */
-export const ferForge = () => std({ color: 0x1e2024, roughness: 0.42, metalness: 0.62 })
+export const ferForge = () =>
+  std({ name: 'fer', color: 0x1e2024, roughness: 0.42, metalness: 0.62 })
 /** Laiton poli : marquise, barres de tapis, quincaillerie. */
-export const laiton = () => std({ color: 0xc9a16b, roughness: 0.34, metalness: 0.72 })
+export const laiton = () =>
+  std({ name: 'laiton', color: 0xc9a16b, roughness: 0.34, metalness: 0.72 })
 /** Bois vernis des portes cochères et des mains courantes. */
-export const boisVerni = () => std({ color: 0x6b3f22, roughness: 0.42, metalness: 0.08 })
+export const boisVerni = () =>
+  std({ name: 'bois-verni', color: 0x6b3f22, roughness: 0.42, metalness: 0.08 })
 /** Bois clair des marches et du mobilier. */
 export const boisClair = () => std({ color: 0xbb8b55, roughness: 0.6, metalness: 0.04 })
 /** Volet de bois peint, replié en tableau de fenêtre. */
-export const volet = () => std({ color: 0x8d9a8c, roughness: 0.78, metalness: 0.03 })
+export const volet = () => std({ name: 'volet', color: 0x8d9a8c, roughness: 0.78, metalness: 0.03 })
 
 /**
  * Vitrage clair : bleuté le jour, ambré une fois le logement éclairé.
@@ -461,7 +535,8 @@ export const verreVoile = () =>
 /* --- Abords --------------------------------------------------------------- */
 
 export const gazon = () => std({ map: textureGazon(), color: 0xdff0cc, roughness: 0.95 })
-export const dallage = () => std({ map: textureDallage(), color: 0xf4efe4, roughness: 0.82 })
+export const dallage = () =>
+  std({ name: 'dallage', map: textureDallage(), color: 0xf4efe4, roughness: 0.82 })
 export const gravier = () => std({ color: 0xbdb5a4, roughness: 0.96 })
 export const feuillage = () => std({ color: 0x4f7444, roughness: 0.9 })
 export const feuillageClair = () => std({ color: 0x7d9b57, roughness: 0.92 })
@@ -494,6 +569,86 @@ export const ecranNoir = () =>
   std({ color: 0x0d0f13, roughness: 0.2, metalness: 0.4, emissive: 0x11212e, emissiveIntensity: 0.4 })
 export const toile = (index) =>
   std({ map: textureToile(index), color: 0xffffff, roughness: 0.86 })
+
+/* --- Les oiseaux ---------------------------------------------------------- */
+
+/**
+ * PLUMAGES. Deux espèces, et deux seulement : le pigeon de ville pour
+ * l'immeuble, la colombe blanche pour la maison. Ce n'est pas un détail
+ * ornithologique — c'est ce qui dit où l'on est. Un pigeon au-dessus d'une
+ * villa d'architecte serait aussi faux qu'une colombe boulevard Voltaire.
+ */
+export const plumagePigeon = () =>
+  std({ name: 'plumage', color: 0x6d7480, roughness: 0.86, metalness: 0.06 })
+export const plumageColombe = () =>
+  std({ name: 'plumage', color: 0xf4f2ec, roughness: 0.82, metalness: 0.02 })
+
+/* -------------------------------------------------------------------------- */
+/*  Le standing                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * LE STANDING SE VOIT SUR LA MATIÈRE, pas seulement sur le mobilier.
+ *
+ * Cocher « Prestige » posait jusqu'ici des ouvrages en plus — un parement de
+ * pierre, des bornes d'allée, un tapis de seuil. C'est juste, mais ce n'est pas
+ * ce qui distingue d'abord un bien haut de gamme d'un bien correct : ce sont
+ * ses MATÉRIAUX. Un enduit plus fin, une pierre ravalée, un zinc qui reprend
+ * la lumière, une menuiserie qui a l'éclat de l'alu laqué plutôt que celui de
+ * la peinture.
+ *
+ * Cette fonction relève les matières d'un ouvrage par leur nom et rend la
+ * fonction qui les accorde au rang déclaré, de 0 (à rafraîchir) à 1 (prestige).
+ *
+ * **L'ÉTAT ACTUEL DE LA SCÈNE EST LE RANG 0.** Rien ne se dégrade jamais en
+ * dessous de ce qui a été dessiné : « À rafraîchir » rend exactement la maison
+ * qu'on voyait avant cet écran, et « Standard » — le choix par défaut — est
+ * déjà un quart du chemin vers la finition la plus soignée. Le bien du vendeur
+ * qui ne coche rien reste un beau bien.
+ *
+ * Elle ne travaille QUE sur la demande : un rang inchangé d'une image à
+ * l'autre ne déclenche aucune écriture, et c'est ce qui permet de l'appeler à
+ * chaque image sans y penser.
+ */
+export function accorderStanding(racine, table) {
+  const socles = []
+
+  racine.traverse((objet) => {
+    if (!objet.isMesh) return
+    const liste = Array.isArray(objet.material) ? objet.material : [objet.material]
+    liste.forEach((matiere) => {
+      const cible = matiere && table[matiere.name]
+      if (!cible) return
+      socles.push({
+        matiere,
+        couleur: matiere.color.clone(),
+        roughness: matiere.roughness,
+        metalness: matiere.metalness,
+        versCouleur: cible.couleur !== undefined ? new THREE.Color(cible.couleur) : null,
+        versRoughness: cible.roughness,
+        versMetalness: cible.metalness,
+      })
+    })
+  })
+
+  let dernier = -1
+
+  return (rang) => {
+    const t = Math.max(0, Math.min(1, Number(rang) || 0))
+    if (Math.abs(t - dernier) < 0.002) return
+    dernier = t
+
+    socles.forEach((socle) => {
+      if (socle.versCouleur) socle.matiere.color.copy(socle.couleur).lerp(socle.versCouleur, t)
+      if (socle.versRoughness !== undefined) {
+        socle.matiere.roughness = socle.roughness + (socle.versRoughness - socle.roughness) * t
+      }
+      if (socle.versMetalness !== undefined) {
+        socle.matiere.metalness = socle.metalness + (socle.versMetalness - socle.metalness) * t
+      }
+    })
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Utilitaires                                                               */

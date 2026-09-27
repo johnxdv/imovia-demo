@@ -40,10 +40,16 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  * panneau suivant revient. Sans cette pause, la transformation se jouait
  * derrière le panneau : le bien se construisait sans que personne ne le voie.
  *
- * Les durées sont liées à la scène : les géométries s'y lissent avec une
- * constante de temps d'environ six dixièmes de seconde (voir `DroneScene`), si
- * bien qu'en une seconde de vide l'essentiel du mouvement est passé. Rallonger
- * encore ne montrerait plus rien de neuf — seulement une attente.
+ * ELLE A ÉTÉ RAMENÉE DE 0,95 s À 0,35 s. Le geste de construction, lui aussi
+ * accéléré (voir `pasMontage` dans `DroneScene`), est désormais largement
+ * entamé au bout d'un tiers de seconde : ce qu'on gagnait à attendre plus
+ * longtemps, on le perdait en enchaînement — le parcours paraissait lent là où
+ * il n'était qu'en train d'attendre.
+ *
+ * L'ENTRÉE DANS LE PARCOURS N'EN A PLUS DU TOUT. Entre l'accueil et la saisie
+ * d'adresse, rien ne se construit qu'on ait besoin de voir — l'ossature monte
+ * derrière, et elle continuera de monter pendant qu'on tape. « Où se situe
+ * votre bien ? » arrive donc immédiatement, sans temps mort.
  *
  * Deux gestes de construction ne se jouent pas au changement d'étape mais à
  * l'intérieur d'un écran : les fenêtres qui apparaissent au milieu de l'analyse,
@@ -52,7 +58,10 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  * prix au moment où il se dévoile, coûterait plus que ça ne montrerait. Ces
  * deux-là se voient à travers le verre du panneau, devenu translucide pour ça.
  */
-const PAUSE_CHANTIER_S = 0.95
+const PAUSE_CHANTIER_S = 0.35
+
+/** Pause avant l'arrivée d'un écran donné. Nulle à l'entrée du parcours. */
+const pauseChantier = (step) => (step === 'adresse' ? 0 : PAUSE_CHANTIER_S)
 
 /**
  * Stade du décor pour l'étape en cours — et rien d'autre : cette fonction ne
@@ -143,20 +152,16 @@ export default function Estimer() {
 
   // Ce que les étapes déclarent au DÉCOR, et à lui seul : le type de bien
   // retenu par l'étape carte (déduction locale, puis détection réseau), la
-  // surface et l'étage en cours de déclaration, l'ouverture de la visite, les
-  // options d'affinage. Aucune de ces valeurs ne participe au calcul ni à la
+  // surface et l'étage en cours de déclaration, les options d'affinage. Aucune de ces valeurs ne participe au calcul ni à la
   // navigation — celles-là continuent de remonter par `onEstimate`, qui n'a pas
   // changé. Elles ne servent qu'à ce que la scène 3D montre le bon bien au bon
   // moment (voir `ChantierContext`).
   const [typeDeclare, setTypeDeclare] = useState(null)
   const [surfaceDeclaree, setSurfaceDeclaree] = useState(null)
-  // Étage en cours de déclaration : le décor s'en sert pour compter les tours
-  // d'escalier de la visite, et pour poser le balcon à la bonne hauteur.
+  // Étage en cours de déclaration : le décor s'en sert pour allumer les
+  // fenêtres du bon niveau sur la façade, et pour poser le balcon à la bonne
+  // hauteur.
   const [etageDeclare, setEtageDeclare] = useState(null)
-  // Visite en cours : vrai tant que la fenêtre de surface est ouverte sur un
-  // appartement. C'est le seul moment du parcours où la caméra entre dans le
-  // bâtiment.
-  const [visite, setVisite] = useState(false)
   // Options d'affinage traduites en ouvrages à révéler (voir
   // `src/lib/affinage.js`), et bascule de l'écran d'affinage lui-même.
   const [optionsDecor, setOptionsDecor] = useState(null)
@@ -179,7 +184,6 @@ export default function Estimer() {
           const valeur = Number.isFinite(n) ? n : null
           return precedent === valeur ? precedent : valeur
         }),
-      declarerVisite: (ouverte) => setVisite(Boolean(ouverte)),
       declarerOptions: (options) =>
         setOptionsDecor((precedentes) => {
           // Même filtrage sur l'égalité que les autres déclarations : le
@@ -246,7 +250,7 @@ export default function Estimer() {
   }, [selection, startAnalysis])
 
   // Fin de l'animation : le montant est très largement calculé à ce stade
-  // (quelques secondes contre douze), l'attente ci-dessous ne couvre que le
+  // (quelques secondes contre neuf), l'attente ci-dessous ne couvre que le
   // cas d'un serveur à la traîne. `requestEstimation` ne rejette jamais.
   const showResult = useCallback(async () => {
     setEstimation(await pendingEstimate.current)
@@ -309,15 +313,15 @@ export default function Estimer() {
       opacity: 1,
       x: 0,
       transition: {
-        duration: reduce ? 0.2 : 0.45,
+        duration: reduce ? 0.14 : 0.3,
         ease: EASE,
-        delay: reduce ? 0 : PAUSE_CHANTIER_S,
+        delay: reduce ? 0 : pauseChantier(step),
       },
     },
     exit: {
       opacity: 0,
       x: reduce ? 0 : -24,
-      transition: { duration: reduce ? 0.2 : 0.35, ease: EASE },
+      transition: { duration: reduce ? 0.14 : 0.22, ease: EASE },
     },
   }
 
@@ -353,7 +357,6 @@ export default function Estimer() {
                 type={typeScene}
                 surface={surfaceScene}
                 etage={etageScene}
-                visite={visite}
                 options={optionsDecor}
                 zone={panneauEnBas ? 'haut' : 'centre'}
               />
@@ -389,7 +392,18 @@ export default function Estimer() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="tunnel-estimation relative z-10 flex w-full justify-center"
+            /* LE PANNEAU TIENT LA GAUCHE, LE BÂTIMENT LA DROITE.
+
+               Centré, il avalait le bien : le décentrement de la caméra à lui
+               seul ne suffisait pas à l'en sortir — pousser davantage faisait
+               sortir le bâtiment par le bord opposé (voir `cadre` et
+               `MARGE_CADRAGE` dans `scene/plans.js`). Les deux se partagent
+               donc l'écran, chacun de son côté.
+
+               Seulement à partir du gabarit ordinateur : en dessous, le panneau
+               est rangé en bas et la scène garde la bande du haut — il n'y a
+               rien à dégager latéralement. */
+            className="tunnel-estimation relative z-10 flex w-full justify-center lg:justify-start lg:pl-[3vw] xl:pl-[5vw]"
           >
             {step === 'intro' ? <EstimationIntro onStart={() => goToStep('adresse')} /> : null}
 

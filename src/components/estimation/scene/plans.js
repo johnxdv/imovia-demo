@@ -34,6 +34,19 @@ import * as THREE from 'three'
  *   `derive`    dérive lente pendant le stade, pour que le plan respire.
  *   `cadre`     décentrement horizontal, en fraction de la largeur de l'écran.
  *               C'est ce qui sort le bâtiment de derrière le panneau.
+ *
+ * LE DÉCENTREMENT VA DÉSORMAIS TOUJOURS DU MÊME CÔTÉ, et il est plus franc.
+ *
+ * Il alternait : un plan poussait le bien à droite, le suivant à gauche, et
+ * comme le panneau est au milieu, un plan sur deux le lui renvoyait dessus. Le
+ * bâtiment passait son temps à se cacher derrière le verre, et il y traversait
+ * l'écran à chaque changement d'étape.
+ *
+ * Les valeurs sont maintenant TOUTES POSITIVES — le bien est à droite, le
+ * panneau à gauche (voir `lg:justify-start` dans `Estimer.jsx`) — et elles
+ * valent un cinquième de la largeur au lieu d'un sixième. La composition ne
+ * change plus d'un plan au suivant : seule la distance et l'angle changent, et
+ * c'est ce qui donne au parcours l'impression d'un même tournage.
  */
 
 const TOUR = Math.PI * 2
@@ -60,14 +73,14 @@ export const ECART_FACE_MAX = 0.95
 
 export const PLANS = [
   // 0 — le chantier vu de haut : on repère le lieu avant de bâtir.
-  { pivot: 'centre', recul: 1.5, elevation: 0.78, azimut: 0.6, face: 0.62, regard: 0.45, derive: 0.032, cadre: 0.15 },
+  { pivot: 'centre', recul: 1.5, elevation: 0.78, azimut: 0.6, face: 0.62, regard: 0.45, derive: 0.032, cadre: 0.2 },
   // 1 — le drone plonge au ras de la dalle pendant que les murs montent.
-  { pivot: 'centre', recul: 1.24, elevation: 0.3, azimut: FACE + 0.55, face: -0.5, regard: 0.7, derive: 0.05, cadre: -0.17 },
+  { pivot: 'centre', recul: 1.24, elevation: 0.3, azimut: FACE + 0.55, face: -0.5, regard: 0.7, derive: 0.05, cadre: 0.2 },
   // 2 — la surface se règle, le bien prend son volume. Trois-quarts arrière
   //     pour un immeuble, trois-quarts côté porte pour une maison : c'est ici
   //     que le vendeur voit sa maison se démonter et se rebâtir d'un palier au
   //     suivant, et un démontage vu de dos ne montre rien.
-  { pivot: 'centre', recul: 1.16, elevation: 0.52, azimut: 3.3, face: 0.74, regard: 0.55, derive: 0.048, cadre: 0.18 },
+  { pivot: 'centre', recul: 1.16, elevation: 0.52, azimut: 3.3, face: 0.74, regard: 0.55, derive: 0.048, cadre: 0.22 },
 
   // 3 — ANALYSE 1/3, en bas, devant la porte. Une entrée se regarde d'en bas,
   //     jamais d'en haut : le drone se pose à hauteur d'homme et lève le nez.
@@ -84,7 +97,7 @@ export const PLANS = [
     face: 0.18,
     regard: 0.35,
     derive: 0.03,
-    cadre: 0.2,
+    cadre: 0.22,
   },
   // 4 — ANALYSE 2/3, trois-quarts côté gauche, à hauteur d'étage : c'est
   //     l'angle du bâtiment, là où les menuiseries et les balcons se lisent.
@@ -96,7 +109,7 @@ export const PLANS = [
     face: 0.86,
     regard: 0.52,
     derive: 0.042,
-    cadre: -0.18,
+    cadre: 0.2,
   },
   // 5 — ANALYSE 3/3, au-dessus du toit. Pas à la verticale — une toiture vue
   //     d'aplomb se lit comme un plan, pas comme une maison — mais en
@@ -118,13 +131,13 @@ export const PLANS = [
     face: -0.72,
     regard: -0.3,
     derive: 0.028,
-    cadre: 0.16,
+    cadre: 0.2,
   },
 
   // 6 — le soir : léger pas de côté, les vitrages s'allument.
-  { pivot: 'centre', recul: 1.24, elevation: 0.52, azimut: TOUR + 5.2, face: 0.46, regard: 0.5, derive: 0.038, cadre: -0.15 },
+  { pivot: 'centre', recul: 1.24, elevation: 0.52, azimut: TOUR + 5.2, face: 0.46, regard: 0.5, derive: 0.038, cadre: 0.18 },
   // 7 — grand écart, en surplomb : le bien achevé et son halo.
-  { pivot: 'centre', recul: 1.4, elevation: 0.7, azimut: TOUR + 6.8, face: -0.32, regard: 0.5, derive: 0.03, cadre: 0 },
+  { pivot: 'centre', recul: 1.4, elevation: 0.7, azimut: TOUR + 6.8, face: -0.32, regard: 0.5, derive: 0.03, cadre: 0.13 },
   // 8 — AFFINAGE : la vue globale. On recule pour tout tenir dans le cadre —
   //     la maison, son jardin, sa piscine —, et le panneau ne prend plus que
   //     le coin de l'écran.
@@ -136,7 +149,7 @@ export const PLANS = [
     face: 0.52,
     regard: 0.42,
     derive: 0.055,
-    cadre: -0.08,
+    cadre: 0.12,
   },
 ]
 
@@ -152,11 +165,27 @@ export const DERNIER_PLAN = PLANS.length - 1
  * déborderait alors du côté où on le pousse — on gagnerait sur le panneau ce
  * qu'on perdrait sur le bord.
  *
- * À 1,9, le bien occupe un peu moins des deux tiers de la largeur : décentré,
- * il tient tout entier dans le cadre, et il reste assez grand pour qu'on voie
- * une baie se poser.
+ * ELLE A ÉTÉ RESSERRÉE DE 1,9 À 1,45 — le bien est donc nettement plus GRAND
+ * qu'avant, et non plus petit. C'est le panneau rangé à gauche qui le permet :
+ * il ne prend plus le tiers central de l'écran mais sa moitié gauche, et la
+ * moitié droite est libre d'un bord à l'autre. Le bien y tient tout entier,
+ * décentré compris, et il y tient à une taille où l'on voit enfin une baie se
+ * poser et un étage s'allumer — ce qui, à l'ancienne valeur, se jouait dans
+ * une vignette d'un sixième de l'écran.
  */
-export const MARGE_CADRAGE = 1.9
+export const MARGE_CADRAGE = 1.45
+
+/**
+ * LE TÉLÉPHONE GARDE L'ANCIENNE MARGE, et c'est la contrepartie de la
+ * précédente.
+ *
+ * Ce qui a permis de resserrer le cadrage, c'est le panneau rangé sur le côté.
+ * Sous le gabarit ordinateur, il n'est pas sur le côté : il est EN BAS, et le
+ * bien est cadré dans la bande étroite qui reste au-dessus (voir
+ * `BANDE_HAUTE`). Rien n'y a été libéré ; à la marge de l'ordinateur, le
+ * faîtage passait derrière la barre de navigation.
+ */
+export const MARGE_CADRAGE_BANDE = 1.9
 
 /**
  * Part de la hauteur du canevas laissée au bâtiment quand le panneau est rangé

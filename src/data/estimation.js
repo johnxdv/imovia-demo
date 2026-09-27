@@ -5,10 +5,14 @@
  * ce déroulé. L'animation garde donc son rythme propre — elle n'est ni
  * raccourcie ni allongée par le moteur. Total = 12 s, à parts égales.
  */
+// TROIS SECONDES DE MOINS QU'AVANT, une par ligne : l'analyse tenait douze
+// secondes, elle en tient neuf. Rien n'y a été retiré — les trois temps se
+// cochent toujours, le drone fait toujours ses trois stations —, mais aucun
+// d'eux n'avait besoin de quatre secondes pleines pour se lire.
 export const ANALYSIS_STEPS = [
-  { id: 'batiment', label: 'Expertise du bien…', done: 'Bien expertisé', durationMs: 4000 },
-  { id: 'marche', label: 'Étude comparative de marché…', done: 'Étude de marché réalisée', durationMs: 4000 },
-  { id: 'calcul', label: 'Calcul de l’estimation…', done: 'Estimation calculée', durationMs: 4000 },
+  { id: 'batiment', label: 'Expertise du bien…', done: 'Bien expertisé', durationMs: 3000 },
+  { id: 'marche', label: 'Étude comparative de marché…', done: 'Étude de marché réalisée', durationMs: 3000 },
+  { id: 'calcul', label: 'Calcul de l’estimation…', done: 'Estimation calculée', durationMs: 3000 },
 ]
 
 /**

@@ -23,24 +23,17 @@ const RIEN = {
    * Le nombre de niveaux relevé sur le bâtiment cliqué y figurait tant que
    * l'immeuble du décor comptait ses étages d'après la BD TOPO®. Il n'en compte
    * plus : un appartement, c'est toujours le même immeuble, et c'est l'ÉTAGE
-   * DÉCLARÉ qui compte désormais — celui qu'on monte (voir `declarerEtage`).
+   * DÉCLARÉ qui compte désormais — celui qui s'allume (voir `declarerEtage`).
    */
   declarerBien: () => {},
   /** Surface habitable en cours de déclaration au curseur. */
   declarerSurface: () => {},
   /**
    * Étage en cours de déclaration. Le décor s'en sert pour deux choses, et
-   * deux seulement : le nombre de tours d'escalier que le drone monte pendant
-   * la visite, et la hauteur à laquelle le balcon d'affinage se pose.
+   * deux seulement : les fenêtres de CE niveau-là qui s'allument sur la façade
+   * de l'immeuble, et la hauteur à laquelle le balcon d'affinage se pose.
    */
   declarerEtage: () => {},
-  /**
-   * Ouvre et ferme la VISITE. Vrai tant que la fenêtre de surface est ouverte
-   * sur un appartement : le drone entre alors dans l'immeuble et monte au
-   * logement. Faux dès qu'elle se referme — l'estimation part, et on ressort
-   * par la fenêtre.
-   */
-  declarerVisite: () => {},
   /**
    * Options d'affinage retenues à la dernière étape : piscine, terrain,
    * panneaux, terrasse ou balcon, standing. Elles ne dessinent quelque chose

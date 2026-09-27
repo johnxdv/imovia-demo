@@ -1,5 +1,9 @@
-// Affinage de l'estimation — les cinq compléments que le vendeur déclare
-// lui-même, et ce qu'ils valent.
+// Affinage de l'estimation — les compléments que le vendeur déclare lui-même,
+// et ce qu'ils valent.
+//
+// Ils dépendent du bien : une maison déclare sa piscine, son terrain, sa
+// terrasse ; un appartement son balcon, son rez-de-jardin et son rooftop. Le
+// standing et les panneaux solaires valent pour les deux.
 //
 // Le moteur d'estimation travaille sur ce que les bases publiques savent d'un
 // bien : son adresse, son emprise, son type, sa surface, son étage. Il ne sait
@@ -32,12 +36,44 @@ const PRIME_PANNEAUX = 0.02
 const PRIME_EXTERIEUR = 0.03
 
 /**
+ * Rez-de-jardin — un appartement de plain-pied sur un jardin privatif. C'est
+ * la seule façon dont un appartement dispose d'un extérieur au sol, et elle se
+ * paie : à surface égale, il se négocie au-dessus des étages courants.
+ */
+const PRIME_REZ_DE_JARDIN = 0.05
+
+/**
+ * Rooftop — terrasse aménagée en toiture, à l'usage du logement. La prime croît
+ * avec sa surface et plafonne vite : au-delà d'une quarantaine de mètres
+ * carrés, ce qui se vend est le fait d'en avoir un, pas qu'il soit plus grand.
+ */
+const ROOFTOP_PLAFOND_PRIME_M2 = 40
+const PRIME_ROOFTOP_MAX = 0.05
+
+/**
  * Terrain. La prime croît avec la contenance, mais de moins en moins vite —
  * les premiers mètres carrés de jardin valent bien plus que les derniers — et
  * plafonne : au-delà, c'est du foncier, plus de l'habitation.
  */
 const TERRAIN_PLAFOND_M2 = 2000
 const PRIME_TERRAIN_MAX = 0.08
+
+/**
+ * CE QUE LE CURSEUR LAISSE DÉCLARER, et qui n'est pas la même chose que ce que
+ * le barème sait valoriser.
+ *
+ * Le curseur montait à 2 000 m², c'est-à-dire exactement au plafond du barème :
+ * une propriété de trois hectares n'avait aucun moyen de se déclarer. Il monte
+ * désormais à 5 000, et le décor suit jusque-là — le terrain s'étend, des
+ * arbres sortent de terre à mesure.
+ *
+ * LE BARÈME, LUI, N'A PAS BOUGÉ : il plafonne toujours à 2 000 m². Au-delà,
+ * c'est du foncier et non de l'habitation, la prime reste à son maximum, et
+ * l'estimation affichée est au mètre carré près celle d'avant pour toute
+ * surface déjà déclarable. Relever le plafond du barème aurait, lui, déplacé
+ * tous les montants — y compris ceux des terrains de 400 m².
+ */
+const TERRAIN_SAISIE_MAX = 5000
 
 /**
  * Standing. Les cinq niveaux couramment employés en transaction, du bien à
@@ -61,8 +97,14 @@ export const OPTIONS_DEFAUT = {
   terrainM2: 0,
   panneaux: false,
   exterieur: false,
+  // Appartements : le jardin privatif de plain-pied, et la terrasse en toiture.
+  rezDeJardin: false,
+  rooftopM2: 0,
   standing: STANDING_DEFAUT,
 }
+
+/** Surface de rooftop que le curseur laisse déclarer, en m². */
+export const ROOFTOP_SAISIE_MAX = 120
 
 const borne = (v, min, max) => Math.min(Math.max(v, min), max)
 
@@ -94,6 +136,15 @@ export function coefficientAffinage(options, type = 'maison') {
   }
   if (o.panneaux) total += PRIME_PANNEAUX
   if (o.exterieur) total += PRIME_EXTERIEUR
+
+  // Rez-de-jardin et rooftop ne se proposent qu'aux appartements : une maison
+  // est déjà de plain-pied sur son terrain, et sa toiture n'est pas une
+  // terrasse.
+  if (!maison) {
+    if (o.rezDeJardin) total += PRIME_REZ_DE_JARDIN
+    const rooftop = borne(Number(o.rooftopM2) || 0, 0, ROOFTOP_PLAFOND_PRIME_M2)
+    total += (PRIME_ROOFTOP_MAX * rooftop) / ROOFTOP_PLAFOND_PRIME_M2
+  }
 
   total += STANDINGS.find((s) => s.id === o.standing)?.coefficient ?? 0
 
@@ -129,12 +180,17 @@ export function optionsDecor(options, type = 'maison') {
 
   return {
     piscine: maison && o.piscine,
-    terrain: maison ? borne((Number(o.terrainM2) || 0) / TERRAIN_PLAFOND_M2, 0, 1) : 0,
+    // Le décor s'étend sur toute l'échelle DÉCLARABLE, pas sur celle du barème :
+    // un terrain de 5 000 m² doit se voir cinq mille mètres carrés, même si la
+    // prime, elle, a cessé de croître à 2 000 (voir `TERRAIN_SAISIE_MAX`).
+    terrain: maison ? borne((Number(o.terrainM2) || 0) / TERRAIN_SAISIE_MAX, 0, 1) : 0,
     panneaux: Boolean(o.panneaux),
     terrasse: maison && o.exterieur,
     balcon: !maison && o.exterieur,
+    rezDeJardin: !maison && Boolean(o.rezDeJardin),
+    rooftop: maison ? 0 : borne((Number(o.rooftopM2) || 0) / ROOFTOP_SAISIE_MAX, 0, 1),
     standing: rangStanding(o.standing),
   }
 }
 
-export { TERRAIN_PLAFOND_M2 }
+export { TERRAIN_PLAFOND_M2, TERRAIN_SAISIE_MAX }

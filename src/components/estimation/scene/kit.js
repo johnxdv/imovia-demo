@@ -131,6 +131,10 @@ export function fenetreFrancaise({ largeur, hauteur, appui = true, cintree = fal
   })
   vitre.position.y = hauteur / 2
   groupe.userData.vitre = vitre
+  // Le fond de l'embrasure est rendu accessible pour la même raison que la
+  // vitre : quand un étage s'allume, c'est la pièce derrière la fenêtre qui
+  // s'éclaire, et un tableau resté noir trahirait la lumière posée sur le verre.
+  groupe.userData.tableau = tableau
 
   const bois = M.aluNoir()
   const e = 0.045
