@@ -100,12 +100,15 @@ export function EstimationResultStep({
   // intégralement net.
   //
   // Elle est **calculée par le serveur** et transmise telle quelle. Ce n'est plus
-  // un ± 5 % décoratif appliqué ici : les bornes viennent de la dispersion réelle
-  // des ventes comparables retenues — quantiles pondérés 25 et 75 —, élargies
-  // selon le niveau de confiance de l'échantillon, et jamais plus serrées que
-  // ± 5 % (voir `FOURCHETTE` dans `api/_lib/estimationConfig.js`). Le front n'a
-  // plus de quoi la recalculer, et c'est voulu : elle dépend de données qui ne
-  // descendent pas jusqu'ici.
+  // un ± 5 % décoratif appliqué ici : c'est une bande de ± 15, ± 20 ou ± 25 %
+  // selon le niveau de confiance de l'échantillon de ventes qui a porté le
+  // calcul (voir `FOURCHETTE` dans `api/_lib/estimationConfig.js`). Le front
+  // n'a plus de quoi la recalculer, et c'est voulu : elle dépend de données qui
+  // ne descendent pas jusqu'ici.
+  //
+  // L'affinage, lui, a le droit d'y toucher — mais il applique son coefficient
+  // au prix **et** aux deux bornes (voir `affinerEstimation`), si bien que la
+  // largeur relative de la bande ne bouge pas d'un point.
   const range = finished && estimationAffinee?.low && estimationAffinee?.high
     ? { low: estimationAffinee.low, high: estimationAffinee.high }
     : null

@@ -479,6 +479,31 @@ moins juste, s'éloigner coûte un autre marché.** On paie donc la surface
 d'abord. Toutes ces étapes descendent en confiance « faible », et
 `meta.etape` dit laquelle a produit le prix.
 
+#### La fourchette est une bande fixe, réglée par la confiance
+
+**± 15 %** en confiance normale, **± 20 %** en moyenne, **± 25 %** en faible
+(`FOURCHETTE.parConfiance`). Rien d'autre n'entre dans son calcul.
+
+Elle venait auparavant de la dispersion des comparables retenus — quantiles
+pondérés 25 et 75, élargis selon la confiance. Le banc de test a chiffré ce que
+cette fourchette-là valait : **38 % des prix réels tombaient dedans**, pour une
+demi-largeur médiane de 11 %. Elle annonçait donc une précision que le moteur
+n'a pas, et se trompait deux fois sur trois. La raison en est simple, une fois
+vue : la dispersion de cinq à huit ventes voisines mesure l'accord de ces ventes
+entre elles, pas l'erreur du moteur sur le bien qu'on lui soumet. Rien n'obligeait
+les deux à coïncider — une fourchette étroite sortait aussi bien d'un voisinage
+homogène que d'un échantillon trop maigre pour être en désaccord.
+
+La bande fixe ne prétend plus rien lire du voisinage : elle annonce l'ordre de
+grandeur de l'erreur mesurée, et l'annonce de la même façon pour tous les biens
+servis par le même chemin de calcul. La dispersion des comparables reste au
+journal (`meta.fourchette.q25PrixM2` / `q75PrixM2`), où elle dit encore quelque
+chose — mais elle ne décide plus de ce qui s'affiche.
+
+Monaco et les prix de référence hors DVF gardent leur fourchette symétrique,
+inchangée : ces chemins-là ne produisent pas de niveau de confiance tiré de
+ventes.
+
 Relevé sur le cas de contrôle marseillais (parcelle `132108580H0042`) :
 
 | Surface déclarée | Étape | Prix au m² | Montant | Confiance |
@@ -540,7 +565,8 @@ compare.
 node scripts/backtest.mjs --n 3000
 ```
 
-Options : `--n` (nombre de ventes), `--deps` (départements), `--graine` (le
+Options : `--n` (nombre de ventes retenues), `--rural` (ventes supplémentaires
+par département rural, rendues à part), `--deps` (départements), `--graine` (le
 tirage est reproductible, et un `--n` plus petit est un sous-ensemble exact du
 plus grand), `--avant` (commit du moteur de comparaison), `--sortie`. Tout ce
 qui est téléchargé — millésimes DVF, cadastre Etalab — atterrit dans `cache/`,
@@ -560,13 +586,46 @@ ignoré par git, et n'est téléchargé qu'une fois.
 - les entrées sont celles qu'un vendeur donnerait : coordonnées, type, surface
   habitable, contenance cadastrale. Rien du prix, rien de la mutation.
 
+**Les ventes hors marché sont écartées de l'échantillon testé.** DVF enregistre
+des mutations qui n'en sont pas vraiment — cession familiale à prix convenu, lot
+vendu en l'état après sinistre, portage entre sociétés. Aucun moteur ne peut les
+retrouver, et les garder ne mesure pas l'erreur du moteur mais la part de bruit
+de la base. La règle est **celle du filtre relatif du moteur, retournée contre la
+vente testée** : son prix au m² doit tenir entre 0,5× et 2× la médiane de son
+secteur (2 km, même type), médiane calculée sur son seul passé et relue dans le
+journal du moteur — rien n'est réimplémenté ici. Le tirage descend plus bas dans
+la liste pour garder `--n` ventes après exclusion ; le résumé dit combien ont été
+écartées, par département et par type, et sur combien de ventes reposait la
+médiane qui les a jugées. Relevé sur 300 ventes : 6,5 % d'exclusions, mais 3,9 %
+sur les appartements contre 11,4 % sur les maisons, et près de 30 % dans la
+Creuse et la Nièvre, où le secteur compte trop peu de ventes pour trancher
+finement.
+
+**Deux variantes du moteur sont mesurées à côté de lui**, sans rien changer en
+production :
+
+- **terrain** — DVF laisse `surface_terrain` vide sur une part des maisons
+  (« non renseigné », pas « pas de terrain »). La variante va chercher la
+  contenance de la parcelle dans le cadastre et la pose sur le comparable par le
+  champ `surfaceTerrainCadastre`, que `estime()` sait lire et que **personne
+  n'alimente en production**. Garde-fou : si plusieurs maisons distinctes ont été
+  vendues sur la même parcelle — surfaces habitables différentes, ou numéros de
+  voie différents à surface égale, ce qui trahit les maisons jumelles —, la
+  parcelle est partagée, sa contenance ne décrit pas le terrain d'une maison, et
+  le terrain reste inconnu ;
+- **fourchette** — les facteurs d'élargissement qui porteraient la couverture à
+  80 %, calés par (type, confiance) sur le groupe calibration, puis appliqués au
+  groupe validation pour voir ce qu'ils y donnent vraiment.
+
 Le banc sort deux fichiers : une ligne de CSV par vente (prix réel, estimé,
-écart, fourchette, étape, rayon, comparables, confiance, groupe) et un résumé
-court — erreur absolue médiane, part des estimations à ±10 % et ±20 %, 90ᵉ
-centile, biais signé, part des prix réels dans la fourchette — global puis par
-département, type, étape, tranche de surface et confiance. L'échantillon est
-partagé en **calibration (70 %)** et **validation (30 %)** : un réglage qu'on
-ajuste en regardant la première se juge sur la seconde, jamais l'inverse.
+écart, fourchette, étape, rayon, comparables, confiance, groupe, verdict hors
+marché et médiane du secteur qui l'a rendu, colonnes des deux variantes) et un
+résumé court — erreur absolue médiane, part des estimations à ±10 % et ±20 %, 90ᵉ
+centile, biais signé, part des prix réels dans la fourchette, demi-largeur
+médiane — global puis par département, type, étape, tranche de surface, confiance,
+et pour les maisons par tranche de terrain. L'échantillon est partagé en
+**calibration (70 %)** et **validation (30 %)** : un réglage qu'on ajuste en
+regardant la première se juge sur la seconde, jamais l'inverse.
 
 Le moteur d'avant la refonte (300 m, quarante ventes les plus proches, aucune
 pondération) tourne sur le même échantillon et sous les mêmes règles, et figure
@@ -616,12 +675,12 @@ simplifié au parcours, tenu dans [`src/lib/monaco.js`](src/lib/monaco.js) :
 | Étage | Demandé aux appartements, coefficient 0,95 à 1,05 | Identique — même fenêtre, même barème |
 | Prix au m² | Médiane DVF du voisinage | Constante `MONACO_PRICE_PER_M2` — **57 500 €**, source [IMSEE](https://www.imsee.mc/), à réviser à la main |
 | Calcul | Médiane × surface, avec replis | Constante × surface déclarée, sans repli |
-| Fourchette finale | ± 5 % | ± 20 % (`MONACO_RANGE_PCT`) |
+| Fourchette finale | ± 15 à ± 25 % selon la confiance | ± 20 % (`MONACO_RANGE_PCT`) |
 
-**La fourchette élargie n'est pas une précaution de forme** : le marché
-monégasque va, selon le quartier et les sources, de ~38 000 € à plus de
-100 000 €/m². Une moyenne unique ne peut pas prétendre au resserrement d'une
-médiane de ventes voisines. Le reste de l'écran de résultat est identique.
+**La fourchette monégasque n'est pas une précaution de forme** : le marché y
+va, selon le quartier et les sources, de ~38 000 € à plus de 100 000 €/m². Une
+moyenne nationale unique se lit donc comme une estimation de confiance moyenne,
+pas mieux. Le reste de l'écran de résultat est identique.
 
 **La détection ne peut pas se lire dans la réponse de la BAN**, qui ne connaît
 aucune adresse monégasque : interrogée sur « Monte-Carlo, Monaco », elle répond

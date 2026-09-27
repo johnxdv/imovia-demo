@@ -131,8 +131,8 @@ export default function Estimer() {
   const [selection, setSelection] = useState(null)
   // Résultat du moteur : `{ status: 'ok', price, low, high, confiance }` ou
   // `{ status: 'indisponible', code }`. L'objet entier est conservé plutôt que
-  // le seul montant — la fourchette est désormais calculée par le serveur sur la
-  // dispersion réelle des comparables, et le front n'a pas de quoi la refaire.
+  // le seul montant — la fourchette est calculée par le serveur, qui seul
+  // connaît le niveau de confiance dont sa largeur dépend.
   const [estimation, setEstimation] = useState(null)
   // Calcul en cours, conservé sous forme de promesse : il démarre avec
   // l'animation d'analyse et n'est lu qu'à la fin de celle-ci. Une référence

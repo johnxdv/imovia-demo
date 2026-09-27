@@ -127,8 +127,8 @@ export const RAYONS_ELARGIS_M = [5000, 10000, 20000]
  * Au-delà et jusqu'à 2 km, il décrit un secteur : confiance moyenne. Faute de
  * cinq ventes similaires à 2 km, on passe aux replis par les surfaces
  * (`RAYONS_ELARGIS_M`), qui sont tous en confiance faible. Ces trois niveaux
- * pilotent l'élargissement de la fourchette (voir `FOURCHETTE`), et
- * redescendent dans `meta`.
+ * décident à eux seuls de la largeur de la fourchette affichée (voir
+ * `FOURCHETTE`), et redescendent dans `meta`.
  */
 export const CONFIANCE = {
   rayonNormalMaxM: 500,
@@ -235,29 +235,44 @@ export const TERRAIN = {
 }
 
 /**
- * Fourchette affichée — dispersion réelle des comparables, plus jamais un
- * ±5 % décoratif.
+ * Fourchette affichée — une bande fixe autour du prix, réglée par la seule
+ * confiance.
  *
- * Les bornes viennent des quantiles pondérés 25 et 75 des €/m² actualisés de
- * l'échantillon retenu : elles disent ce que les ventes voisines disent, y
- * compris quand elles ne s'accordent pas. `demiLargeurMinPct` garantit qu'une
- * fourchette ne se referme jamais au point de prétendre à une précision qu'une
- * médiane sur cinq à huit ventes n'a pas.
+ * CE QU'ELLE REMPLACE. Les bornes venaient des quantiles pondérés 25 et 75 des
+ * €/m² actualisés de l'échantillon retenu, élargis selon la confiance et
+ * plafonnés à ±20 %. L'intention était bonne — faire dire aux ventes voisines
+ * ce qu'elles savent, y compris leur désaccord — mais le banc de test l'a
+ * chiffrée : cette fourchette-là ne contenait le prix réel que dans **38 % des
+ * cas** en validation, pour une demi-largeur médiane de 11 %. Autrement dit
+ * elle annonçait une précision que le moteur n'a pas, et se trompait deux fois
+ * sur trois. La dispersion de cinq à huit ventes voisines mesure l'accord de
+ * ces ventes entre elles, pas l'erreur du moteur sur le bien : les deux n'ont
+ * pas de raison de coïncider, et de fait elles ne coïncidaient pas.
  *
- * `elargissement` multiplie la demi-largeur selon la confiance : un
- * échantillon trouvé à 1,5 km, ou un repli par les surfaces, doit se lire
- * comme tel.
+ * CE QU'ELLE EST MAINTENANT. Une demi-largeur fixe, en pourcentage du prix,
+ * qui ne dépend que du niveau de confiance — c'est-à-dire de la façon dont
+ * l'échantillon a été trouvé (voir `CONFIANCE` et les étapes du moteur). Elle
+ * ne prétend plus lire la dispersion locale ; elle annonce l'ordre de grandeur
+ * de l'erreur que le banc mesure vraiment, et elle l'annonce de la même façon
+ * pour tous les biens servis par le même chemin de calcul.
  *
- * `demiLargeurMaxPct` plafonne la demi-largeur à 20 % du prix, **dans tous les
- * cas** — quantiles pondérés, fourchette symétrique de Monaco, prix de
- * référence hors DVF. Au-delà, la fourchette cesse d'informer : annoncer
- * « entre 250 000 et 750 000 € » revient à ne rien annoncer, et c'est ce que
- * produisait la dispersion interquartile d'un département entier.
+ *   • `normale` — cinq à huit ventes similaires à moins de 500 m : ±15 % ;
+ *   • `moyenne` — le même échantillon trouvé jusqu'à 2 km : ±20 % ;
+ *   • `faible`  — repli par les surfaces, ou dernier filet départemental : ±25 %.
+ *
+ * PÉRIMÈTRE. `parConfiance` ne concerne que les zones couvertes par DVF, seul
+ * chemin qui produit un niveau de confiance à partir de ventes. Monaco et les
+ * prix de référence hors DVF gardent leur fourchette symétrique inchangée, et
+ * c'est elle — et elle seule — que `demiLargeurMin/MaxPct` encadrent encore :
+ * un plancher de 5 %, un plafond de 20 % au-delà duquel une fourchette
+ * n'informe plus personne (« entre 250 000 et 750 000 € » revient à ne rien
+ * annoncer). Ces deux bornes ne s'appliquent plus au chemin DVF, sans quoi le
+ * plafond mordrait sur le ±25 % de la confiance faible.
  */
 export const FOURCHETTE = {
+  parConfiance: { normale: 0.15, moyenne: 0.2, faible: 0.25 },
   demiLargeurMinPct: 0.05,
   demiLargeurMaxPct: 0.2,
-  elargissement: { normale: 1, moyenne: 1.5, faible: 2.5 },
 }
 
 /**

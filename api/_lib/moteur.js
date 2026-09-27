@@ -14,6 +14,11 @@
 // terrain, prix, fourchette — et `api/estimation.js` ne garde que la
 // récupération des données et la mise en forme de la réponse.
 //
+// LA FOURCHETTE AFFICHÉE est une bande fixe autour du prix, dont la largeur ne
+// dépend que du niveau de confiance : ±15, ±20 ou ±25 %. Elle ne se déduit plus
+// de la dispersion des comparables, qui mesurait l'accord des ventes voisines
+// entre elles et non l'erreur du moteur — voir `fourchetteDeConfiance`.
+//
 // LA DATE DE RÉFÉRENCE (`maintenant`) sert à deux choses, et à deux seulement :
 // la décroissance de récence des poids, et le semestre auquel les comparables
 // sont actualisés. Elle vaut « maintenant » par défaut ; le banc de test y met
@@ -309,8 +314,8 @@ function selectionneParSurface(actualisees, cible, maintenant, rayonM) {
  *
  * Commun à la cascade normale et aux replis par les surfaces : les deux se
  * calculent exactement de la même façon — médiane pondérée des €/m² actualisés,
- * quantiles pondérés 25 et 75 — et seule la manière de choisir les ventes les
- * distingue. Le terrain de référence est la médiane pondérée des terrains
+ * quantiles pondérés 25 et 75 pour le journal — et seule la manière de choisir
+ * les ventes les distingue. Le terrain de référence est la médiane pondérée des terrains
  * **connus** des ventes retenues : c'est contre lui que se mesure l'écart de
  * terrain du bien, et non contre une moyenne départementale qui ne dirait rien
  * du parcellaire local.
@@ -357,47 +362,53 @@ function rayonsASonder(rayonAtteintM, etape) {
 /**
  * Demi-largeur de fourchette, ramenée entre le plancher et le plafond.
  *
- * Le plafond (±20 % du prix) s'applique **dans tous les cas** et quel que soit
- * le chemin de calcul : une fourchette plus large n'informe plus personne —
- * « entre 250 000 et 750 000 € » revient à ne rien annoncer. C'est exactement ce
- * que produisait la dispersion interquartile d'un département entier, élargie
- * ×2,5 par la confiance faible.
+ * **Ne sert plus qu'aux chemins hors DVF** — Monaco, prix de référence — depuis
+ * que la fourchette DVF est une bande fixe réglée par la confiance (voir
+ * `fourchetteDeConfiance`). Le plafond y interdit qu'un barème révisé s'affiche
+ * un jour en ±40 % : au-delà, une fourchette n'informe plus personne, annoncer
+ * « entre 250 000 et 750 000 € » revenant à ne rien annoncer.
  */
 const demiLargeur = (prix, demi) =>
   Math.min(Math.max(demi, prix * FOURCHETTE.demiLargeurMinPct), prix * FOURCHETTE.demiLargeurMaxPct)
 
 /**
- * Fourchette autour d'un montant, à partir d'une dispersion en €/m².
+ * Fourchette affichée sur le chemin DVF — une bande fixe autour du prix, dont
+ * la seule variable est le niveau de confiance : ±15 % en confiance normale,
+ * ±20 % en moyenne, ±25 % en faible (voir `FOURCHETTE.parConfiance`).
  *
- * Les bornes viennent des quantiles pondérés 25 et 75 de l'échantillon retenu,
- * converties en euros par la même formule que le prix lui-même — ajustement de
- * terrain compris, puisqu'il s'applique identiquement aux trois. La
- * demi-largeur est ensuite élargie selon la confiance, sans jamais descendre
- * sous `FOURCHETTE.demiLargeurMinPct` — une médiane sur cinq à huit ventes ne
- * peut pas prétendre mieux, même quand ces ventes s'accordent parfaitement — ni
- * dépasser `FOURCHETTE.demiLargeurMaxPct`.
+ * POURQUOI PLUS LES QUANTILES. Les bornes venaient de la dispersion des
+ * comparables retenus, élargie selon la confiance. Le banc de test a montré ce
+ * qu'elle valait : 38 % des prix réels tombaient dedans, pour une demi-largeur
+ * médiane de 11 %. La dispersion de cinq à huit ventes voisines mesure
+ * l'accord de ces ventes entre elles — pas l'erreur du moteur sur le bien
+ * qu'on lui soumet. Rien n'obligeait ces deux grandeurs à coïncider, et elles
+ * ne coïncidaient pas : une fourchette étroite sortait aussi bien d'un
+ * voisinage homogène que d'un échantillon trop maigre pour être en désaccord.
+ *
+ * La bande fixe ne prétend plus rien lire du voisinage. Elle annonce l'ordre de
+ * grandeur de l'erreur mesurée, et l'annonce pareil pour tous les biens servis
+ * par le même chemin de calcul — ce que le niveau de confiance disait déjà, et
+ * qu'il dit maintenant seul.
+ *
+ * Ni plancher ni plafond ici : les trois valeurs sont déjà choisies, et le
+ * plafond de 20 % mordrait sur le ±25 % de la confiance faible.
  */
-function fourchetteDepuisQuantiles({ prix, quantiles, versEuros, confiance }) {
-  const facteur = FOURCHETTE.elargissement[confiance] ?? 1
-
-  const basBrut = quantiles?.q25 != null ? versEuros(quantiles.q25) : null
-  const hautBrut = quantiles?.q75 != null ? versEuros(quantiles.q75) : null
-
-  const demiBas = demiLargeur(prix, basBrut != null ? (prix - basBrut) * facteur : 0)
-  const demiHaut = demiLargeur(prix, hautBrut != null ? (hautBrut - prix) * facteur : 0)
+function fourchetteDeConfiance(prix, confiance) {
+  const demiLargeurPct = FOURCHETTE.parConfiance[confiance] ?? FOURCHETTE.parConfiance.faible
 
   return {
-    low: arrondiBorne(Math.max(prix - demiBas, PRICE_RANGE[0])),
-    high: arrondiBorne(Math.min(prix + demiHaut, PRICE_RANGE[1])),
+    low: arrondiBorne(Math.max(prix * (1 - demiLargeurPct), PRICE_RANGE[0])),
+    high: arrondiBorne(Math.min(prix * (1 + demiLargeurPct), PRICE_RANGE[1])),
+    demiLargeurPct,
   }
 }
 
 /**
  * Fourchette symétrique en pourcentage — pour Monaco et les prix de référence.
  *
- * Passe par le même plafond : Monaco est aujourd'hui pile à 20 %, la borne ne
- * mord donc pas, mais elle interdit qu'une révision du barème monégasque
- * s'affiche un jour en fourchette de ±40 %.
+ * Passe par le plancher et le plafond : Monaco est aujourd'hui pile à 20 %, la
+ * borne ne mord donc pas, mais elle interdit qu'une révision du barème
+ * monégasque s'affiche un jour en fourchette de ±40 %.
  */
 export function fourchetteSymetrique(prix, pct) {
   const demi = demiLargeur(prix, prix * pct)
@@ -472,9 +483,9 @@ function selectionneMarche(actualisees, cible, maintenant) {
     candidats: resultat.journal,
     repli: null,
     prixM2: median(prix),
-    // Dispersion interquartile du département entier, sans pondération : elle
-    // est de toute façon plafonnée à ±20 % du prix à l'affichage (voir
-    // `FOURCHETTE.demiLargeurMaxPct`).
+    // Dispersion interquartile du département entier, sans pondération. Elle
+    // ne sert plus qu'au journal — la fourchette affichée est une bande fixe,
+    // ici celle de la confiance faible.
     quantiles: { q25: quantile(prix, 0.25), q75: quantile(prix, 0.75) },
     comparables: [],
     terrainReference: null,
@@ -494,6 +505,10 @@ function selectionneMarche(actualisees, cible, maintenant) {
  * fait lui-même le tri (`comparableKinds`), et c'est important qu'il le fasse
  * lui-même, sans quoi le banc de test et la production pourraient ne pas filtrer
  * de la même façon.
+ *
+ * Une vente peut porter `surfaceTerrainCadastre`, la contenance de sa parcelle,
+ * qui sert de terrain quand DVF n'en renseigne pas. Rien ne le remplit en
+ * production ; voir plus bas.
  *
  * `maintenant` — la date de référence, en millisecondes. Par défaut l'instant
  * présent : la production ne passe rien et ne change donc pas d'un euro.
@@ -529,7 +544,21 @@ export function estime({ bien, ventes, maintenant = Date.now() }) {
     semestreCible: semestreDe(new Date(maintenant).toISOString()),
   })
 
-  const actualisees = duType.map((v) => actualise(v, indice))
+  // Terrain complété — `surfaceTerrainCadastre` porte la contenance cadastrale
+  // de la parcelle de la vente, pour les mutations dont DVF laisse
+  // `surface_terrain` vide — « non renseigné » n'y veut pas dire « pas de
+  // terrain ». Le banc en relève 8 % des maisons sur ses dix départements, mais
+  // 26 % dans les Alpes-Maritimes et 30 % à Paris. Le champ vaut terrain connu une fois
+  // posé, et rien d'autre ne change : filtre de similarité, poids, terrain de
+  // référence et régression de terrain le lisent comme ils lisent le terrain
+  // DVF. **Personne ne l'alimente en production** — seul le banc de test le
+  // remplit, pour mesurer ce que ce complément vaudrait avant de le brancher.
+  const actualisees = duType.map((v) => {
+    const actualisee = actualise(v, indice)
+    return actualisee.surfaceTerrain > 0 || !(v.surfaceTerrainCadastre > 0)
+      ? actualisee
+      : { ...actualisee, surfaceTerrain: v.surfaceTerrainCadastre }
+  })
 
   // Le terrain de la cible est la contenance cadastrale. Inconnue, elle n'est
   // pas éliminatoire — le filtre de similarité l'ignore et le poids pénalise
@@ -589,17 +618,8 @@ export function estime({ bien, ventes, maintenant = Date.now() }) {
 
   const prix = clampPrice(round(partBati + ajustement.montant))
 
-  // La fourchette suit la même formule que le prix : quantiles pondérés en
-  // €/m², passés par le même produit et le même ajustement.
-  const versEuros = (prixM2) =>
-    prixM2 * surfaceM2 * (type === 'appartement' ? coefficient : 1) + ajustement.montant
-
-  const { low, high } = fourchetteDepuisQuantiles({
-    prix,
-    quantiles: marche.quantiles,
-    versEuros,
-    confiance: marche.confiance,
-  })
+  // La fourchette ne dépend plus que du prix et de la confiance.
+  const { low, high, demiLargeurPct } = fourchetteDeConfiance(prix, marche.confiance)
 
   // --- Décomposition lisible bâti / terrain. Purement indicative : elle ne
   // participe pas au calcul, elle l'explique. La valeur foncière du bien est
@@ -662,11 +682,13 @@ export function estime({ bien, ventes, maintenant = Date.now() }) {
     fourchette: {
       low,
       high,
+      demiLargeurPct,
+      // Dispersion des comparables retenus. Elle ne décide plus des bornes,
+      // mais elle reste au journal : elle dit si les ventes voisines
+      // s'accordaient, ce que la fourchette affichée, désormais fixe, ne dit
+      // plus.
       q25PrixM2: marche.quantiles.q25 != null ? Math.round(marche.quantiles.q25) : null,
       q75PrixM2: marche.quantiles.q75 != null ? Math.round(marche.quantiles.q75) : null,
-      elargissement: FOURCHETTE.elargissement[marche.confiance] ?? 1,
-      demiLargeurMinPct: FOURCHETTE.demiLargeurMinPct,
-      demiLargeurMaxPct: FOURCHETTE.demiLargeurMaxPct,
     },
   }
 }

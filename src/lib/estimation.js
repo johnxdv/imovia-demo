@@ -98,10 +98,11 @@ async function tentative(payload, timeoutMs) {
       resultat: {
         status: 'ok',
         price,
-        // La fourchette est désormais calculée par le serveur, sur la
-        // dispersion réelle des ventes comparables — le front n'a plus de
-        // pourcentage à appliquer, et n'aurait de toute façon pas de quoi le
-        // faire (voir `FOURCHETTE` dans `api/_lib/estimationConfig.js`).
+        // La fourchette est calculée par le serveur : une bande fixe autour
+        // du prix, large de ±15, ±20 ou ±25 % selon le niveau de confiance de
+        // l'échantillon (voir `FOURCHETTE` dans
+        // `api/_lib/estimationConfig.js`). Le front n'a plus de pourcentage à
+        // appliquer, et n'aurait pas de quoi choisir le bon.
         low: Number.isFinite(Number(data.low)) ? Number(data.low) : null,
         high: Number.isFinite(Number(data.high)) ? Number(data.high) : null,
         confiance: typeof data.confiance === 'string' ? data.confiance : null,
