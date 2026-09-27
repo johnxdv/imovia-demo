@@ -2,126 +2,69 @@ import * as THREE from 'three'
 import * as M from './matieres'
 import {
   arbre,
-  baieVitree,
   boite,
   buisson,
-  encadrement,
+  fenetreFrancaise,
   fut,
+  gardeCorpsFer,
   gardeCorpsVerre,
-  gouttiere,
-  graminee,
-  jacuzzi,
+  lucarne,
   pergola as creerPergola,
   poser,
   revelable,
-  scintillant,
-  transat,
-  voilant,
+  souche,
 } from './kit'
 
 /**
- * L'IMMEUBLE — toujours le même, et il a changé d'époque.
+ * L'IMMEUBLE — toujours le même.
  *
- * C'ÉTAIT UN HAUSSMANNIEN. Pierre de taille, sept étages, balcon filant, comble
- * mansardé de zinc, et deux immeubles mitoyens pour le poser dans une rue. Il
- * était juste, et il posait trois problèmes qui n'en font qu'un : il était
- * ÉNORME — dix-sept unités de haut, soit quatre fois la maison —, il était pris
- * dans un alignement qui occupait la moitié du cadre, et rien dans un décor de
- * pierre du XIXᵉ ne ressemble à ce que la plupart des gens vendent aujourd'hui.
+ * Un appartement, c'est cet immeuble-là : un haussmannien de pierre de taille,
+ * haut, d'angle, tel qu'on en voit boulevard Voltaire. Il ne change ni avec la
+ * surface ni avec l'étage déclarés — de l'étage, il ne montre que SES FENÊTRES
+ * QUI S'ALLUMENT (voir `designerEtage`), et c'est tout ce qu'un immeuble peut
+ * honnêtement dire d'un logement qu'on ne voit pas de la rue.
  *
- * C'EST MAINTENANT UN IMMEUBLE CONTEMPORAIN DE SIX NIVEAUX, seul sur son îlot.
- * Sa composition est celle des programmes neufs qu'on construit partout en
- * France, et elle tient en quatre gestes :
+ * LA COMPOSITION, du bas vers le haut, est celle de la façade parisienne :
  *
- *   • LES DALLES DE BÉTON BLANC EN DÉBORD. C'est le geste principal, et tout
- *     le reste s'y accroche : à chaque plancher, un plateau qui déborde de
- *     toute part et court d'un bout à l'autre du bâtiment. Ce sont ces lignes
- *     horizontales, et l'ombre franche qu'elles portent, qui donnent sa force
- *     à la façade — un immeuble contemporain se reconnaît à ses dalles avant
- *     de se reconnaître à ses fenêtres.
- *   • LE BARDAGE BOIS VERTICAL en contrepoint. Une travée entière, toute
- *     hauteur, et les fonds de balcon : le bois est là pour casser l'horizontale
- *     du béton, et il ne vaut que parce qu'il en est l'exception.
- *   • LES BALCONS DÉCALÉS D'UN ÉTAGE À L'AUTRE, garde-corps de verre. Le
- *     décalage n'est pas un caprice de composition : il donne à la façade sa
- *     profondeur en damier, et c'est ce qui l'empêche d'être une grille.
- *   • LES LARGES BAIES VITRÉES, toute hauteur entre deux dalles, et le TOIT
- *     PLAT qui achève le volume sans le coiffer.
+ *   • un SOCLE de pierre à bossage sur deux niveaux, percé de baies cintrées
+ *     et de la porte cochère, sous sa marquise de laiton ;
+ *   • l'ÉTAGE NOBLE, le premier au-dessus du socle : fenêtres plus hautes,
+ *     balcon filant de fer forgé sur toute la façade ;
+ *   • les ÉTAGES COURANTS, chacun un peu moins haut que le précédent, à
+ *     balconnets individuels ;
+ *   • un SECOND BALCON FILANT à l'avant-dernier niveau — la règle
+ *     haussmannienne, et ce qui rythme une façade de sept étages ;
+ *   • la CORNICHE à modillons, puis l'ATTIQUE en retrait et sa terrasse
+ *     plantée ;
+ *   • le COMBLE MANSARDÉ de zinc, ses lucarnes et ses souches de cheminée.
  *
- * IL NE CHANGE NI AVEC LA SURFACE NI AVEC L'ÉTAGE DÉCLARÉS — de l'étage, il ne
- * montre que SES FENÊTRES QUI S'ALLUMENT (voir `designerEtage`), et c'est tout
- * ce qu'un immeuble peut honnêtement dire d'un logement qu'on ne voit pas de la
- * rue.
- *
- * IL EST SEUL. Les deux mitoyens sont partis avec la rue qu'ils bordaient : le
- * bien qu'on estime est le sujet, et deux volumes de pierre de part et d'autre
- * le réduisaient au tiers du cadre pour ne rien dire de lui. Ce qui les
- * remplace est le parvis planté d'un programme neuf — allée, pelouse, sujets —,
- * c'est-à-dire précisément ce qu'on voit en arrivant devant ce genre
- * d'immeuble.
+ * Il porte aussi les REPÈRES des plans de caméra : où est la porte cochère, à
+ * quelle hauteur se trouve chaque étage, où est le faîtage.
  */
 
-/* -------------------------------------------------------------------------- */
-/*  Gabarit                                                                   */
-/* -------------------------------------------------------------------------- */
-
-/**
- * LE GABARIT A ÉTÉ DIVISÉ PAR DEUX EN HAUTEUR.
- *
- * L'ancien montait à dix-sept unités et demie : à côté d'une maison qui en fait
- * quatre, ce n'était plus un immeuble, c'était une tour, et le cadrage — qui se
- * calcule sur l'envergure de l'ouvrage (voir `cadrer` dans `DroneScene`) —
- * devait reculer si loin que le bien ne faisait plus qu'un tiers de l'image.
- *
- * Six niveaux et neuf unités : c'est la hauteur d'un R+5, c'est-à-dire de
- * l'immense majorité des immeubles d'habitation français hors hypercentres. Le
- * bien tient dans le cadre à une distance où l'on voit encore ses balcons.
- */
-export const LARGEUR = 7.2
-export const PROFONDEUR = 5.4
-/** Hauteur du rez-de-chaussée — plus haut que les étages, il porte le hall. */
-export const HAUTEUR_SOCLE = 1.85
-export const HAUTEUR_ETAGE = 1.5
-/** Étages au-dessus du rez-de-chaussée : R+5, soit six niveaux habitables. */
-export const ETAGES = 5
-/** Travées de la façade. Quatre : une porte, une de bois, deux de baies. */
-const TRAVEES = 4
-/** Débord des dalles devant la façade — la profondeur utile d'un balcon. */
-const DEBORD = 1.05
-/** Épaisseur apparente d'une dalle de plancher. */
-const EPAISSEUR_DALLE = 0.17
+/** Gabarit de l'immeuble, en unités de scène. Fixe, à dessein. */
+export const LARGEUR = 8.8
+export const PROFONDEUR = 7.6
+export const HAUTEUR_SOCLE = 2.55
+export const HAUTEUR_ETAGE = 1.66
+export const ETAGES = 7
+/** Nombre de travées de la façade. */
+const TRAVEES = 5
 
 /** Hauteur du plancher d'un étage donné (0 = rez-de-chaussée). */
 export const hauteurEtage = (etage) =>
-  etage <= 0 ? 0.14 : HAUTEUR_SOCLE + (Math.min(etage, ETAGES) - 1) * HAUTEUR_ETAGE
-
-/** Hauteur libre d'un niveau donné. */
-const hauteurNiveau = (etage) => (etage <= 0 ? HAUTEUR_SOCLE : HAUTEUR_ETAGE)
+  etage <= 0 ? 0.3 : HAUTEUR_SOCLE + (Math.min(etage, ETAGES) - 1) * HAUTEUR_ETAGE
 
 /** Abscisse du centre d'une travée. */
 export const travee = (index) => -LARGEUR / 2 + ((index + 0.5) * LARGEUR) / TRAVEES
 
 /** Travée sur laquelle le logement du vendeur est aligné — celle où son balcon
-    se pose à l'affinage, et celle de son rez-de-jardin. */
-export const TRAVEE_LOGEMENT = 2
+    se pose à l'affinage. */
+export const TRAVEE_LOGEMENT = 3
 
-/** Travée du hall d'entrée — jamais au milieu : une façade est rythmée. */
-export const TRAVEE_PORTE = 0
-
-/** Travée entièrement bardée de bois, toute hauteur : le contrepoint vertical. */
-const TRAVEE_BOIS = 1
-
-/**
- * DE QUEL CÔTÉ SE TIENT LE BALCON D'UN ÉTAGE DONNÉ.
- *
- * C'est toute la règle du décalage, et elle tient en une ligne : un étage sur
- * deux à gauche, l'autre à droite. Ce qu'on y gagne n'est pas décoratif — la
- * façade cesse d'être une grille régulière, et l'ombre des dalles y prend une
- * respiration en damier qu'aucun alignement ne donnerait.
- */
-const coteBalcon = (etage) => (etage % 2 === 1 ? -1 : 1)
-
-/* -------------------------------------------------------------------------- */
+/** Travée de la porte cochère — jamais au milieu : une façade parisienne est
+    rythmée, pas symétrique autour de son entrée. */
+export const TRAVEE_PORTE = 1
 
 export function creerImmeuble() {
   const groupe = new THREE.Group()
@@ -129,781 +72,569 @@ export function creerImmeuble() {
   groupe.add(montant)
 
   const zFacade = PROFONDEUR / 2
+
+  /* --- Le corps de pierre ------------------------------------------------- */
+
   const hauteurCorps = HAUTEUR_SOCLE + ETAGES * HAUTEUR_ETAGE
+
+  const socle = poser(montant, boite(LARGEUR + 0.16, HAUTEUR_SOCLE, PROFONDEUR + 0.16, M.pierreSocle()))
+  socle.position.y = HAUTEUR_SOCLE / 2
+
+  const corps = poser(
+    montant,
+    boite(LARGEUR, hauteurCorps - HAUTEUR_SOCLE, PROFONDEUR, M.pierreTaille()),
+  )
+  corps.position.y = HAUTEUR_SOCLE + (hauteurCorps - HAUTEUR_SOCLE) / 2
+
+  // Bandeau mouluré au droit de chaque plancher : c'est lui qui donne les
+  // assises horizontales d'une façade, et sans lui la pierre monte d'un trait.
+  for (let e = 1; e <= ETAGES; e += 1) {
+    const bandeau = poser(montant, boite(LARGEUR + 0.14, 0.11, PROFONDEUR + 0.14, M.pierreMoulure()))
+    bandeau.position.y = hauteurEtage(e) - 0.05
+  }
+
+  // Chaînages d'angle : les pilastres de pierre qui tiennent les angles.
+  ;[-1, 1].forEach((sx) => {
+    ;[-1, 1].forEach((sz) => {
+      const pilastre = poser(montant, boite(0.42, hauteurCorps - 0.2, 0.42, M.pierreMoulure()))
+      pilastre.position.set(
+        (sx * (LARGEUR + 0.1)) / 2,
+        (hauteurCorps - 0.2) / 2,
+        (sz * (PROFONDEUR + 0.1)) / 2,
+      )
+    })
+  })
+
+  /* --- Le socle : porte cochère, baies cintrées --------------------------- */
 
   /**
    * LES BAIES, RANGÉES PAR ÉTAGE.
    *
    * C'est ce qui permet d'allumer UN niveau et lui seul quand le vendeur
-   * déclare le sien (voir `designerEtage`). On retient la vitre ET le fond
-   * d'embrasure de chaque baie : allumer la seule vitre poserait un reflet
+   * déclare le sien (voir `designerEtage`). On retient la vitre et le fond
+   * d'embrasure de chaque fenêtre : allumer la seule vitre poserait un reflet
    * ambré sur un trou noir, ce qui se lit comme un verre teinté, pas comme une
    * pièce éclairée.
    */
   const baiesParEtage = new Map()
-  const retenirBaie = (etage, ...matieres) => {
+  const retenirBaie = (etage, baie) => {
     const liste = baiesParEtage.get(etage) ?? []
-    matieres.filter(Boolean).forEach((matiere) => liste.push(matiere))
+    if (baie.userData.vitre) liste.push(baie.userData.vitre.material)
+    if (baie.userData.tableau) liste.push(baie.userData.tableau.material)
     baiesParEtage.set(etage, liste)
   }
 
-  /* --- Le noyau, et le refend vitré de circulation ------------------------- */
-
-  /**
-   * DEUX VOLUMES, PAS UN — et c'est ce qui donne à la façade son articulation.
-   *
-   * Le bâtiment était un seul bloc percé de fenêtres. Il en compte désormais
-   * deux, comme presque tous les programmes neufs :
-   *
-   *   LE CORPS DE LOGEMENTS, plein, à droite : c'est la masse habitée, et
-   *   c'est elle que les dalles en débord rythment.
-   *
-   *   LA CAGE DE CIRCULATION, à gauche, VITRÉE TOUTE HAUTEUR. C'est l'escalier
-   *   et l'ascenseur, et on les voit — un immeuble contemporain montre sa
-   *   circulation, c'est même souvent son seul geste. Elle ne porte pas de
-   *   balcon, ne porte pas de bardage, et sa transparence coupe la façade en
-   *   deux : sans elle, six niveaux de baies identiques font une grille.
-   *
-   * ELLE EST AUSSI LA RÉPONSE À L'ASCENSEUR DÉCLARÉ. On ne peut pas montrer une
-   * cabine qui monte à travers un mur plein ; on peut très bien la montrer
-   * derrière une paroi de verre, et c'est exactement là qu'elle se trouve dans
-   * la réalité. Le voile posé sur le reste du bâtiment (voir `voilerMasse`) ne
-   * fait alors qu'achever le travail.
-   */
-  const RETRAIT = 0.12
-  const largeurTravee = LARGEUR / TRAVEES
-  const xCage = travee(TRAVEE_PORTE)
-  /** Abscisse de la couture entre la cage et le corps de logements. */
-  const xCouture = -LARGEUR / 2 + largeurTravee
-
-  const largeurCorps = LARGEUR - largeurTravee
-  const noyau = poser(
-    montant,
-    boite(largeurCorps - RETRAIT, hauteurCorps, PROFONDEUR - RETRAIT * 2, M.betonLisse()),
-  )
-  noyau.position.set(xCouture + largeurCorps / 2, hauteurCorps / 2, 0)
-
-  // Les refends verticaux entre travées : ce qui reste du mur quand tout le
-  // reste est vitré, et ce qui fait tenir la façade debout.
-  const refends = new THREE.Group()
-  for (let i = 1; i <= TRAVEES; i += 1) {
-    const x = -LARGEUR / 2 + (i * LARGEUR) / TRAVEES
-    const refend = poser(refends, boite(0.26, hauteurCorps, 0.34, M.betonLisse()))
-    refend.position.set(x, hauteurCorps / 2, zFacade - 0.1)
-  }
-  montant.add(refends)
-
-  /**
-   * LA CAGE : trois joues pleines, une façade de verre.
-   *
-   * Les joues sont minces et pleines — un noyau de circulation est une boîte
-   * porteuse —, et seule la face avant est vitrée. C'est le seul endroit du
-   * bâtiment où l'on voit l'intérieur, et il faut que ce soit franc : un verre
-   * teinté n'y montrerait rien.
-   */
-  const cage = new THREE.Group()
-  const PROF_CAGE = PROFONDEUR - RETRAIT * 2
-
-  const joueGauche = poser(cage, boite(0.2, hauteurCorps, PROF_CAGE, M.betonLisse()))
-  joueGauche.position.set(-LARGEUR / 2 + 0.1, hauteurCorps / 2, 0)
-  const joueCouture = poser(cage, boite(0.2, hauteurCorps, PROF_CAGE, M.betonLisse()))
-  joueCouture.position.set(xCouture, hauteurCorps / 2, 0)
-  const dosCage = poser(cage, boite(largeurTravee, hauteurCorps, 0.2, M.betonLisse()))
-  dosCage.position.set(xCage, hauteurCorps / 2, -PROF_CAGE / 2)
-  montant.add(cage)
-
-  /**
-   * L'ESCALIER, vu derrière le verre. Un palier par niveau et sa volée : deux
-   * pièces par étage, et la cage cesse d'être une vitrine vide. C'est aussi ce
-   * qui reste à voir quand l'ascenseur n'est pas déclaré — un immeuble sans
-   * ascenseur a tout de même un escalier, et c'est même tout l'enjeu de la
-   * question qu'on pose au vendeur.
-   */
-  const escalier = new THREE.Group()
-  /** Ce qui, dans la profondeur de la cage, revient à l'escalier. Le devant
-      reste libre : c'est là que la cabine monte, et c'est là qu'on la voit. */
-  const zEscalier = -PROF_CAGE / 2 + 1.1
-
-  for (let e = 0; e <= ETAGES; e += 1) {
-    const y = hauteurEtage(e)
-    const palier = poser(escalier, boite(largeurTravee - 0.3, 0.1, 1.0, M.betonLisse()), {
-      ombre: false,
-    })
-    palier.position.set(xCage, y + 0.05, zEscalier - 0.55)
-
-    if (e < ETAGES) {
-      const h = hauteurNiveau(e === 0 ? 0 : e)
-      const volee = poser(escalier, boite(largeurTravee - 0.55, 0.09, 1.9, M.betonLisse()), {
-        ombre: false,
-      })
-      volee.position.set(xCage, y + h / 2, zEscalier + 0.55)
-      volee.rotation.x = -Math.atan2(h, 1.8)
-      // La main courante, côté vide : c'est elle qu'on lit à travers le verre,
-      // bien plus que la volée elle-même.
-      const rampe = poser(escalier, boite(0.04, 0.04, 1.9, M.aluNoir()), { ombre: false })
-      rampe.position.set(xCage + largeurTravee * 0.22, y + h / 2 + 0.46, zEscalier + 0.55)
-      rampe.rotation.x = volee.rotation.x
-    }
-  }
-  montant.add(escalier)
-
-  /* --- Les dalles en débord ------------------------------------------------ */
-
-  /**
-   * LE GESTE PRINCIPAL. Une dalle par plancher, et la dalle de couronnement au
-   * sommet : six plateaux blancs qui débordent et rythment la façade. Le débord
-   * n'est pas le même partout — il est FRANC devant le corps de logements, où
-   * il porte les balcons, et court ailleurs, où il ne fait qu'une ligne
-   * d'ombre.
-   *
-   * Elles courent d'un bout à l'autre du bâtiment, CAGE COMPRISE : ce sont
-   * elles qui tiennent les deux volumes ensemble, et une dalle qui s'arrêterait
-   * à la couture laisserait la cage se détacher comme une pièce rapportée.
-   */
-  const dalles = new THREE.Group()
-  for (let e = 1; e <= ETAGES + 1; e += 1) {
-    const y = e <= ETAGES ? hauteurEtage(e) : hauteurCorps
-
-    const plateau = poser(
-      dalles,
-      boite(LARGEUR + 0.5, EPAISSEUR_DALLE, PROFONDEUR + 0.5, M.betonLisse()),
-    )
-    plateau.position.y = y - EPAISSEUR_DALLE / 2
-
-    // LE DÉBORD DE FAÇADE, du côté du balcon de cet étage-là : c'est lui qui
-    // fait la saillie profonde, et son alternance gauche-droite qui donne le
-    // damier. Il ne déborde que devant le CORPS — la cage vitrée n'a pas de
-    // balcon, et lui en donner un reviendrait à mettre un fauteuil sur un
-    // palier.
-    const cote = coteBalcon(e)
-    const largeurSaillie = largeurCorps / 2 + 0.3
-    const xSaillie = xCouture + (cote < 0 ? largeurSaillie / 2 : largeurCorps - largeurSaillie / 2)
-
-    const saillie = poser(dalles, boite(largeurSaillie, EPAISSEUR_DALLE, DEBORD, M.betonLisse()))
-    saillie.position.set(xSaillie, y - EPAISSEUR_DALLE / 2, zFacade + 0.25 + DEBORD / 2)
-
-    // La sous-face de bois du balcon : c'est en levant les yeux depuis la rue
-    // qu'on voit le dessous d'une dalle, et un béton nu y est terne.
-    const sousFace = poser(
-      dalles,
-      boite(largeurSaillie - 0.1, 0.04, DEBORD - 0.06, M.boisBardage()),
-      { ombre: false },
-    )
-    sousFace.position.set(
-      xSaillie,
-      y - EPAISSEUR_DALLE - 0.02,
-      zFacade + 0.25 + DEBORD / 2,
-    )
-
-    dalles.userData[`balcon${e}`] = { x: xSaillie, largeur: largeurSaillie }
-  }
-  montant.add(dalles)
-
-  /* --- Les garde-corps de verre ------------------------------------------- */
-
-  /**
-   * LES BALCONS, et leur garde-corps de verre.
-   *
-   * Le verre est ce qui distingue un balcon contemporain d'un balcon de
-   * copropriété des années soixante-dix : il ne masque pas la vue qu'on est
-   * venu acheter, et il laisse la dalle blanche se lire d'un bout à l'autre. La
-   * main courante d'aluminium noir qui le coiffe est le seul trait sombre de la
-   * façade — et c'est ce trait qui dessine le damier à distance.
-   */
-  const balcons = new THREE.Group()
-  for (let e = 1; e <= ETAGES; e += 1) {
-    const y = hauteurEtage(e)
-    const { x: xSaillie, largeur: largeurSaillie } = dalles.userData[`balcon${e}`]
-
-    const rive = gardeCorpsVerre({ largeur: largeurSaillie, hauteur: 0.72 })
-    rive.position.set(xSaillie, y, zFacade + 0.25 + DEBORD)
-    balcons.add(rive)
-    ;[-1, 1].forEach((sens) => {
-      const joue = gardeCorpsVerre({ largeur: DEBORD, hauteur: 0.72 })
-      joue.rotation.y = Math.PI / 2
-      joue.position.set(xSaillie + (sens * largeurSaillie) / 2, y, zFacade + 0.25 + DEBORD / 2)
-      balcons.add(joue)
-    })
-  }
-  montant.add(balcons)
-
-  /* --- La façade : baies, bardage, fonds d'appartement -------------------- */
-
-  const menuiseries = new THREE.Group()
-  const bardage = new THREE.Group()
-  /**
-   * LES FONDS D'APPARTEMENT ONT LEUR PROPRE GROUPE, et c'est l'ascenseur qui
-   * l'exige. Ce sont des panneaux PLEINS posés derrière chaque vitrage : sans
-   * eux, une baie est un trou noir ; avec eux, et tant qu'ils restent opaques,
-   * on ne voit rien de l'intérieur du bâtiment. Ils se voilent donc avec le
-   * noyau (voir `voilerMasse`).
-   */
-  const fonds = new THREE.Group()
-
-  /** Pose un bardage de tasseaux verticaux sur un panneau donné. */
-  const poserBardage = (parent, { x, y, hauteur, largeur, z, rotation = 0 }) => {
-    const lames = Math.max(3, Math.round(largeur / 0.16))
-    for (let i = 0; i < lames; i += 1) {
-      const lame = poser(parent, boite(largeur / lames - 0.02, hauteur, 0.07, M.boisBardage()), {
-        ombre: false,
-      })
-      const dx = -largeur / 2 + ((i + 0.5) * largeur) / lames
-      lame.position.set(
-        x + Math.cos(rotation) * dx,
-        y + hauteur / 2,
-        z - Math.sin(rotation) * dx,
-      )
-      lame.rotation.y = rotation
-    }
-  }
-
-  for (let e = 0; e <= ETAGES; e += 1) {
-    const y = hauteurEtage(e)
-    const h = hauteurNiveau(e)
-
-    for (let i = 0; i < TRAVEES; i += 1) {
-      const x = travee(i)
-
-      /**
-       * LA TRAVÉE DE CIRCULATION : un mur-rideau de verre CLAIR, toute hauteur,
-       * sans fond derrière. C'est la seule baie du bâtiment qui ne cache rien —
-       * et c'est par elle qu'on voit monter la cabine.
-       */
-      if (i === TRAVEE_PORTE) {
-        if (e === 0) continue // le hall se construit plus bas, avec sa marquise
-        const verriere = baieVitree({
-          largeur: largeurTravee - 0.24,
-          hauteur: h - EPAISSEUR_DALLE - 0.06,
-          meneaux: 2,
-          traverse: true,
-          circulation: true,
-        })
-        verriere.position.set(x, y + 0.03, zFacade + 0.1)
-        menuiseries.add(verriere)
-        continue
-      }
-
-      // LA TRAVÉE DE BOIS : toute hauteur, d'un bout à l'autre du bâtiment.
-      // C'est elle, et elle seule, qui casse l'horizontale des dalles.
-      if (i === TRAVEE_BOIS) {
-        poserBardage(bardage, {
-          x,
-          y: y + 0.04,
-          hauteur: h - EPAISSEUR_DALLE - 0.04,
-          largeur: largeurTravee - 0.3,
-          z: zFacade + 0.08,
-        })
-        // Une fenêtre étroite s'y glisse tout de même : une travée entièrement
-        // aveugle sur six niveaux serait un pignon, pas une façade.
-        const jour = baieVitree({ largeur: 0.58, hauteur: h * 0.46, meneaux: 1 })
-        jour.position.set(x, y + h * 0.32, zFacade + 0.14)
-        menuiseries.add(jour)
-        const fondJour = poser(fonds, boite(0.54, h * 0.44, 0.05, M.platreOmbre()), {
-          ombre: false,
-        })
-        fondJour.material.color.setHex(0x2b2f36)
-        fondJour.position.set(x, y + h * 0.33, zFacade + 0.06)
-        retenirBaie(e, jour.userData.vitre?.material, fondJour.material)
-        continue
-      }
-
-      /**
-       * LA BAIE TOUTE HAUTEUR. C'est le percement du logement contemporain :
-       * du plancher au plafond, trois meneaux, allège vitrée. Elle descend
-       * jusqu'à huit centimètres de la dalle — pas jusqu'à zéro : un vitrage
-       * qui affleure un plancher n'existe pas, il y a toujours une plinthe de
-       * dormant.
-       */
-      const hauteurBaie = h - EPAISSEUR_DALLE - 0.16
-      const baie = baieVitree({
-        largeur: largeurTravee - 0.4,
-        hauteur: hauteurBaie,
-        meneaux: 3,
-        traverse: true,
-        sombre: true,
-      })
-      baie.position.set(x, y + 0.08, zFacade + 0.12)
-      menuiseries.add(baie)
-
-      /**
-       * LE FOND D'APPARTEMENT — la seule pièce qui n'existe que pour la
-       * lumière.
-       *
-       * Derrière chaque vitrage, un panneau mat, un peu en retrait. De jour, il
-       * donne au verre quelque chose à refléter et empêche la baie de se lire
-       * comme un trou noir. Le soir venu — et surtout à l'étage du vendeur —
-       * c'est LUI qui s'allume : une vitre seule qui s'éclaire rend un verre
-       * teinté, un fond éclairé rend une pièce habitée.
-       */
-      const fond = poser(
-        fonds,
-        boite(largeurTravee - 0.44, hauteurBaie - 0.06, 0.06, M.platreOmbre()),
-        { ombre: false },
-      )
-      fond.position.set(x, y + 0.08 + hauteurBaie / 2, zFacade - 0.02)
-      fond.material.color.setHex(0x2b2f36)
-
-      // L'encadrement en plate-bande : cinq centimètres de saillie, et le
-      // percement cesse d'être un rectangle collé sur un mur plat.
-      const cadre = encadrement({
-        largeur: largeurTravee - 0.4,
-        hauteur: hauteurBaie,
-        epaisseur: 0.07,
-        saillie: 0.05,
-        matiere: M.betonLisse(),
-      })
-      cadre.position.set(x, y + 0.08, zFacade + 0.12)
-      menuiseries.add(cadre)
-
-      retenirBaie(e, baie.userData.vitre?.material, fond.material)
-    }
-
-    /* --- Les pignons : des percements plus modestes ----------------------- */
-
-    ;[-1, 1].forEach((cote) => {
-      // La cage vitrée occupe tout le pignon gauche : on n'y perce rien.
-      if (cote < 0) return
-      for (let i = 0; i < 2; i += 1) {
-        const fenetre = baieVitree({ largeur: 0.82, hauteur: h * 0.52, meneaux: 2 })
-        fenetre.rotation.y = cote * (Math.PI / 2)
-        fenetre.position.set(
-          cote * (LARGEUR / 2 - RETRAIT + 0.02),
-          y + h * 0.26,
-          (i === 0 ? -1 : 1) * PROFONDEUR * 0.22,
-        )
-        menuiseries.add(fenetre)
-        retenirBaie(e, fenetre.userData.vitre?.material)
-      }
-      // Bardage bois en allège de pignon : le contrepoint se retourne sur le
-      // côté, sinon il se lit comme un décor de façade collé devant.
-      poserBardage(bardage, {
-        x: cote * (LARGEUR / 2 - RETRAIT + 0.01),
-        y: y + 0.04,
-        hauteur: h - EPAISSEUR_DALLE - 0.06,
-        largeur: PROFONDEUR * 0.3,
-        z: PROFONDEUR * 0.3,
-        rotation: cote * (Math.PI / 2),
-      })
-    })
-  }
-
-  montant.add(menuiseries)
-  montant.add(fonds)
-  montant.add(bardage)
-
-  /* --- L'entrée ------------------------------------------------------------ */
-
-  /**
-   * LE HALL, au pied de la cage vitrée — là où il est toujours. Une double
-   * porte de verre en retrait, sa marquise de béton en porte-à-faux, son
-   * perron. Un immeuble contemporain se reconnaît d'abord à son entrée : c'est
-   * la seule partie de la façade qu'on aborde à hauteur d'homme.
-   */
   const entree = new THREE.Group()
-  const xPorte = xCage
+  const xPorte = travee(TRAVEE_PORTE)
 
-  const retraitHall = 0.45
-  const hall = poser(
-    entree,
-    boite(largeurTravee - 0.3, HAUTEUR_SOCLE - 0.3, 0.1, M.murVitre()),
-    { ombre: false },
-  )
-  hall.position.set(xPorte, (HAUTEUR_SOCLE - 0.3) / 2, zFacade - retraitHall)
+  // Encadrement de pierre de la porte cochère, sa clé et son linteau.
+  const encadrement = poser(entree, boite(2.15, 2.35, 0.24, M.pierreMoulure()))
+  encadrement.position.set(xPorte, 1.18, zFacade + 0.04)
+  const embrasure = poser(entree, boite(1.72, 2.1, 0.3, M.platreOmbre()), { ombre: false })
+  embrasure.position.set(xPorte, 1.05, zFacade + 0.02)
 
-  // Les deux vantaux, leurs montants d'aluminium et la barre de tirage.
+  const cle = poser(entree, boite(0.24, 0.34, 0.28, M.pierreMoulure()))
+  cle.position.set(xPorte, 2.28, zFacade + 0.08)
+
+  // Les deux vantaux de bois verni, et leurs heurtoirs de laiton. Ils restent
+  // clos : la visite intérieure qui les ouvrait a été retirée du parcours (voir
+  // `DroneScene`), et une porte cochère fermée est de toute façon l'état dans
+  // lequel on en croise neuf sur dix.
   ;[-1, 1].forEach((cote) => {
-    const montantPorte = poser(entree, boite(0.07, 1.28, 0.1, M.aluNoir()), { ombre: false })
-    montantPorte.position.set(xPorte + cote * 0.52, 0.64, zFacade - retraitHall + 0.08)
+    const pivot = new THREE.Group()
+    const vantail = poser(pivot, boite(0.8, 2.0, 0.1, M.boisVerni()))
+    vantail.position.set((cote * 0.8) / 2, 1.0, 0)
+    // Panneaux moulurés : deux caissons par vantail.
+    ;[0.6, 1.42].forEach((y) => {
+      const caisson = poser(pivot, boite(0.56, 0.58, 0.04, M.pierreMoulure()), { ombre: false })
+      caisson.position.set((cote * 0.8) / 2, y, 0.06)
+      caisson.material.color.setHex(0x7a4a28)
+    })
+    const heurtoir = poser(pivot, fut(0.07, 0.05, M.laiton(), 10), { ombre: false })
+    heurtoir.rotation.x = Math.PI / 2
+    heurtoir.position.set((cote * 0.8) / 2, 1.2, 0.1)
+
+    pivot.position.set(xPorte + cote * 0.8, 0, zFacade + 0.05)
+    entree.add(pivot)
   })
-  const traverse = poser(entree, boite(1.15, 0.07, 0.1, M.aluNoir()), { ombre: false })
-  traverse.position.set(xPorte, 1.28, zFacade - retraitHall + 0.08)
-  const barre = poser(entree, fut(0.028, 0.72, M.laiton(), 8), { ombre: false })
-  barre.position.set(xPorte + 0.1, 0.7, zFacade - retraitHall + 0.14)
 
-  // La marquise : une dalle mince en porte-à-faux, sans poteau. C'est le
-  // détail qui dit « architecte » plutôt que « promoteur ».
-  const marquise = poser(entree, boite(2.5, 0.12, 1.35, M.betonLisse()))
-  marquise.position.set(xPorte, 1.72, zFacade + 0.24)
-  const soffiteMarquise = poser(entree, boite(2.3, 0.04, 1.2, M.boisBardage()), { ombre: false })
-  soffiteMarquise.position.set(xPorte, 1.64, zFacade + 0.24)
+  // Marquise de verre et laiton au-dessus de la porte.
+  const marquise = poser(entree, boite(2.7, 0.09, 0.85, M.laiton()))
+  marquise.position.set(xPorte, 2.5, zFacade + 0.42)
+  const verriere = poser(entree, boite(2.5, 0.04, 0.72, M.vitrage()), { ombre: false })
+  verriere.position.set(xPorte, 2.56, zFacade + 0.42)
+  ;[-1, 1].forEach((cote) => {
+    const tirant = poser(entree, boite(0.04, 0.62, 0.04, M.laiton()), { ombre: false })
+    tirant.rotation.x = -0.6
+    tirant.position.set(xPorte + cote * 1.15, 2.76, zFacade + 0.24)
+  })
 
-  // Le perron : deux marches et son seuil de béton lissé.
+  // Seuil et deux marches de pierre.
   ;[0, 1].forEach((i) => {
-    const marche = poser(entree, boite(2.4 - i * 0.25, 0.09, 0.45 + i * 0.3, M.betonLisse()), {
+    const marche = poser(entree, boite(2.6 - i * 0.3, 0.1, 0.5 + i * 0.22, M.pierreMoulure()), {
       ombre: false,
     })
-    marche.position.set(xPorte, 0.045 + (1 - i) * 0.09, zFacade - retraitHall + 0.5 + i * 0.35)
+    marche.position.set(xPorte, 0.05 + (1 - i) * 0.1, zFacade + 0.24 + i * 0.22)
   })
 
-  // Deux appliques encastrées de part et d'autre du hall.
+  // Plaque de rue émaillée, et les deux lanternes de part et d'autre.
   ;[-1, 1].forEach((cote) => {
-    const applique = poser(entree, boite(0.06, 0.5, 0.12, M.laiton()), { ombre: false })
-    applique.position.set(xPorte + cote * 0.85, 1.15, zFacade - 0.06)
+    const lanterne = poser(entree, boite(0.16, 0.3, 0.16, M.ferForge()))
+    lanterne.position.set(xPorte + cote * 1.45, 2.0, zFacade + 0.14)
   })
   montant.add(entree)
 
-  /* --- Le couronnement : toit plat, acrotère, édicule --------------------- */
+  // Baies cintrées du socle, sur les autres travées.
+  const baiesSocle = new THREE.Group()
+  for (let i = 0; i < TRAVEES; i += 1) {
+    if (i === TRAVEE_PORTE) continue
+    const baie = fenetreFrancaise({ largeur: 1.06, hauteur: 1.5, cintree: true })
+    baie.position.set(travee(i), 0.62, zFacade + 0.03)
+    baiesSocle.add(baie)
+    retenirBaie(0, baie)
+  }
+  montant.add(baiesSocle)
+
+  /* --- Les étages : fenêtres, volets, balcons ----------------------------- */
+
+  const menuiseries = new THREE.Group()
+  const volets = new THREE.Group()
+  const balcons = new THREE.Group()
+
+  /** Étages à balcon filant : l'étage noble, et l'avant-dernier. */
+  const filants = new Set([1, ETAGES - 1])
+
+  for (let e = 1; e <= ETAGES; e += 1) {
+    const y = hauteurEtage(e)
+    // L'étage noble est plus haut que les courants, et les derniers se
+    // resserrent : c'est la hiérarchie de la façade, et elle se voit.
+    const hauteurBaie = e === 1 ? 1.34 : e >= ETAGES - 1 ? 1.06 : 1.2
+
+    for (let i = 0; i < TRAVEES; i += 1) {
+      const x = travee(i)
+      const baie = fenetreFrancaise({ largeur: 0.86, hauteur: hauteurBaie })
+      baie.position.set(x, y + 0.18, zFacade + 0.03)
+      menuiseries.add(baie)
+      retenirBaie(e, baie)
+
+      // Persiennes repliées en tableau, de part et d'autre de chaque baie.
+      ;[-1, 1].forEach((cote) => {
+        const battant = poser(volets, boite(0.17, hauteurBaie - 0.06, 0.05, M.volet()), {
+          ombre: false,
+        })
+        battant.position.set(x + cote * 0.53, y + 0.18 + (hauteurBaie - 0.06) / 2, zFacade + 0.07)
+        // Les lames de la persienne.
+        for (let l = 0; l < 7; l += 1) {
+          const lame = poser(volets, boite(0.15, 0.02, 0.06, M.volet()), { ombre: false })
+          lame.material.color.setHex(0x7b8a7a)
+          lame.position.set(
+            x + cote * 0.53,
+            y + 0.24 + ((l + 0.5) * (hauteurBaie - 0.14)) / 7,
+            zFacade + 0.1,
+          )
+        }
+      })
+
+      // Balconnet individuel, sauf aux étages à balcon filant.
+      if (!filants.has(e)) {
+        const balconnet = gardeCorpsFer({ largeur: 1.06, hauteur: 0.52, barreaux: 7 })
+        balconnet.position.set(x, y + 0.14, zFacade + 0.2)
+        balcons.add(balconnet)
+      }
+    }
+
+    if (filants.has(e)) {
+      const dalle = poser(balcons, boite(LARGEUR + 0.5, 0.13, 0.62, M.pierreMoulure()))
+      dalle.position.set(0, y + 0.08, zFacade + 0.25)
+      const garde = gardeCorpsFer({ largeur: LARGEUR + 0.5, hauteur: 0.56 })
+      garde.position.set(0, y + 0.14, zFacade + 0.52)
+      balcons.add(garde)
+      // Consoles de pierre sous la dalle du balcon filant.
+      for (let i = 0; i < TRAVEES + 1; i += 1) {
+        const console_ = poser(balcons, boite(0.2, 0.3, 0.42, M.pierreMoulure()))
+        console_.position.set(-LARGEUR / 2 + (i * LARGEUR) / TRAVEES, y - 0.1, zFacade + 0.2)
+      }
+    }
+  }
+
+  // Fenêtres des pignons : moins nombreuses, sans balcon — c'est ainsi qu'on
+  // traite un retour de façade.
+  ;[-1, 1].forEach((cote) => {
+    for (let e = 1; e <= ETAGES; e += 1) {
+      for (let i = 0; i < 3; i += 1) {
+        const baie = fenetreFrancaise({ largeur: 0.8, hauteur: 1.1, appui: false })
+        baie.rotation.y = cote * (Math.PI / 2)
+        baie.position.set(
+          cote * (LARGEUR / 2 + 0.03),
+          hauteurEtage(e) + 0.2,
+          (i - 1) * (PROFONDEUR / 3.4),
+        )
+        menuiseries.add(baie)
+        retenirBaie(e, baie)
+      }
+    }
+  })
+
+  montant.add(menuiseries)
+  montant.add(volets)
+  montant.add(balcons)
+
+  /* --- Couronnement : corniche, attique, comble --------------------------- */
 
   const couronnement = new THREE.Group()
 
-  // L'acrotère — le relevé qui ceinture un toit plat. C'est lui qui donne la
-  // ligne franche du couronnement ; sans lui, la dernière dalle flotte.
+  const corniche = poser(couronnement, boite(LARGEUR + 0.9, 0.3, PROFONDEUR + 0.9, M.pierreMoulure()))
+  corniche.position.y = hauteurCorps + 0.15
+  const larmier = poser(couronnement, boite(LARGEUR + 0.6, 0.16, PROFONDEUR + 0.6, M.pierreMoulure()))
+  larmier.position.y = hauteurCorps - 0.06
+
+  // Modillons : les petites consoles alignées sous la corniche. C'est ce
+  // détail-là qu'on reconnaît d'une façade haussmannienne, même de loin.
+  const modillons = 22
+  for (let i = 0; i < modillons; i += 1) {
+    const bloc = poser(couronnement, boite(0.16, 0.22, 0.3, M.pierreMoulure()), { ombre: false })
+    bloc.position.set(
+      -LARGEUR / 2 + ((i + 0.5) * LARGEUR) / modillons,
+      hauteurCorps - 0.06,
+      PROFONDEUR / 2 + 0.22,
+    )
+  }
+
+  const retraitAttique = 0.95
+  const hauteurAttique = 1.35
+  const largeurAttique = LARGEUR - retraitAttique * 2
+  const profondeurAttique = PROFONDEUR - retraitAttique * 2
+
+  const attique = poser(
+    couronnement,
+    boite(largeurAttique, hauteurAttique, profondeurAttique, M.pierreTaille()),
+  )
+  attique.position.y = hauteurCorps + 0.3 + hauteurAttique / 2
+
+  for (let i = 0; i < 3; i += 1) {
+    const baie = fenetreFrancaise({ largeur: 0.8, hauteur: 0.92, appui: false })
+    baie.position.set(
+      (i - 1) * (largeurAttique / 3.2),
+      hauteurCorps + 0.4,
+      profondeurAttique / 2 + 0.03,
+    )
+    couronnement.add(baie)
+  }
+
+  // Terrasse plantée de l'attique : garde-corps et jardinières débordantes,
+  // comme sur les derniers étages parisiens.
+  const gardeAttique = gardeCorpsFer({ largeur: LARGEUR - 0.4, hauteur: 0.52 })
+  gardeAttique.position.set(0, hauteurCorps + 0.3, PROFONDEUR / 2 - 0.3)
+  couronnement.add(gardeAttique)
+  for (let i = 0; i < 7; i += 1) {
+    const jardiniere = poser(couronnement, boite(0.5, 0.22, 0.34, M.terreCuite()), { ombre: false })
+    jardiniere.position.set(
+      -LARGEUR / 2 + 0.6 + (i * (LARGEUR - 1.2)) / 6,
+      hauteurCorps + 0.42,
+      PROFONDEUR / 2 - 0.45,
+    )
+    const verdure = buisson(0.26)
+    verdure.position.set(jardiniere.position.x, hauteurCorps + 0.5, PROFONDEUR / 2 - 0.45)
+    couronnement.add(verdure)
+  }
+
+  /**
+   * LE COMBLE MANSARDÉ, dans son propre groupe — et c'est tout l'intérêt.
+   *
+   * Il est le seul ouvrage de l'immeuble qui puisse DISPARAÎTRE : le rooftop
+   * déclaré à l'affinage prend sa place (voir plus bas). Séparé du reste du
+   * couronnement, il se pilote en opacité sans emporter avec lui la corniche,
+   * l'attique ni les souches — qu'un rooftop ne fait pas disparaître, lui.
+   */
+  const comble = new THREE.Group()
+  const yComble = hauteurCorps + 0.3 + hauteurAttique
+  const hauteurComble = 1.55
+  const mansart = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.58, 1, hauteurComble, 4, 1),
+    M.zincToiture(),
+  )
+  mansart.rotation.y = Math.PI / 4
+  mansart.scale.set(largeurAttique / Math.SQRT2, 1, profondeurAttique / Math.SQRT2)
+  mansart.position.y = yComble + hauteurComble / 2
+  poser(comble, mansart)
+
+  const terrasson = poser(
+    comble,
+    boite(largeurAttique * 0.58, 0.1, profondeurAttique * 0.58, M.zincToiture()),
+  )
+  terrasson.position.y = yComble + hauteurComble
+
+  for (let i = 0; i < 3; i += 1) {
+    const oeil = lucarne({ largeur: 0.52, hauteur: 0.68 })
+    oeil.position.set(
+      (i - 1) * (largeurAttique / 3.4),
+      yComble + 0.12,
+      profondeurAttique * 0.34,
+    )
+    comble.add(oeil)
+  }
+  montant.add(comble)
+
   ;[-1, 1].forEach((cote) => {
-    const avant = poser(couronnement, boite(LARGEUR + 0.5, 0.42, 0.14, M.betonLisse()))
-    avant.position.set(0, hauteurCorps + 0.21, (cote * (PROFONDEUR + 0.5)) / 2 - cote * 0.07)
-    const lateral = poser(couronnement, boite(0.14, 0.42, PROFONDEUR + 0.5, M.betonLisse()))
-    lateral.position.set((cote * (LARGEUR + 0.5)) / 2 - cote * 0.07, hauteurCorps + 0.21, 0)
-    // La couvertine de zinc : le seul métal du couronnement, et la ligne
-    // brillante qui détache le bâtiment du ciel.
-    const couvertine = poser(couronnement, boite(LARGEUR + 0.62, 0.04, 0.2, M.zincToiture()), {
-      ombre: false,
-    })
-    couvertine.position.set(0, hauteurCorps + 0.44, (cote * (PROFONDEUR + 0.5)) / 2 - cote * 0.07)
-    const couvertineLaterale = poser(
-      couronnement,
-      boite(0.2, 0.04, PROFONDEUR + 0.62, M.zincToiture()),
-      { ombre: false },
+    const fumisterie = souche({ largeur: 0.62, hauteur: 0.95, poteries: 4 })
+    fumisterie.position.set(
+      cote * largeurAttique * 0.3,
+      yComble + hauteurComble - 0.05,
+      -profondeurAttique * 0.12,
     )
-    couvertineLaterale.position.set(
-      (cote * (LARGEUR + 0.5)) / 2 - cote * 0.07,
-      hauteurCorps + 0.44,
-      0,
-    )
+    couronnement.add(fumisterie)
   })
 
-  // Les descentes d'eau pluviale, aux deux angles de la façade.
-  ;[-1, 1].forEach((cote) => {
-    const descente = gouttiere({ longueur: 0.2, hauteur: hauteurCorps - 0.4, descente: true })
-    descente.position.set(
-      (cote * (LARGEUR + 0.2)) / 2,
-      hauteurCorps,
-      PROFONDEUR / 2 + 0.1,
-    )
-    couronnement.add(descente)
-  })
   montant.add(couronnement)
 
-  /**
-   * LE TOIT NU — ce que le rooftop remplace.
-   *
-   * Un toit plat qu'on n'aménage pas n'est pas une terrasse : c'est une étendue
-   * de gravillons, deux sorties de ventilation, un édicule d'escalier et le
-   * groupe de climatisation. Il est dans son propre groupe, et c'est tout
-   * l'intérêt : il s'efface exactement à la vitesse où le platelage du rooftop
-   * paraît, si bien qu'il n'y a jamais ni deux toits ni aucun.
-   */
-  const toitNu = new THREE.Group()
-  const yToit = hauteurCorps
+  const hauteurTotale = yComble + hauteurComble + 1.3
 
-  const gravillons = poser(toitNu, boite(LARGEUR - 0.2, 0.06, PROFONDEUR - 0.2, M.gravier()), {
-    ombre: false,
-  })
-  gravillons.position.y = yToit + 0.03
+  /* --- Abords : le trottoir, les arbres d'alignement ---------------------- */
 
-  const edicule = poser(toitNu, boite(1.5, 0.78, 1.5, M.betonLisse()))
-  edicule.position.set(travee(TRAVEE_PORTE), yToit + 0.39, -PROFONDEUR * 0.2)
-  const porteEdicule = poser(toitNu, boite(0.7, 0.62, 0.06, M.aluNoir()), { ombre: false })
-  porteEdicule.position.set(travee(TRAVEE_PORTE), yToit + 0.31, -PROFONDEUR * 0.2 + 0.78)
-
-  // Le groupe de climatisation et ses deux ventouses : la vérité d'un toit.
-  const clim = poser(toitNu, boite(1.1, 0.42, 0.7, M.zincToiture()))
-  clim.position.set(LARGEUR * 0.24, yToit + 0.27, -PROFONDEUR * 0.24)
-  ;[-1, 1].forEach((cote) => {
-    const ventouse = poser(toitNu, fut(0.14, 0.34, M.zincToiture(), 10), { ombre: false })
-    ventouse.position.set(LARGEUR * 0.24 + cote * 0.34, yToit + 0.63, -PROFONDEUR * 0.24)
-  })
-  montant.add(toitNu)
-
-  const hauteurTotale = yToit + 1.35
-
-  /* --- Les abords ---------------------------------------------------------- */
-
-  /**
-   * LE PARVIS. Ni rue, ni trottoir, ni mitoyens : un parvis planté, comme en
-   * ont les programmes neufs. L'allée mène à l'entrée, la pelouse ceinture le
-   * pied de l'immeuble, deux sujets encadrent la façade et une haie basse en
-   * marque la limite.
-   *
-   * C'EST CE QUI REMPLACE L'ALIGNEMENT HAUSSMANNIEN, et le remplacement était
-   * la condition pour que les mitoyens s'en aillent : un immeuble seul sur un
-   * disque de blanc n'est pas un bien, c'est une maquette. Il lui faut ce qu'il
-   * a devant lui — et un immeuble contemporain a un parvis, pas une chaussée.
-   */
   const abords = new THREE.Group()
   groupe.add(abords)
 
-  const PARVIS = 5.6
-  const zParvis = zFacade + PARVIS / 2
-
-  const pelouse = poser(abords, boite(LARGEUR + 5.4, 0.08, PARVIS + 1.6, M.gazon()), {
-    ombre: false,
-  })
-  pelouse.position.set(0, 0.04, zParvis - 0.4)
-
-  const allee = poser(abords, boite(2.4, 0.1, PARVIS, M.dallage()), { ombre: false })
-  allee.position.set(travee(TRAVEE_PORTE), 0.09, zParvis)
-
-  // La bande de dalles au pied de la façade : le pourtour technique de tout
-  // immeuble, et ce qui empêche la pelouse de mourir sur le nu du mur.
-  const pourtour = poser(abords, boite(LARGEUR + 1.6, 0.1, 1.1, M.dallage()), { ombre: false })
-  pourtour.position.set(0, 0.09, zFacade + 0.55)
+  // LA RUE A ÉTÉ RACCOURCIE DE SOIXANTE-QUATORZE UNITÉS À VINGT-QUATRE,
+  // ET LA CHAUSSÉE RAPPROCHÉE D'AUTANT.
+  //
+  // Elle filait bien au-delà du bien, et c'était juste tant que la scène avait
+  // un sol qui allait jusqu'à l'horizon : un trottoir qui s'arrête à l'aplomb
+  // de l'immeuble fait un décor de maquette, pas une adresse.
+  //
+  // Le bien se tient désormais sur un ÎLOT — un disque posé dans un vide blanc
+  // (voir `DroneScene`) —, et trente-sept unités de chaussée déborderaient très
+  // largement de son bord, en porte-à-faux dans le vide — et un îlot taillé pour
+  // les contenir serait si large qu'on n'en verrait plus le bord.
+  //
+  // Vingt-quatre unités de long, et une chaussée de six au lieu de neuf : de
+  // quoi voir l'alignement partir de part et d'autre et le bitume commencer, ce
+  // qui est tout ce qu'on demande à une rue. L'immeuble, ses mitoyens, son
+  // trottoir et leur implantation n'ont pas bougé d'un pouce.
+  const RUE = 24
+  const trottoir = poser(abords, boite(RUE, 0.12, 4.6, M.dallage()), { ombre: false })
+  trottoir.position.set(0, 0.06, zFacade + 2.3)
+  const bordure = poser(abords, boite(RUE, 0.2, 0.3, M.betonSombre()), { ombre: false })
+  bordure.position.set(0, 0.1, zFacade + 4.45)
+  const chaussee = poser(abords, boite(RUE, 0.06, 6, M.gravier()), { ombre: false })
+  chaussee.material.color.setHex(0x4a4a4e)
+  chaussee.position.set(0, 0.03, zFacade + 7.6)
+  // Bande axiale : deux traits suffisent à dire qu'on est sur une chaussée.
+  // La série suit la longueur de la rue — au-delà de trois intervalles, les
+  // traits sortiraient de la chaussée raccourcie.
+  for (let i = -2; i <= 2; i += 1) {
+    const trait = poser(abords, boite(2.2, 0.02, 0.14, M.platre()), { ombre: false })
+    trait.position.set(i * 4.6, 0.07, zFacade + 7.6)
+  }
 
   ;[-1, 1].forEach((cote) => {
-    const sujet = arbre(3.2, { variante: cote < 0 ? 0 : 1 })
-    sujet.position.set(cote * (LARGEUR / 2 + 1.7), 0.08, zFacade + 2.2)
+    const sujet = arbre(3.6)
+    sujet.position.set(cote * (LARGEUR / 2 + 1.6), 0.12, zFacade + 3.1)
     abords.add(sujet)
-
-    // Massifs et graminées au pied : c'est ce qui fait qu'un parvis est planté
-    // et non simplement engazonné.
-    ;[0.9, 2.0, 3.1].forEach((dz, i) => {
-      const massif = buisson(0.28 + (i % 2) * 0.1)
-      massif.position.set(cote * (LARGEUR / 2 + 0.75), 0.1, zFacade + dz)
-      abords.add(massif)
-    })
-    const touffe = graminee(0.62)
-    touffe.position.set(cote * (LARGEUR / 2 + 2.5), 0.1, zFacade + 3.6)
-    abords.add(touffe)
+    const grille = poser(abords, boite(1.1, 0.04, 1.1, M.ferForge()), { ombre: false })
+    grille.position.set(cote * (LARGEUR / 2 + 1.6), 0.14, zFacade + 3.1)
   })
 
-  // Haie basse en limite de parvis, et les deux bornes d'éclairage de l'allée.
-  for (let i = -4; i <= 4; i += 1) {
-    const arbuste = buisson(0.34)
-    arbuste.position.set(i * 1.15, 0.1, zFacade + PARVIS + 0.5)
-    abords.add(arbuste)
-  }
+  // LES MITOYENS. Un haussmannien ne se tient jamais seul au milieu d'un
+  // terrain : il est pris dans un alignement, mitoyen de ses voisins, et c'est
+  // cet alignement qui fait la rue. Deux volumes de pierre suffisent — plus
+  // bas, plus sourds, sans détail —, et l'immeuble cesse d'être une tour posée
+  // sur une plaine pour devenir un numéro dans une rue.
   ;[-1, 1].forEach((cote) => {
-    ;[1.6, 3.4].forEach((dz) => {
-      const borne = poser(abords, boite(0.1, 0.44, 0.1, M.aluNoir()))
-      borne.position.set(travee(TRAVEE_PORTE) + cote * 1.5, 0.3, zFacade + dz)
-    })
+    const hauteurVoisin = hauteurCorps * (cote < 0 ? 0.86 : 0.78)
+    const largeurVoisin = LARGEUR * (cote < 0 ? 0.92 : 1.05)
+    const voisin = poser(
+      abords,
+      boite(largeurVoisin, hauteurVoisin, PROFONDEUR * 0.92, M.pierreTaille()),
+    )
+    voisin.material.color.setHex(cote < 0 ? 0xe7dfcd : 0xdfd6c2)
+    voisin.position.set(
+      cote * (LARGEUR / 2 + largeurVoisin / 2),
+      hauteurVoisin / 2,
+      -0.15,
+    )
+
+    const toitVoisin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.62, 1, 1.25, 4, 1),
+      M.zincToiture(),
+    )
+    toitVoisin.rotation.y = Math.PI / 4
+    toitVoisin.scale.set(largeurVoisin / Math.SQRT2, 1, (PROFONDEUR * 0.92) / Math.SQRT2)
+    toitVoisin.position.set(voisin.position.x, hauteurVoisin + 0.62, -0.15)
+    poser(abords, toitVoisin)
+
+    // Des percements, pas des fenêtres : à cette distance, une trame de
+    // rectangles sombres suffit à dire « façade », et trois cents menuiseries
+    // de plus coûteraient cher pour rien.
+    const etagesVoisin = Math.floor((hauteurVoisin - HAUTEUR_SOCLE) / HAUTEUR_ETAGE)
+    for (let e = 0; e < etagesVoisin; e += 1) {
+      for (let i = 0; i < 4; i += 1) {
+        const percement = poser(abords, boite(0.5, 1.05, 0.06, M.platreOmbre()), { ombre: false })
+        percement.material.color.setHex(0x6d6a5e)
+        percement.position.set(
+          voisin.position.x + (i - 1.5) * (largeurVoisin / 4.3),
+          HAUTEUR_SOCLE + e * HAUTEUR_ETAGE + 0.75,
+          PROFONDEUR * 0.46 + 0.03,
+        )
+      }
+    }
   })
 
-  const rayonAbords = Math.hypot(LARGEUR / 2 + 2.7, zFacade + PARVIS + 1.2) + 1.2
+  /* --- Options d'affinage -------------------------------------------------- */
 
-  /* -------------------------------------------------------------------------- */
-  /*  Les options d'affinage                                                    */
-  /* -------------------------------------------------------------------------- */
-
-  /**
-   * LE BALCON DU VENDEUR — et pourquoi il s'ajoute à ceux que l'immeuble a déjà.
-   *
-   * L'immeuble porte un balcon par étage : ce sont des balcons de PROMOTEUR, la
-   * même dalle pour tout le monde, et ils font partie du bâtiment. Celui-ci est
-   * autre chose — c'est le SIEN, à SON étage, et il se reconnaît à ce qu'on y
-   * vit : un salon d'extérieur, des jardinières, un store. Il se pose en saillie
-   * devant sa travée, à la hauteur qu'il a déclarée.
-   *
-   * SA SURFACE SE RÈGLE AU CURSEUR (voir `EstimationAffinagePanel`) : la dalle
-   * s'allonge, le garde-corps suit, et le mobilier s'écarte plutôt que de
-   * grandir. Un balcon de 4 m² et une loggia de 25 ne se distinguent pas
-   * seulement par leur taille — on n'y met pas les mêmes choses.
-   */
+  // Le balcon de l'étage déclaré. Il n'existe qu'à l'affinage : pendant
+  // l'analyse, l'étage du vendeur ne porte rien de particulier — on ne lui
+  // montre pas un balcon qu'il n'a pas dit avoir.
   const balconEtage = new THREE.Group()
-  const BALCON_MIN = 1.9
-  const BALCON_MAX = 4.4
-  const BALCON_AVANCE_MIN = 1.0
-  const BALCON_AVANCE_MAX = 1.9
-
-  const dalleBalcon = poser(balconEtage, boite(1, 0.15, 1, M.betonLisse()))
-  const sousFaceBalcon = poser(balconEtage, boite(1, 0.04, 1, M.boisBardage()), { ombre: false })
-  const rivesBalcon = ['avant', 'gauche', 'droite'].map((cote) => {
-    const rive = gardeCorpsVerre({ largeur: 1, hauteur: 0.72 })
-    if (cote !== 'avant') rive.rotation.y = Math.PI / 2
-    balconEtage.add(rive)
-    return { cote, rive }
+  const dalleBalcon = poser(balconEtage, boite(2.5, 0.14, 1.35, M.pierreMoulure()))
+  dalleBalcon.position.set(0, 0.07, 0.6)
+  const gardeBalcon = gardeCorpsFer({ largeur: 2.5, hauteur: 0.6 })
+  gardeBalcon.position.set(0, 0.14, 1.25)
+  balconEtage.add(gardeBalcon)
+  ;[-1, 1].forEach((cote) => {
+    const joue = gardeCorpsFer({ largeur: 1.35, hauteur: 0.6 })
+    joue.rotation.y = Math.PI / 2
+    joue.position.set(cote * 1.25, 0.14, 0.6)
+    balconEtage.add(joue)
   })
-
-  const salonBalcon = new THREE.Group()
-  const canapeBalcon = poser(salonBalcon, boite(1.15, 0.34, 0.55, M.tissuClair()))
-  canapeBalcon.position.y = 0.17
-  const dossierBalcon = poser(salonBalcon, boite(1.15, 0.3, 0.12, M.tissuBleu()), { ombre: false })
-  dossierBalcon.position.set(0, 0.36, -0.22)
-  const tableBalcon = poser(salonBalcon, boite(0.55, 0.05, 0.42, M.boisClair()), { ombre: false })
-  tableBalcon.position.set(0, 0.28, 0.5)
-  balconEtage.add(salonBalcon)
-
-  const jardinieresBalcon = [-1, 1].map((cote) => {
-    const bac = new THREE.Group()
-    const caisse = poser(bac, boite(0.7, 0.3, 0.3, M.boisBardage()))
-    caisse.position.y = 0.15
-    const verdure = buisson(0.24)
-    verdure.position.y = 0.3
-    bac.add(verdure)
-    bac.userData.cote = cote
-    balconEtage.add(bac)
-    return bac
+  ;[-1, 1].forEach((cote) => {
+    const console_ = poser(balconEtage, boite(0.22, 0.38, 0.5, M.pierreMoulure()))
+    console_.position.set(cote * 0.9, -0.2, 0.35)
   })
-
-  /** Étend le balcon à la surface déclarée, et le meuble en conséquence. */
-  function etendreBalcon(t) {
-    const largeur = BALCON_MIN + (BALCON_MAX - BALCON_MIN) * t
-    const avance = BALCON_AVANCE_MIN + (BALCON_AVANCE_MAX - BALCON_AVANCE_MIN) * t
-
-    dalleBalcon.scale.set(largeur, 1, avance)
-    dalleBalcon.position.set(0, 0.075, avance / 2)
-    sousFaceBalcon.scale.set(largeur - 0.1, 1, avance - 0.06)
-    sousFaceBalcon.position.set(0, -0.005, avance / 2)
-
-    rivesBalcon.forEach(({ cote, rive }) => {
-      rive.scale.x = cote === 'avant' ? largeur : avance
-      rive.position.set(
-        cote === 'gauche' ? -largeur / 2 : cote === 'droite' ? largeur / 2 : 0,
-        0.15,
-        cote === 'avant' ? avance : avance / 2,
-      )
-    })
-
-    salonBalcon.position.set(-largeur * 0.16, 0.15, avance * 0.46)
-    jardinieresBalcon.forEach((bac) => {
-      bac.position.set(bac.userData.cote * (largeur / 2 - 0.45), 0.15, avance * 0.24)
-      // Les jardinières n'arrivent qu'à partir d'un balcon qui peut les
-      // porter : sur 4 m², elles prendraient la place du fauteuil.
-      bac.visible = t > 0.28
-    })
-  }
-  etendreBalcon(0.35)
+  // Le mobilier du balcon : deux fauteuils et un guéridon.
+  ;[-0.55, 0.55].forEach((x) => {
+    const fauteuil = poser(balconEtage, boite(0.38, 0.3, 0.38, M.tissuClair()))
+    fauteuil.position.set(x, 0.28, 0.55)
+  })
+  const gueridon = poser(balconEtage, boite(0.34, 0.06, 0.34, M.aluNoir()))
+  gueridon.position.set(0, 0.42, 0.95)
+  const oranger = buisson(0.3)
+  oranger.position.set(-1.0, 0.16, 1.0)
+  balconEtage.add(oranger)
   groupe.add(balconEtage)
 
   /* --- REZ-DE-JARDIN : le jardin privatif de plain-pied ------------------- */
 
   /**
    * Un appartement de rez-de-jardin, c'est un logement qui ouvre de plain-pied
-   * sur un bout de terrain à lui. Ici, ce bout de terrain se prend sur le
-   * parvis, derrière une haie : pelouse, terrasse contre la façade, salon de
-   * jardin. Il se pose au droit de la TRAVÉE DU LOGEMENT, la même que celle du
-   * balcon — c'est le même appartement qu'on décrit, il ne peut pas être à deux
-   * endroits de la façade.
+   * sur un bout de terrain à lui — et, en ville, ce bout de terrain se prend
+   * sur le trottoir, derrière une grille. C'est exactement ce qu'on dessine :
+   * une pelouse et sa terrasse au droit du logement, closes d'un garde-corps de
+   * fonte, avec le mobilier qu'on y met.
    *
-   * SA SURFACE SE RÈGLE AU CURSEUR, elle aussi : la pelouse s'étend, la haie
-   * recule, les massifs s'écartent.
+   * Il se pose au droit de la TRAVÉE DU LOGEMENT, la même que celle du balcon :
+   * c'est le même appartement qu'on décrit, il ne peut pas être à deux endroits
+   * de la façade.
    */
   const rezDeJardin = new THREE.Group()
   const xJardin = travee(TRAVEE_LOGEMENT)
-  const JARDIN_MIN_L = 2.6
-  const JARDIN_MAX_L = 5.2
-  const JARDIN_MIN_P = 1.8
-  const JARDIN_MAX_P = 4.2
+  const LARGEUR_JARDIN = 4.3
+  const PROFONDEUR_JARDIN = 2.5
+  const zJardin = zFacade + 0.25 + PROFONDEUR_JARDIN / 2
 
-  const pelouseRez = poser(rezDeJardin, boite(1, 0.09, 1, M.gazon()), { ombre: false })
-  const terrasseRez = poser(rezDeJardin, boite(1, 0.11, 1.1, M.dallage()), { ombre: false })
-  const haieRez = []
-  for (let i = 0; i < 9; i += 1) {
-    const arbuste = buisson(0.3)
-    haieRez.push(arbuste)
-    rezDeJardin.add(arbuste)
-  }
-  const mobilierRez = new THREE.Group()
-  const tableRez = poser(mobilierRez, boite(0.95, 0.06, 0.62, M.boisClair()))
-  tableRez.position.y = 0.6
+  const pelouseRez = poser(
+    rezDeJardin,
+    boite(LARGEUR_JARDIN, 0.1, PROFONDEUR_JARDIN, M.gazon()),
+    { ombre: false },
+  )
+  pelouseRez.position.set(xJardin, 0.17, zJardin)
+
+  // La terrasse, contre la façade : c'est par là qu'on sort du séjour.
+  const terrasseRez = poser(
+    rezDeJardin,
+    boite(LARGEUR_JARDIN - 0.5, 0.12, 1.0, M.dallage()),
+    { ombre: false },
+  )
+  terrasseRez.position.set(xJardin, 0.19, zFacade + 0.75)
+
+  // La grille : trois côtés, le quatrième étant la façade elle-même.
+  const grilleAvant = gardeCorpsFer({ largeur: LARGEUR_JARDIN, hauteur: 0.78 })
+  grilleAvant.position.set(xJardin, 0.14, zJardin + PROFONDEUR_JARDIN / 2)
+  rezDeJardin.add(grilleAvant)
   ;[-1, 1].forEach((cote) => {
-    const chaise = poser(mobilierRez, boite(0.36, 0.06, 0.36, M.tissuClair()))
-    chaise.position.set(cote * 0.86, 0.46, 0)
-    const dossier = poser(mobilierRez, boite(0.36, 0.34, 0.06, M.tissuClair()), { ombre: false })
-    dossier.position.set(cote * 0.86, 0.66, -0.16)
+    const joue = gardeCorpsFer({ largeur: PROFONDEUR_JARDIN, hauteur: 0.78 })
+    joue.rotation.y = Math.PI / 2
+    joue.position.set(xJardin + (cote * LARGEUR_JARDIN) / 2, 0.14, zJardin)
+    rezDeJardin.add(joue)
   })
-  rezDeJardin.add(mobilierRez)
-  const sujetJardin = arbre(2.0, { variante: 1 })
+
+  // Mobilier de jardin, massifs, et un sujet en pot : ce qui dit qu'on y vit.
+  const tableJardin = poser(rezDeJardin, boite(0.9, 0.06, 0.62, M.boisClair()))
+  tableJardin.position.set(xJardin - 0.6, 0.62, zJardin + 0.15)
+  ;[-1, 1].forEach((cote) => {
+    const chaise = poser(rezDeJardin, boite(0.34, 0.06, 0.34, M.tissuClair()))
+    chaise.position.set(xJardin - 0.6 + cote * 0.85, 0.5, zJardin + 0.15)
+  })
+  ;[
+    [-1.7, 0.6, 0.34],
+    [1.6, 0.35, 0.3],
+    [1.75, 1.35, 0.26],
+  ].forEach(([dx, dz, rayon]) => {
+    const massif = buisson(rayon)
+    massif.position.set(xJardin + dx, 0.22, zJardin + dz)
+    rezDeJardin.add(massif)
+  })
+  const sujetJardin = arbre(2.1)
+  sujetJardin.position.set(xJardin + 1.5, 0.2, zJardin - 0.5)
   rezDeJardin.add(sujetJardin)
-
-  /** Portée du rez-de-jardin au sol : l'îlot doit la couvrir. */
-  let porteeJardin = 0
-
-  function etendreJardin(t) {
-    const largeur = JARDIN_MIN_L + (JARDIN_MAX_L - JARDIN_MIN_L) * t
-    const profondeur = JARDIN_MIN_P + (JARDIN_MAX_P - JARDIN_MIN_P) * t
-    const zCentre = zFacade + 0.6 + profondeur / 2
-
-    pelouseRez.scale.set(largeur, 1, profondeur)
-    pelouseRez.position.set(xJardin, 0.135, zCentre)
-    terrasseRez.scale.set(largeur - 0.6, 1, 1)
-    terrasseRez.position.set(xJardin, 0.145, zFacade + 1.05)
-
-    haieRez.forEach((arbuste, i) => {
-      // La haie ferme les trois côtés : cinq pieds devant, deux sur chaque joue.
-      if (i < 5) {
-        arbuste.position.set(
-          xJardin - largeur / 2 + ((i + 0.5) * largeur) / 5,
-          0.14,
-          zCentre + profondeur / 2,
-        )
-      } else {
-        const cote = i < 7 ? -1 : 1
-        const rang = (i - 5) % 2
-        arbuste.position.set(
-          xJardin + (cote * largeur) / 2,
-          0.14,
-          zCentre - profondeur / 4 + rang * (profondeur / 2),
-        )
-      }
-    })
-
-    mobilierRez.position.set(xJardin - largeur * 0.16, 0.18, zCentre + profondeur * 0.1)
-    sujetJardin.position.set(xJardin + largeur * 0.34, 0.16, zCentre + profondeur * 0.2)
-    sujetJardin.visible = t > 0.22
-
-    porteeJardin = Math.hypot(Math.abs(xJardin) + largeur / 2, zCentre + profondeur / 2) + 1.2
-  }
-  etendreJardin(0.3)
   groupe.add(rezDeJardin)
 
-  /* --- ROOFTOP : le toit plat s'aménage ----------------------------------- */
+  /* --- ROOFTOP : le comble devient une terrasse --------------------------- */
 
   /**
-   * LE TOIT SE TRANSFORME, IL NE SE MEUBLE PAS.
+   * LE TOIT SE TRANSFORME, IL NE SE COIFFE PAS.
    *
-   * Un rooftop n'est pas du mobilier posé sur une toiture : c'est la toiture qui
-   * cesse d'être technique. Les gravillons, l'édicule et le groupe de clim
-   * s'effacent donc à mesure que le platelage grandit, et ce qui reste du
-   * couronnement — acrotère, couvertine — ne bouge pas : un immeuble ne perd
-   * pas son relevé d'étanchéité parce qu'on a aménagé son toit.
+   * Un rooftop n'est pas un meuble posé sur une toiture : c'est la toiture qui
+   * cesse d'en être une. Le comble mansardé s'efface donc à mesure que le
+   * rooftop grandit (voir `poser`), et ce qui reste du couronnement — corniche,
+   * attique, souches — ne bouge pas : un immeuble ne perd pas ses cheminées
+   * parce qu'on a aménagé son toit.
    *
-   * LA SURFACE DÉCLARÉE SE VOIT. Le platelage et son garde-corps de verre
-   * s'étendent avec elle, et le mobilier arrive par paliers — les transats
-   * d'abord, le JACUZZI et la pergola ensuite, le bar en dernier. Une terrasse
-   * de 20 m² et une de 120 ne se distinguent pas seulement par leur taille : on
-   * n'y met pas les mêmes choses.
+   * LA SURFACE DÉCLARÉE SE VOIT. Le platelage et son garde-corps s'étendent
+   * avec elle, d'un peu moins de la moitié de l'emprise de l'attique à un peu
+   * plus que sa totalité ; et le mobilier arrive par paliers — deux bains de
+   * soleil d'abord, la pergola et les jardinières ensuite, le bar en dernier.
+   * Une terrasse de 20 m² et une de 120 ne se distinguent pas seulement par
+   * leur taille : on n'y met pas les mêmes choses.
    */
   const rooftop = new THREE.Group()
-  const ROOFTOP_MIN = 0.44
-  const ROOFTOP_MAX = 1.0
+  const ROOFTOP_MIN = 0.42
+  const ROOFTOP_MAX = 1.12
 
-  const platelage = poser(rooftop, boite(1, 0.12, 1, M.boisClair()), { ombre: false })
-  platelage.position.y = yToit + 0.06
+  const platelage = poser(rooftop, boite(1, 0.14, 1, M.boisClair()), { ombre: false })
+  platelage.position.y = yComble + 0.07
 
-  const rivesRooftop = ['avant', 'arriere', 'gauche', 'droite'].map((cote) => {
-    const rive = gardeCorpsVerre({ largeur: 1, hauteur: 0.82 })
+  // Garde-corps de verre sur les quatre rives — celui d'une terrasse
+  // contemporaine, qui ne masque pas la vue qu'on est venu acheter.
+  const rives = ['avant', 'arriere', 'gauche', 'droite'].map((cote) => {
+    const rive = gardeCorpsVerre({ largeur: 1, hauteur: 0.95 })
     if (cote === 'gauche' || cote === 'droite') rive.rotation.y = Math.PI / 2
-    rive.position.y = yToit + 0.12
+    rive.position.y = yComble + 0.14
     rooftop.add(rive)
     return { cote, rive }
   })
 
+  const pergolaRooftop = creerPergola({ largeur: 2.8, profondeur: 2.2, hauteur: 1.5 })
+  pergolaRooftop.position.y = yComble + 0.14
+  rooftop.add(pergolaRooftop)
+
   const bainsRooftop = [-1, 1].map((cote) => {
-    const bain = transat({ echelle: 0.95 })
+    const bain = new THREE.Group()
+    const assise = poser(bain, boite(0.46, 0.1, 1.15, M.tissuClair()))
+    assise.position.y = 0.26
+    const dossier = poser(bain, boite(0.46, 0.1, 0.5, M.tissuClair()))
+    dossier.position.set(0, 0.4, -0.44)
+    dossier.rotation.x = -0.62
     bain.userData.cote = cote
     rooftop.add(bain)
     return bain
   })
 
-  /**
-   * LE JACUZZI. C'est lui qu'on vient voir : un rooftop sans spa est une
-   * terrasse, et le vendeur qui coche « rooftop » a en tête exactement cette
-   * image-là. Il porte la même eau que la piscine — la seule matière du décor
-   * qui bouge d'elle-même —, et deux eaux différentes sur le même bien se
-   * verraient.
-   */
-  const spa = jacuzzi({ largeur: 1.8, profondeur: 1.5, hauteur: 0.58 })
-  rooftop.add(spa)
-
-  const pergolaRooftop = creerPergola({ largeur: 2.6, profondeur: 2.0, hauteur: 1.45 })
-  rooftop.add(pergolaRooftop)
-
   const jardinieresRooftop = [-1, 1].map((cote) => {
     const bac = new THREE.Group()
-    const caisse = poser(bac, boite(1.15, 0.34, 0.4, M.boisBardage()))
-    caisse.position.y = yToit + 0.29
-    const verdure = buisson(0.32)
-    verdure.position.y = yToit + 0.5
+    const caisse = poser(bac, boite(1.2, 0.36, 0.42, M.boisBardage()))
+    caisse.position.y = yComble + 0.32
+    const verdure = buisson(0.34)
+    verdure.position.y = yComble + 0.56
     bac.add(verdure)
     bac.userData.cote = cote
     rooftop.add(bac)
@@ -911,19 +642,19 @@ export function creerImmeuble() {
   })
 
   const barRooftop = new THREE.Group()
-  const comptoir = poser(barRooftop, boite(1.7, 0.09, 0.58, M.margelle()))
-  comptoir.position.y = yToit + 0.98
-  const piedBar = poser(barRooftop, boite(1.6, 0.88, 0.46, M.boisBardage()))
-  piedBar.position.y = yToit + 0.54
+  const comptoir = poser(barRooftop, boite(1.8, 0.1, 0.62, M.margelle()))
+  comptoir.position.y = yComble + 1.02
+  const piedBar = poser(barRooftop, boite(1.7, 0.92, 0.5, M.boisBardage()))
+  piedBar.position.y = yComble + 0.56
   rooftop.add(barRooftop)
 
   /** Étend le rooftop à la surface déclarée, et le meuble en conséquence. */
   function etendreRooftop(t) {
-    const largeur = (LARGEUR - 0.3) * (ROOFTOP_MIN + (ROOFTOP_MAX - ROOFTOP_MIN) * t)
-    const profondeur = (PROFONDEUR - 0.3) * (ROOFTOP_MIN + (ROOFTOP_MAX - ROOFTOP_MIN) * t)
+    const largeur = largeurAttique * (ROOFTOP_MIN + (ROOFTOP_MAX - ROOFTOP_MIN) * t)
+    const profondeur = profondeurAttique * (ROOFTOP_MIN + (ROOFTOP_MAX - ROOFTOP_MIN) * t)
 
     platelage.scale.set(largeur, 1, profondeur)
-    rivesRooftop.forEach(({ cote, rive }) => {
+    rives.forEach(({ cote, rive }) => {
       const long = cote === 'gauche' || cote === 'droite' ? profondeur : largeur
       rive.scale.x = long
       rive.position.x = cote === 'gauche' ? -largeur / 2 : cote === 'droite' ? largeur / 2 : 0
@@ -932,177 +663,70 @@ export function creerImmeuble() {
 
     // Le mobilier ne grandit pas — il s'écarte, et il s'ajoute.
     bainsRooftop.forEach((bain) => {
-      bain.position.set(bain.userData.cote * largeur * 0.24, yToit + 0.12, profondeur * 0.2)
+      bain.position.set(bain.userData.cote * largeur * 0.2, yComble + 0.14, profondeur * 0.22)
     })
-    spa.position.set(-largeur * 0.22, yToit + 0.12, -profondeur * 0.18)
-    spa.visible = t > 0.18
-    pergolaRooftop.position.set(largeur * 0.2, yToit + 0.12, -profondeur * 0.16)
-    pergolaRooftop.visible = t > 0.34
+    pergolaRooftop.position.set(-largeur * 0.16, yComble + 0.14, -profondeur * 0.2)
+    pergolaRooftop.visible = t > 0.32
     jardinieresRooftop.forEach((bac) => {
-      bac.position.set(bac.userData.cote * (largeur / 2 - 0.7), 0, -profondeur * 0.42)
-      bac.visible = t > 0.44
+      bac.position.set(bac.userData.cote * (largeur / 2 - 0.75), 0, -profondeur * 0.38)
+      bac.visible = t > 0.4
     })
-    barRooftop.position.set(largeur * 0.24, 0, profondeur * 0.34)
-    barRooftop.visible = t > 0.74
+    barRooftop.position.set(largeur * 0.22, 0, -profondeur * 0.3)
+    barRooftop.visible = t > 0.72
   }
+
   etendreRooftop(0)
   groupe.add(rooftop)
 
-  /* --- L'ASCENSEUR --------------------------------------------------------- */
-
-  /**
-   * LA CAGE ET SA CABINE — le seul ouvrage du décor qui se montre PAR
-   * TRANSPARENCE.
-   *
-   * Un ascenseur est à l'intérieur : c'est même sa définition. On ne peut donc
-   * ni le poser sur la façade — ce serait un ascenseur panoramique, et ce n'est
-   * pas ce qu'on déclare —, ni le laisser invisible — le vendeur cocherait une
-   * case sans rien voir. La seule réponse juste est celle des maquettes
-   * d'architecte : LE BÂTIMENT DEVIENT TRANSLUCIDE, et l'on voit à travers.
-   *
-   * La cage est donc plantée derrière la travée d'entrée, contre la façade —
-   * l'endroit où elle se trouve réellement, et le plus visible une fois le
-   * voile posé. La cabine y monte et y descend, et elle NE S'ARRÊTE PAS AU
-   * HASARD : elle dessert l'étage déclaré (voir `poser`), s'y immobilise un
-   * instant, puis redescend. C'est ce qui fait qu'on la regarde — une cabine qui
-   * ferait des allers-retours sans raison serait un manège.
-   */
-  const ascenseur = new THREE.Group()
-  /** La gaine occupe le DEVANT de la cage, juste derrière le mur-rideau :
-      c'est là qu'on la voit, et c'est là qu'elle se trouve dans la réalité. */
-  const zGaine = PROF_CAGE / 2 - 0.85
-  const HAUT_GAINE = hauteurCorps + 0.4
-
-  // Les quatre montants de la gaine, et ses deux joues de verre. Une gaine
-  // pleine masquerait la cabine qu'on vient justement montrer.
-  ;[-1, 1].forEach((sx) => {
-    ;[-1, 1].forEach((sz) => {
-      const montantGaine = poser(ascenseur, boite(0.08, HAUT_GAINE, 0.08, M.aluNoir()), {
-        ombre: false,
-      })
-      montantGaine.position.set(xCage + sx * 0.54, HAUT_GAINE / 2, zGaine + sz * 0.5)
-    })
-  })
-  ;[-1, 1].forEach((sx) => {
-    const joue = poser(ascenseur, boite(0.03, HAUT_GAINE, 0.96, M.verreVoile()), { ombre: false })
-    joue.position.set(xCage + sx * 0.54, HAUT_GAINE / 2, zGaine)
-  })
-  const dosGaine = poser(ascenseur, boite(1.08, HAUT_GAINE, 0.03, M.verreVoile()), { ombre: false })
-  dosGaine.position.set(xCage, HAUT_GAINE / 2, zGaine - 0.5)
-
-  // Les portes palières : une paire par niveau, et c'est à elles qu'on compte
-  // les étages que la cabine dessert.
-  for (let e = 0; e <= ETAGES; e += 1) {
-    const porte = poser(ascenseur, boite(0.84, 1.0, 0.05, M.aluNoir()), { ombre: false })
-    porte.position.set(xCage, hauteurEtage(e) + 0.52, zGaine + 0.5)
-    const liseret = poser(ascenseur, boite(0.03, 1.0, 0.06, M.laiton()), { ombre: false })
-    liseret.position.set(xCage, hauteurEtage(e) + 0.52, zGaine + 0.53)
-  }
-
-  /**
-   * LA CABINE. Son plafond est ÉMISSIF, et c'est délibéré : c'est la seule
-   * lumière qui se déplace dans tout le décor, et c'est elle qu'on suit des
-   * yeux à travers le mur-rideau — bien plus que la boîte qui la porte.
-   */
-  const cabine = new THREE.Group()
-  const caisson = poser(cabine, boite(0.94, 1.05, 0.9, M.aluNoir()))
-  caisson.position.y = 0.53
-  const plafonnier = poser(cabine, boite(0.78, 0.05, 0.74, M.margelle()), { ombre: false })
-  plafonnier.position.y = 1.0
-  plafonnier.material.emissive = new THREE.Color(0xffd9a0)
-  plafonnier.material.emissiveIntensity = 3.4
-  const solCabine = poser(cabine, boite(0.86, 0.05, 0.82, M.boisClair()), { ombre: false })
-  solCabine.position.y = 0.06
-  const vitreCabine = poser(cabine, boite(0.88, 0.86, 0.04, M.vitrage()), { ombre: false })
-  vitreCabine.position.set(0, 0.56, 0.44)
-  cabine.position.set(xCage, 0, zGaine)
-  ascenseur.add(cabine)
-  groupe.add(ascenseur)
-
-  /* --- Panneaux solaires --------------------------------------------------- */
-
-  /**
-   * Ils ne sont plus PROPOSÉS aux appartements (voir `EstimationAffinagePanel`) :
-   * un copropriétaire ne décide pas seul de la toiture de l'immeuble, et la
-   * question n'avait pas de sens. L'ouvrage reste dessiné — il ne coûte rien
-   * tant qu'il n'est pas révélé, et le jour où la copropriété entrera dans le
-   * parcours, il est là.
-   */
+  // Panneaux solaires : posés sur le terrasson, la seule surface plate du toit.
   const panneaux = new THREE.Group()
   for (let rangee = 0; rangee < 2; rangee += 1) {
     for (let i = 0; i < 3; i += 1) {
-      const module = poser(panneaux, boite(0.9, 0.06, 0.66, M.panneauSolaire()))
-      module.position.set(-0.95 + i * 1.0, 0.08, -0.4 + rangee * 0.8)
+      const module = poser(panneaux, boite(0.95, 0.06, 0.7, M.panneauSolaire()))
+      module.position.set(-1 + i * 1.05, 0.08, -0.45 + rangee * 0.85)
       module.rotation.x = 0.22
     }
   }
-  panneaux.position.set(0, yToit + 0.12, -PROFONDEUR * 0.1)
+  panneaux.position.set(0, yComble + hauteurComble + 0.05, 0)
   groupe.add(panneaux)
 
-  /* --- Le standing ---------------------------------------------------------- */
-
+  // Le standing : store de pierre au socle, appliques, tapis rouge du seuil,
+  // bacs d'orangerie de part et d'autre de la porte cochère.
   const standing = new THREE.Group()
-  // Un parement de pierre sur le volume d'entrée, des bacs d'orangerie de part
-  // et d'autre du hall, un store de toile sur les baies du rez-de-chaussée.
-  const parement = poser(standing, boite(LARGEUR / TRAVEES + 0.2, HAUTEUR_SOCLE, 0.08, M.pierreSocle()))
-  parement.position.set(xPorte, HAUTEUR_SOCLE / 2, zFacade + 0.06)
+  const tapisSeuil = poser(standing, boite(2.2, 0.03, 1.5, M.tapisEscalier()), { ombre: false })
+  tapisSeuil.position.set(xPorte, 0.13, zFacade + 0.95)
   ;[-1, 1].forEach((cote) => {
-    const bac = poser(standing, boite(0.5, 0.46, 0.5, M.betonLisse()))
-    bac.position.set(xPorte + cote * 1.5, 0.23, zFacade + 0.6)
-    const sujet = buisson(0.32)
-    sujet.position.set(xPorte + cote * 1.5, 0.5, zFacade + 0.6)
+    const bac = poser(standing, boite(0.55, 0.5, 0.55, M.pierreMoulure()))
+    bac.position.set(xPorte + cote * 1.75, 0.25, zFacade + 0.55)
+    const sujet = buisson(0.36)
+    sujet.position.set(xPorte + cote * 1.75, 0.56, zFacade + 0.55)
     standing.add(sujet)
   })
-  const tapisSeuil = poser(standing, boite(2.0, 0.03, 1.2, M.tapisEscalier()), { ombre: false })
-  tapisSeuil.position.set(xPorte, 0.12, zFacade - 0.05)
+  for (let i = 0; i < 4; i += 1) {
+    const applique = poser(standing, boite(0.14, 0.34, 0.2, M.laiton()), { ombre: false })
+    applique.position.set(travee(i === 0 ? 0 : i + 1), 1.62, zFacade + 0.12)
+  }
+  // Auvent de toile sur les baies du socle : la devanture soignée du bas.
+  const auvent = poser(standing, boite(LARGEUR * 0.62, 0.08, 1.1, M.tissuBleu()))
+  auvent.position.set(LARGEUR * 0.18, 1.85, zFacade + 0.6)
+  auvent.rotation.x = -0.16
   groupe.add(standing)
 
-  /* -------------------------------------------------------------------------- */
-  /*  Révélations, voile et pilotage                                            */
-  /* -------------------------------------------------------------------------- */
+  /* --- Révélations et pilotage --------------------------------------------- */
 
   const revelerEntree = revelable(entree)
+  const revelerSocle = revelable(baiesSocle)
   const revelerMenuiseries = revelable(menuiseries)
-  const revelerFonds = revelable(fonds)
-  const revelerBardage = revelable(bardage)
+  const revelerVolets = revelable(volets)
   const revelerBalcons = revelable(balcons)
   const revelerCouronnement = revelable(couronnement)
-  const revelerToitNu = revelable(toitNu)
+  const revelerComble = revelable(comble)
   const revelerAbords = revelable(abords)
   const revelerBalconEtage = revelable(balconEtage)
   const revelerRezDeJardin = revelable(rezDeJardin)
   const revelerRooftop = revelable(rooftop)
   const revelerPanneaux = revelable(panneaux)
   const revelerStanding = revelable(standing)
-  const revelerAscenseur = revelable(ascenseur)
-
-  /**
-   * LE VOILE. Il s'applique au NOYAU, aux REFENDS et aux DALLES — la masse du
-   * bâtiment — et à rien d'autre : ni aux balcons, ni aux menuiseries, ni aux
-   * abords. C'est exactement ce qu'un architecte efface sur une coupe de
-   * maquette, et c'est ce qui suffit à voir la cage.
-   */
-  /**
-   * CE QUI SE VOILE, ET CE QUI NE SE VOILE PAS.
-   *
-   * Le NOYAU, les REFENDS, les FONDS D'APPARTEMENT et le HALL : les quatre
-   * seules familles de pièces pleines qui se trouvent entre l'œil et la cage. Les dalles, les balcons, le
-   * bardage et les menuiseries restent opaques — et c'est ce qui fait que
-   * l'immeuble reste un immeuble pendant qu'on regarde à l'intérieur. Tout
-   * voiler d'un coup, comme on l'avait d'abord écrit, donnait un fantôme :
-   * cinquante surfaces translucides qui se trient les unes derrière les autres,
-   * et un bâtiment qu'on ne lit plus du tout.
-   *
-   * Le plancher est bas — un cinquième —, et il peut l'être précisément parce
-   * que le reste tient : ce sont les dalles blanches et les garde-corps qui
-   * portent la silhouette, le noyau n'a plus qu'à s'effacer.
-   */
-  const voilerMasse = voilant([noyau, refends, fonds, entree], { plancher: 0.22 })
-  const scintillerBalcon = scintillant(balconEtage)
-  const scintillerJardin = scintillant(rezDeJardin, { couleur: 0xc8f0a8, force: 1.2 })
-  const scintillerRooftop = scintillant(rooftop)
-  const scintillerAscenseur = scintillant(ascenseur, { couleur: 0xffe4b0, force: 1.6 })
-  const scintillerPanneaux = scintillant(panneaux, { couleur: 0xbfe0ff })
 
   const vitres = []
   groupe.traverse((objet) => {
@@ -1112,82 +736,64 @@ export function creerImmeuble() {
   /**
    * LE STANDING SUR LES MATIÈRES de l'immeuble.
    *
-   * Deux immeubles contemporains de même plan ne se distinguent pas par leur
-   * dessin mais par la QUALITÉ DE LEURS MATÉRIAUX — c'est même la seule chose
-   * qui sépare un programme d'entrée de gamme d'un programme haut de gamme quand
-   * l'architecte est le même.
+   * Un haussmannien de standing ne se distingue pas d'un autre par son plan —
+   * ils ont le même — mais par son ENTRETIEN. Ce qu'on fait varier est donc
+   * exactement ce qu'un ravalement change :
    *
-   *   LE BÉTON passe du blanc cassé industriel au béton matricé clair, et sa
-   *   rugosité tombe : un béton soigné accroche la lumière.
-   *   LE BARDAGE quitte le pin traité pour le mélèze huilé, plus chaud.
-   *   LE ZINC des couvertines reprend son éclat au lieu de rester mat.
-   *   LES MENUISERIES passent de l'alu peint à l'alu laqué.
+   *   LA PIERRE se nettoie. Elle passe du beige encrassé au calcaire clair,
+   *   et ses joints se resserrent (la texture reste la même : c'est bien la
+   *   même pierre de taille, lavée).
+   *   LE ZINC de la couverture reprend son éclat au lieu de rester mat.
+   *   LA FERRONNERIE des balcons passe du fer repeint au fer laqué, et le
+   *   LAITON de la marquise du cuivre terni au cuivre poli.
+   *   LES VOLETS quittent le vert-de-gris délavé pour un vert profond.
+   *
+   * L'accord ne porte que sur le MONTANT — le bâtiment lui-même. Les immeubles
+   * mitoyens, eux, gardent leur pierre : ce n'est pas le vendeur qui les a
+   * ravalés, et une rue entière qui blanchirait parce qu'il coche « Prestige »
+   * ne dirait plus rien de son bien.
    */
   const accorderStanding = M.accorderStanding(montant, {
-    'beton-lisse': { couleur: 0xfdfbf6, roughness: 0.52 },
-    beton: { couleur: 0xbdb8b0, roughness: 0.5 },
-    bois: { couleur: 0xa9773f, roughness: 0.46, metalness: 0.04 },
-    zinc: { couleur: 0xc8cfd8, roughness: 0.26, metalness: 0.54 },
-    menuiserie: { couleur: 0x16171b, roughness: 0.2, metalness: 0.8 },
+    pierre: { couleur: 0xfdf8ea, roughness: 0.58 },
+    'pierre-socle': { couleur: 0xf4eddc, roughness: 0.66 },
+    moulure: { couleur: 0xf9f2e0, roughness: 0.54 },
+    zinc: { couleur: 0xc8cfd8, roughness: 0.28, metalness: 0.52 },
+    fer: { couleur: 0x0f1115, roughness: 0.22, metalness: 0.8 },
     laiton: { couleur: 0xe3bb80, roughness: 0.16, metalness: 0.9 },
-    'pierre-socle': { couleur: 0xf4eddc, roughness: 0.62 },
-    dallage: { couleur: 0xfcf8ef, roughness: 0.56 },
+    volet: { couleur: 0x4f6350, roughness: 0.58 },
+    'bois-verni': { couleur: 0x53301c, roughness: 0.26, metalness: 0.12 },
+    menuiserie: { couleur: 0x16171b, roughness: 0.2, metalness: 0.8 },
   })
 
   /** Étage dont les fenêtres s'allument. Posé par `designerEtage`. */
   let etageDesigne = null
 
   /**
-   * LA LAMPE DE L'ÉTAGE DÉCLARÉ.
-   *
-   * L'émission d'une matière éclaire la matière, jamais ce qui l'entoure : un
-   * vitrage qui s'allume reste un rectangle lumineux posé sur une façade qui,
-   * elle, ne sait rien de cette lumière. Cette lampe-là est ce qui manquait —
-   * elle déborde sur la dalle du dessus, sur le refend d'à côté et sur le
-   * dessous du balcon, et c'est CE DÉBORDEMENT qu'on lit comme « il y a
-   * quelqu'un derrière cette fenêtre ».
-   *
-   * Elle est créée une fois et ne varie qu'en intensité : une lumière ajoutée
-   * ou retirée de la scène en cours de route ferait recompiler toutes les
-   * matières de la façade, et l'image sauterait à chaque changement d'étage.
-   * Elle ne porte pas d'ombre — c'est une lampe d'intérieur, et le coût d'une
-   * seconde carte d'ombre pour un halo serait hors de proportion.
-   */
-  const lampeEtage = new THREE.PointLight(0xffc27a, 0, 9, 1.9)
-  lampeEtage.position.set(travee(TRAVEE_LOGEMENT), hauteurEtage(2) + 0.6, zFacade - 0.3)
-  groupe.add(lampeEtage)
-
-  /**
    * Où se trouve le balcon d'affinage — le point que le drone vient filmer de
-   * près quand le vendeur le déclare (voir `cadrer` dans `DroneScene`).
+   * près quand le vendeur le déclare (voir `cadrer` dans `DroneScene`). Il suit
+   * l'étage, comme le balcon lui-même.
    */
-  const ancreExterieur = new THREE.Vector3(
-    travee(TRAVEE_LOGEMENT),
-    hauteurEtage(2) + 0.8,
-    zFacade + 1.2,
-  )
+  const ancreExterieur = new THREE.Vector3(travee(TRAVEE_LOGEMENT), hauteurEtage(2) + 0.9, zFacade + 0.9)
 
-  /** Portée au sol, recalculée à chaque image : le jardin s'étend. */
-  let rayonSol = rayonAbords
-
-  const bien = {
+  return {
     groupe,
     montant,
     hauteurCoupe: hauteurTotale,
-    envergure: {
-      largeur: Math.max(LARGEUR + 4.4, PROFONDEUR + 4),
-      hauteur: hauteurTotale,
-    },
+    envergure: { largeur: Math.max(LARGEUR + 3.2, PROFONDEUR + 3), hauteur: hauteurTotale },
 
     /**
-     * Emprise au sol, pour l'îlot sur lequel le décor pose l'immeuble. Elle
-     * bouge désormais — le rez-de-jardin déclaré s'étend jusqu'à cinq unités
-     * devant la façade, et un socle réglé sur le seul parvis le laisserait
-     * déborder dans le vide.
+     * Emprise au sol, pour l'îlot sur lequel le décor pose l'immeuble (voir
+     * `DroneScene`). Contrairement à la maison, elle ne bouge pas : un
+     * appartement n'a pas de surface de terrain à déclarer, et ce que l'immeuble
+     * occupe au sol — sa rue, ses deux mitoyens, ses arbres d'alignement — est
+     * bâti une fois pour toutes.
+     *
+     * Le coin le plus éloigné est celui de la chaussée : une demi-longueur de rue
+     * d'un côté, le bord extérieur du bitume de l'autre. Le rayon les couvre,
+     * avec ce qu'il faut de marge pour que le revêtement ne meure pas sur le
+     * liseré du socle.
      */
-    get rayonSol() {
-      return rayonSol
-    },
+    rayonSol: Math.hypot(RUE / 2, zFacade + 10.6) + 1.5,
 
     ancrages: {
       hauteur: hauteurTotale,
@@ -1198,10 +804,10 @@ export function creerImmeuble() {
      * DÉSIGNE L'ÉTAGE DU VENDEUR — celui dont les fenêtres vont s'allumer.
      *
      * Rien ne s'allume à l'appel : `designerEtage` ne fait que dire OÙ, et
-     * `poser` dit COMBIEN, image après image. Séparer les deux est ce qui
-     * permet au vendeur de changer d'étage au milieu d'un fondu sans que la
-     * lumière saute — l'ancien étage s'éteint du même mouvement que le nouveau
-     * s'allume.
+     * `poser` dit COMBIEN, image après image (voir `etageAllume` dans
+     * `DroneScene`). Séparer les deux est ce qui permet au vendeur de changer
+     * d'étage au milieu d'un fondu sans que la lumière saute — l'ancien étage
+     * s'éteint du même mouvement que le nouveau s'allume.
      */
     designerEtage(etage) {
       const n = Math.round(Number(etage))
@@ -1210,119 +816,61 @@ export function creerImmeuble() {
 
     /** Place le balcon d'affinage à l'étage déclaré — et l'ancre de caméra avec. */
     placerBalcon(etage) {
-      const y = hauteurEtage(etage)
-      balconEtage.position.set(travee(TRAVEE_LOGEMENT), y, zFacade + 0.24)
-      ancreExterieur.set(travee(TRAVEE_LOGEMENT), y + 0.8, zFacade + 1.2)
-      lampeEtage.position.set(travee(TRAVEE_LOGEMENT), y + hauteurNiveau(etage) * 0.55, zFacade - 0.4)
+      balconEtage.position.set(travee(TRAVEE_LOGEMENT), hauteurEtage(etage) + 0.14, zFacade)
+      ancreExterieur.set(travee(TRAVEE_LOGEMENT), hauteurEtage(etage) + 0.9, zFacade + 0.9)
     },
 
     poser(v) {
       accorderStanding(v.standing)
-
       revelerEntree(v.entree)
+      revelerSocle(Math.max(v.entree, v.menuiserie))
       revelerMenuiseries(v.menuiserie)
-      revelerFonds(v.menuiserie)
-      revelerBardage(v.menuiserie)
+      revelerVolets(v.menuiserie)
       revelerBalcons(v.menuiserie)
       revelerCouronnement(v.couronnement)
       revelerAbords(v.abords)
       revelerBalconEtage(v.balcon)
       revelerRezDeJardin(v.rezDeJardin ?? 0)
       revelerStanding(v.standing)
-      revelerPanneaux(v.panneaux)
 
-      etendreBalcon(v.balconEtendue ?? 0.35)
-      etendreJardin(v.jardinEtendue ?? 0.3)
-      rayonSol = Math.max(rayonAbords, (v.rezDeJardin ?? 0) > 0.02 ? porteeJardin : 0)
-
-      // LE ROOFTOP PREND LA PLACE DU TOIT TECHNIQUE, et les deux se croisent
-      // dans le même fondu : les gravillons s'effacent exactement à la vitesse
-      // où le platelage paraît, si bien qu'il n'y a jamais ni deux toits ni
-      // aucun.
+      // LE ROOFTOP PREND LA PLACE DU COMBLE, et les deux se croisent dans le
+      // même fondu : le zinc s'efface exactement à la vitesse où le platelage
+      // paraît, si bien qu'il n'y a jamais ni deux toits ni aucun.
       const surToit = Math.max(0, Math.min(1, v.rooftop ?? 0))
       etendreRooftop(surToit)
       revelerRooftop(surToit)
-      revelerToitNu(Math.min(v.couronnement, 1 - surToit))
-      M.onduler(spa.userData.eau, v.temps ?? 0)
+      revelerComble(Math.min(v.couronnement, 1 - surToit))
 
-      /* --- L'ascenseur ---------------------------------------------------- */
-
-      const monte = Math.max(0, Math.min(1, v.ascenseur ?? 0))
-      revelerAscenseur(monte)
-      // LE VOILE NE SE POSE QU'APRÈS LES RÉVÉLATIONS : les deux écrivent la même
-      // opacité, et c'est le voile qui doit avoir le dernier mot.
-      voilerMasse(monte)
-
-      if (monte > 0.01) {
-        /**
-         * LA COURSE. Une montée, un arrêt à l'étage déclaré, une descente, un
-         * arrêt au rez-de-chaussée : le cycle d'un ascenseur, pas celui d'un
-         * ascenseur de démonstration. Les deux arrêts occupent un cinquième du
-         * cycle chacun — assez pour qu'on voie la cabine S'ARRÊTER, ce qui est
-         * la seule chose qui distingue un ascenseur d'une navette.
-         */
-        const desserte = etageDesigne ?? 2
-        const arrivee = hauteurEtage(desserte === 0 ? ETAGES : desserte)
-        const cycle = ((v.temps ?? 0) % 9) / 9
-        let part
-        if (cycle < 0.34) part = cycle / 0.34
-        else if (cycle < 0.54) part = 1
-        else if (cycle < 0.88) part = 1 - (cycle - 0.54) / 0.34
-        else part = 0
-        // Départ et arrivée adoucis : un ascenseur ne part pas d'un coup.
-        const e = part < 0.5 ? 2 * part * part : 1 - ((-2 * part + 2) ** 2) / 2
-        cabine.position.y = 0.1 + e * (arrivee - 0.1)
-      }
-
-      /* --- La lumière ------------------------------------------------------ */
+      // Les panneaux solaires suivent le toit qu'ils ont sous eux : sur le
+      // terrasson tant qu'il y en a un, sur la rive du platelage sinon.
+      revelerPanneaux(v.panneaux)
+      panneaux.position.y =
+        yComble + 0.18 + (1 - surToit) * (hauteurComble - 0.13)
 
       // LE SOIR, D'ABORD : toutes les vitres s'ambrent ensemble au stade du
       // prix. C'est le fond sur lequel l'étage déclaré vient se détacher.
       vitres.forEach((matiere) => {
         matiere.emissive.setHex(0xf6c978)
-        matiere.emissiveIntensity = v.lumiere * 0.9
+        matiere.emissiveIntensity = v.lumiere * 1.2
       })
 
-      /**
-       * PUIS L'ÉTAGE DU VENDEUR, ET IL ÉCRASE TOUT LE RESTE.
-       *
-       * L'écart était de trois fois l'éclairage du soir. Sur une façade au
-       * soleil, ça ne se voyait pas : le vendeur réglait son étage et ne
-       * trouvait pas son logement. Il est désormais de DIX — et il y faut les
-       * trois choses à la fois, parce qu'aucune ne suffit seule :
-       *
-       *   LE VITRAGE s'allume à pleine émission, et le FOND D'APPARTEMENT
-       *   derrière lui plus fort encore : c'est la pièce qui est éclairée, pas
-       *   le verre.
-       *   LA LAMPE déborde sur la dalle, le refend et le dessous du balcon —
-       *   sans ce débordement, un rectangle lumineux reste un autocollant.
-       *   LE FLORAISON (bloom) du post-traitement fait le reste : une émission
-       *   au-delà de 1 y rayonne, et c'est ce halo qui se voit du premier coup
-       *   d'œil (voir `DroneScene`).
-       */
+      // PUIS L'ÉTAGE DU VENDEUR. Il s'allume plus fort que le soir, et il
+      // s'allume même en plein jour : c'est le seul repère qu'on lui donne de
+      // son logement dans un immeuble qui, sinon, serait celui de tout le monde.
+      // L'intensité est forte — plus de trois fois celle du soir — et il le
+      // faut : c'est en PLEIN JOUR que le vendeur règle son étage, et une
+      // lumière de veilleuse ne se voit pas contre une façade au soleil.
       const allume = Math.max(0, Math.min(1, v.etageAllume ?? 0))
-      if (etageDesigne !== null && allume > 0.002) {
+      if (etageDesigne !== null) {
         const matieres = baiesParEtage.get(etageDesigne)
         matieres?.forEach((matiere) => {
-          matiere.emissive.setHex(0xffcf8c)
+          matiere.emissive.setHex(0xffc978)
           matiere.emissiveIntensity = Math.max(
             matiere.emissiveIntensity ?? 0,
-            allume * (matiere.name === 'vitrage' ? 3.4 : 2.6),
+            allume * (matiere.name === 'vitrage' ? 3.6 : 2.4),
           )
         })
       }
-      lampeEtage.intensity = allume * 7
-
-      /* --- Les scintillements --------------------------------------------- */
-
-      const eclat = v.eclat ?? 0
-      scintillerBalcon(v.balcon * eclat)
-      scintillerJardin((v.rezDeJardin ?? 0) * eclat)
-      scintillerRooftop(surToit > 0.02 ? eclat : 0)
-      scintillerAscenseur(monte * eclat)
-      scintillerPanneaux(v.panneaux * eclat)
     },
   }
-
-  return bien
 }

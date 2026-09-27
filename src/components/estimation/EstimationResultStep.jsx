@@ -6,7 +6,6 @@ import { PriceReveal } from './PriceReveal'
 import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { EstimationAffinagePanel } from './EstimationAffinagePanel'
-import { GoldFrame, Shine } from '../ui/GoldFrame'
 import { affinerEstimation, OPTIONS_DEFAUT } from '../../lib/affinage'
 import { formatEuros } from '../../lib/format'
 import { EASE } from '../../lib/motion'
@@ -44,14 +43,14 @@ import { EASE } from '../../lib/motion'
  * `DroneScene`).
  *
  * PUIS VIENT L'AFFINAGE. Le montant rendu repose sur ce que les bases
- * publiques savent du bien ; elles ignorent la piscine, le terrain, la
- * terrasse, l'ascenseur et l'état intérieur. Un bouton les demande — et il
- * CLIGNOTE, parce qu'à ce stade c'est la seule chose qui reste à faire et
- * qu'elle passait inaperçue. Au clic, le bien reprend toute la place : chaque
- * case cochée s'y dessine, et l'ouvrage correspondant y scintille (voir
+ * publiques savent du bien ; elles ignorent la piscine, le terrain, les
+ * panneaux, la terrasse et l'état intérieur. Un bouton les demande — et, au
+ * clic, l'estimation se retire dans le coin de l'écran pendant que le bien
+ * reprend toute la place : chaque case cochée s'y dessine (voir
  * `EstimationAffinagePanel` et `src/lib/affinage.js`). C'est le seul écran du
  * parcours où le décor n'est plus un fond mais le sujet, et la mise en page le
- * dit — un panneau étroit, son MONTANT EN TÊTE, et tout le reste au bien.
+ * dit — un panneau étroit rangé à gauche, un montant réduit à droite, et tout
+ * le milieu au bien.
  *
  * `onAffinage` prévient la page de cette bascule : c'est elle qui fait reculer
  * le drone jusqu'au plan d'ensemble.
@@ -164,7 +163,7 @@ export function EstimationResultStep({
   // promet à l'un ce qui n'est offert qu'à l'autre.
   const complements =
     type === 'appartement'
-      ? 'Balcon, rooftop, ascenseur, standing\u00a0: ce que les bases publiques ignorent.'
+      ? 'Balcon, panneaux, standing\u00a0: ce que les bases publiques ignorent.'
       : 'Piscine, terrain, terrasse, standing\u00a0: ce que les bases publiques ignorent.'
 
   // L'ÉCRAN D'AFFINAGE. Le montant se retire dans le coin et le panneau se
@@ -172,47 +171,31 @@ export function EstimationResultStep({
   // qu'on est venu regarder.
   if (affinage) {
     return (
-      /**
-       * LE PANNEAU EST DÉCALÉ VERS LA DROITE, et le montant est passé EN TÊTE.
-       *
-       * Il était collé au bord gauche de sa zone, et le montant flottait seul en
-       * haut à droite, sans rapport visible avec le panneau qu'il concerne.
-       * Deux corrections, et elles vont ensemble :
-       *
-       *   LE DÉCALAGE rend au panneau la marge qu'ont tous les autres écrans du
-       *   parcours. Collé au bord, il se lisait comme un tiroir sorti de
-       *   l'écran plutôt que comme un panneau posé dessus.
-       *
-       *   LE MONTANT EN TÊTE le remet à sa place : c'est le chiffre qu'on
-       *   affine, et il doit être la première chose qu'on lise en haut de la
-       *   colonne — pas une pastille rangée dans un coin. Il s'actualise à
-       *   chaque case cochée, et c'est tout l'objet de l'écran.
-       */
-      <div className="w-full max-w-6xl pl-2 sm:pl-6 lg:pl-12 xl:pl-16">
-        <div className="w-full max-w-sm">
+      <div className="w-full max-w-6xl">
+        <div className="flex justify-end">
           <motion.div
             layout
-            initial={{ opacity: 0, y: reduce ? 0 : -10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: reduce ? 0.2 : 0.45, ease: EASE }}
-            className="panneau-verre flex items-baseline justify-between gap-3 px-5 py-3.5"
+            className="panneau-verre flex items-baseline gap-3 px-5 py-3"
           >
             <span className="font-mono text-[0.56rem] uppercase tracking-micro text-ink/55">
               Estimation
             </span>
-            <span className="titre-etape whitespace-nowrap text-[1.45rem] leading-none text-laiton-texte tabular-nums">
+            <span className="titre-etape whitespace-nowrap text-[1.35rem] leading-none text-laiton-texte tabular-nums">
               {formatted ?? '— €'}
             </span>
           </motion.div>
+        </div>
 
-          <div className="mt-3">
-            <EstimationAffinagePanel
-              type={type}
-              options={options}
-              onChange={setOptions}
-              onTermine={() => ouvrirAffinage(false)}
-            />
-          </div>
+        <div className="mt-5 w-full max-w-sm">
+          <EstimationAffinagePanel
+            type={type}
+            options={options}
+            onChange={setOptions}
+            onTermine={() => ouvrirAffinage(false)}
+          />
         </div>
       </div>
     )
@@ -392,43 +375,16 @@ export function EstimationResultStep({
               transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE, delay: reduce ? 0 : 0.25 }}
               className="mt-4"
             >
-              {/* LE SEUL ÉLÉMENT DE L'ÉCRAN QUI CLIGNOTE, et c'est délibéré.
-
-                  À ce stade, tout est fini : le prix est rendu, la conversation
-                  est close, l'écran ne demande plus rien. Il reste UNE chose à
-                  faire, elle change le montant, et elle passait inaperçue au
-                  milieu de trois cartes de verre de même poids.
-
-                  Le traitement est celui du CTA d'accueil (voir
-                  `EstimationCta`), et il est repris tel quel plutôt que
-                  réinventé : un halo laiton qui respire derrière le bouton, le
-                  liseré doré qui tourne sur son pourtour, un reflet diagonal qui
-                  le balaie, et le pictogramme qui scintille. Quatre accroches,
-                  toutes sur `opacity` ou `transform` — composite GPU, aucun
-                  recalcul de mise en page —, et toutes figées par la règle
-                  globale de `prefers-reduced-motion`. */}
-              <div className="relative">
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -inset-2.5 animate-cta-breath rounded-2xl bg-brass/45 blur-xl"
-                />
-                <GoldFrame className="-inset-[3px] rounded-[0.7rem]" />
-                <button
-                  type="button"
-                  onClick={() => ouvrirAffinage(true)}
-                  className="bouton-tunnel relative flex w-full items-center justify-center gap-2.5 overflow-hidden px-6 py-4"
-                >
-                  <Shine width="w-1/4" tint="via-brass/45" />
-                  <SlidersHorizontal
-                    className="relative h-4 w-4 animate-sparkle-shimmer text-brass"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  />
-                  <span className="relative text-[0.82rem] font-semibold uppercase tracking-[0.07em]">
-                    Affiner mon estimation
-                  </span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => ouvrirAffinage(true)}
+                className="bouton-tunnel flex w-full items-center justify-center gap-2.5 px-6 py-4"
+              >
+                <SlidersHorizontal className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                <span className="text-[0.82rem] font-semibold uppercase tracking-[0.07em]">
+                  Affiner mon estimation
+                </span>
+              </button>
               <p className="mt-2.5 text-center text-[0.75rem] leading-relaxed text-ink/60">
                 {complements}
               </p>

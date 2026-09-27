@@ -1,11 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import * as THREE from 'three'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import * as M from './scene/matieres'
 import { creerVoliere } from './scene/oiseaux'
 import { creerOssature } from './scene/ossature'
@@ -82,210 +77,6 @@ import {
  * mêmes valeurs par π. On les remultiplie donc par π.
  */
 const FACTEUR_LUMIERE = Math.PI
-
-/* -------------------------------------------------------------------------- */
-/*  CE QUE LA MACHINE PEUT SE PERMETTRE                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * TROIS DÉPENSES, ET AUCUNE N'EST GRATUITE.
- *
- * Le décor gagne ici trois choses qui coûtent réellement cher, et il serait
- * malhonnête de les poser partout sans le dire :
- *
- *   LE FLORAISON (bloom) demande cinq réductions successives de l'image, puis
- *   cinq agrandissements — de l'ordre de deux millisecondes sur une carte
- *   d'ordinateur portable, six sur un téléphone récent. C'est la moins chère
- *   des trois, et la plus payante : c'est elle qui fait rayonner les fenêtres
- *   de l'étage déclaré et les points de soleil sur l'eau.
- *
- *   L'OCCULTATION AMBIANTE (GTAO) demande une PASSE GÉOMÉTRIQUE ENTIÈRE en
- *   plus — toute la scène redessinée pour en relever les normales et les
- *   profondeurs —, puis seize échantillons par pixel et un débruitage. C'est
- *   de loin la plus chère : elle double le nombre d'objets dessinés par image.
- *   Sur un bâtiment fait de plusieurs centaines de boîtes, c'est quatre à huit
- *   millisecondes.
- *
- *   LA TRANSMISSION de l'eau du bassin demande que la scène soit rendue une
- *   seconde fois dans un tampon que l'eau vient lire pour savoir ce qu'il y a
- *   derrière elle. Elle ne coûte que sur les images où le bassin est visible,
- *   mais elle y coûte le prix d'un rendu complet.
- *
- * D'OÙ CES TROIS CRANS, et ils se décident sur trois indices seulement — la
- * largeur de la fenêtre, le nombre de cœurs annoncés, et la présence d'un
- * pointeur grossier (un doigt). Aucun n'est fiable seul ; ensemble, ils
- * séparent correctement un ordinateur d'un téléphone, et c'est tout ce qu'on
- * leur demande.
- *
- * SUR TÉLÉPHONE, il ne reste que le rendu direct : ni post-traitement, ni
- * transmission, une carte d'ombre de moitié et un échantillonnage plafonné à
- * 1,5 pixel physique. Ce qu'on y perd est réel — l'eau n'y laisse plus voir son
- * fond, les fenêtres allumées n'y rayonnent plus —, ce qu'on y gagne est une
- * scène qui tient soixante images par seconde au lieu de vingt-cinq.
- */
-function jauger() {
-  const largeur = typeof window === 'undefined' ? 1440 : window.innerWidth
-  const coeurs = navigator?.hardwareConcurrency ?? 4
-  const doigt = window.matchMedia?.('(pointer: coarse)')?.matches ?? false
-  const grain = window.devicePixelRatio || 1
-
-  const modeste = doigt || largeur < 1024 || coeurs <= 4
-  const confortable = !modeste && largeur >= 1280 && coeurs >= 8
-
-  /**
-   * FORÇAGE PAR L'URL — `?rendu=simple` ou `?rendu=complet`.
-   *
-   * Il ne sert à personne qui visite le site, et c'est voulu : aucun lien n'y
-   * mène, aucun réglage ne l'expose. Il sert à VOIR le cran dégradé depuis un
-   * ordinateur, ce qu'on ne peut sinon faire qu'en attrapant un téléphone — et
-   * ce qu'il faut pourtant pouvoir faire à chaque retouche du décor, puisque
-   * c'est la moitié des visiteurs qui le verra.
-   *
-   *   `simple`   ce que voit un téléphone : ni post-traitement, ni occultation,
-   *              ni transmission de l'eau.
-   *   `complet`  tout, y compris l'occultation ambiante, quelle que soit la
-   *              machine.
-   */
-  const forcage = new URLSearchParams(window.location.search).get('rendu')
-
-  return {
-    /** Le floraison et la chaîne de post-traitement qui le porte. */
-    postTraitement: forcage ? forcage !== 'simple' : !modeste,
-    /** L'occultation ambiante — la plus chère des trois. */
-    occultation: forcage ? forcage === 'complet' : confortable,
-    /** L'eau qui laisse voir son fond. */
-    transmission: !modeste,
-    pixels: modeste ? Math.min(grain, 1.5) : Math.min(grain, 2),
-    ombres: modeste ? 1024 : 2048,
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/*  L'ENVIRONNEMENT                                                           */
-/* -------------------------------------------------------------------------- */
-
-/**
- * LE CIEL REPLIÉ EN CARTE D'ÉCLAIRAGE — et pourquoi il n'est pas un fichier.
- *
- * Tout ce qui brille dans le décor ne brille que de ce qu'il REFLÈTE : un
- * verre, un zinc, un laiton, une eau n'ont presque pas de couleur propre. La
- * scène n'offrait à refléter qu'un blanc uniforme, et c'est précisément ce qui
- * donnait aux métaux et aux vitrages leur aspect de plastique peint : un reflet
- * sans direction n'est pas un reflet, c'est une teinte.
- *
- * LA RÉPONSE HABITUELLE EST UN HDRI — une photographie panoramique à grande
- * dynamique, de celles qu'on trouve chez Poly Haven. Elle est écartée ici pour
- * une raison de poids, au sens propre : le plus modeste de ces fichiers pèse
- * un à quatre mégaoctets, à télécharger AVANT la première image d'un parcours
- * dont tout l'intérêt est de s'ouvrir tout de suite. Le décor est déjà chargé à
- * la demande et pèse six cents kilo-octets ; en ajouter quatre fois autant pour
- * des reflets serait un mauvais marché.
- *
- * CE CIEL-CI EST DONC PEINT, ET IL A CE QUI COMPTE — de la DIRECTION et de la
- * DYNAMIQUE :
- *
- *   • un dégradé de zénith à horizon, qui donne un haut et un bas ;
- *   • un SOLEIL, disque brillant posé à l'azimut exact de la lumière
- *     directionnelle de la scène. C'est lui qui pose le point de lumière qui
- *     court sur l'eau et sur les garde-corps de verre — et il ne peut le faire
- *     que parce qu'il est BIEN PLUS BRILLANT QUE BLANC : sa couleur dépasse 1,
- *     ce qu'un canevas ne saurait pas porter mais qu'une couleur de matière
- *     porte très bien, et que la carte d'environnement conserve puisqu'elle est
- *     calculée en demi-flottants ;
- *   • un voile clair au ras de l'horizon, et un sol qui renvoie sa lumière.
- *
- * Coût : une poignée de millisecondes au montage, zéro octet de réseau, et
- * ensuite rien du tout — la carte est calculée une fois et ne change jamais.
- */
-function peindreCiel() {
-  const canvas = document.createElement('canvas')
-  canvas.width = 32
-  canvas.height = 256
-  const ctx = canvas.getContext('2d')
-
-  const degrade = ctx.createLinearGradient(0, 0, 0, 256)
-  degrade.addColorStop(0, '#dfe7f2')
-  degrade.addColorStop(0.42, '#f2f4f7')
-  degrade.addColorStop(0.5, '#fbf8f3')
-  degrade.addColorStop(0.62, '#f0eee9')
-  degrade.addColorStop(1, '#e2e0dc')
-  ctx.fillStyle = degrade
-  ctx.fillRect(0, 0, 32, 256)
-
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.mapping = THREE.EquirectangularReflectionMapping
-  return texture
-}
-
-function creerEnvironnement(renderer, directionSoleil) {
-  const scenette = new THREE.Scene()
-  const ciel = peindreCiel()
-  scenette.background = ciel
-
-  // LE SOLEIL. Sa couleur dépasse largement 1 : c'est ce qui lui donne, dans
-  // les reflets, l'éclat d'une source et non celui d'une tache claire.
-  const disque = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 12, 8),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(7.5, 6.6, 5.4), toneMapped: false }),
-  )
-  disque.position.copy(directionSoleil).normalize().multiplyScalar(9)
-  disque.scale.setScalar(1.15)
-  scenette.add(disque)
-
-  // Le halo autour du soleil : une seconde sphère, plus large et bien plus
-  // faible. Sans elle, le reflet est un point net — celui d'une ampoule, pas
-  // celui d'un ciel.
-  const halo = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 12, 8),
-    new THREE.MeshBasicMaterial({
-      color: new THREE.Color(1.5, 1.44, 1.3),
-      transparent: true,
-      opacity: 0.55,
-      toneMapped: false,
-    }),
-  )
-  halo.position.copy(disque.position)
-  halo.scale.setScalar(3.4)
-  scenette.add(halo)
-
-  const fabrique = new THREE.PMREMGenerator(renderer)
-  const carte = fabrique.fromScene(scenette, 0.035).texture
-  fabrique.dispose()
-  ciel.dispose()
-  disque.geometry.dispose()
-  disque.material.dispose()
-  halo.geometry.dispose()
-  halo.material.dispose()
-
-  return carte
-}
-
-/* -------------------------------------------------------------------------- */
-/*  LE SCINTILLEMENT                                                          */
-/* -------------------------------------------------------------------------- */
-
-/**
- * LA MESURE DE L'ÉCLAT — une bosse courte, toutes les deux secondes et demie.
- *
- * C'est le battement commun à TOUS les ouvrages déclarés : la piscine, le
- * balcon, la terrasse, le rez-de-jardin et la cabine d'ascenseur s'allument
- * ensemble, brièvement, et s'éteignent. Un seul battement pour tous, et c'est
- * volontaire — cinq clignotements désynchronisés sur un même bien se liraient
- * comme un sapin de Noël, un seul se lit comme un signal.
- *
- * Deux tiers du cycle sont ÉTEINTS. C'est ce qui fait la différence entre un
- * repère et une lueur : une chose qui brille tout le temps cesse d'attirer
- * l'œil au bout de trois secondes.
- */
-const ECLAT_PERIODE = 2.6
-const ECLAT_DUREE = 0.34
-
-function eclatDuMoment(secondes) {
-  const phase = (secondes % ECLAT_PERIODE) / ECLAT_PERIODE
-  if (phase > ECLAT_DUREE) return 0
-  return Math.sin((phase / ECLAT_DUREE) * Math.PI) ** 2
-}
 
 /* -------------------------------------------------------------------------- */
 /*  L'ÎLOT                                                                    */
@@ -386,14 +177,8 @@ function creerScene(canvas, { mouvementReduit }) {
   // Rétablir la conversion donnerait une scène juste mais plus sourde.
   THREE.ColorManagement.enabled = false
 
-  // LE CRAN DE QUALITÉ SE DÉCIDE AVANT TOUT LE RESTE — et les matières le
-  // lisent : l'eau du bassin y trouve s'il lui est permis d'être transparente
-  // pour de bon (voir `reglerQualite` dans `matieres.js`).
-  const cran = jauger()
-  M.reglerQualite({ transmission: cran.transmission })
-
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(cran.pixels)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = true
   // Ombres adoucies : le filtrage simple dessinait des bords en escalier sur
   // les arêtes obliques — une ombre de toiture en pente s'y lisait crénelée.
@@ -445,7 +230,7 @@ function creerScene(canvas, { mouvementReduit }) {
   const soleil = new THREE.DirectionalLight(0xfff7ec, 0.72 * FACTEUR_LUMIERE)
   soleil.position.set(26, 42, 22)
   soleil.castShadow = true
-  soleil.shadow.mapSize.set(cran.ombres, cran.ombres)
+  soleil.shadow.mapSize.set(2048, 2048)
   // LE CADRE D'OMBRE A ÉTÉ RESSERRÉ DE MOITIÉ. Il couvrait quatre-vingt-huit
   // unités de large pour un bien qui en fait douze : la carte d'ombre y
   // dépensait les trois quarts de sa définition sur de la pelouse vide, et
@@ -585,23 +370,24 @@ function creerScene(canvas, { mouvementReduit }) {
   poserSocle(RAYON_SOL_DEFAUT, true)
 
   /**
-   * L'ENVIRONNEMENT — un ciel peint, avec son soleil (voir `creerEnvironnement`).
+   * L'ENVIRONNEMENT. Le ciel, replié en carte d'éclairage, sert de reflet à
+   * tout ce qui en a un : les vitrages, le zinc, le laiton, le fer forgé. Sans
+   * lui, un métal sans source à refléter rend un gris mat — c'est ce qui
+   * donnait à la ferronnerie des balcons l'aspect du plastique peint.
    *
-   * Il sert de reflet à tout ce qui en a un : les vitrages, l'eau, le zinc, le
-   * laiton, le verre des garde-corps. Il remplace le blanc uniforme qui servait
-   * jusqu'ici, et c'est le changement d'éclairage le plus conséquent de cette
-   * passe : un reflet sans direction n'est pas un reflet, c'est une teinte — et
-   * c'était exactement ce qui donnait aux métaux et aux vitrages leur aspect de
-   * plastique peint.
+   * Son intensité est basse, et il le faut : la gestion des couleurs est coupée
+   * (voir plus haut), si bien qu'un éclairage d'environnement à pleine
+   * puissance s'ajouterait tel quel aux lumières déjà réglées et délaverait la
+   * scène entière. À un tiers, il ne se voit que là où il doit se voir — dans
+   * les reflets.
    */
-  const environnement = creerEnvironnement(renderer, soleil.position)
+  const fabriqueEnv = new THREE.PMREMGenerator(renderer)
+  const scenette = new THREE.Scene()
+  scenette.background = M.textureFondBlanc()
+  const environnement = fabriqueEnv.fromScene(scenette, 0.04).texture
   scene.environment = environnement
-  // L'INTENSITÉ MONTE DE 0,30 À 0,52, et il le faut : la carte n'est plus un
-  // blanc uniforme mais un ciel avec son soleil, et c'est d'elle que viennent
-  // désormais tous les reflets — le verre des baies, celui des garde-corps,
-  // l'eau du bassin, le zinc des couvertines. À l'ancien réglage, calculé pour
-  // ne rien laisser passer d'un blanc plat, le soleil n'y accrochait plus.
-  scene.environmentIntensity = 0.52
+  scene.environmentIntensity = 0.3
+  fabriqueEnv.dispose()
 
   /* ------------------------------ les oiseaux -------------------------------- */
 
@@ -629,36 +415,6 @@ function creerScene(canvas, { mouvementReduit }) {
   cercleOr.visible = false
   scene.add(cercleOr)
 
-  /* ---------------------------- l'ombre de contact --------------------------- */
-
-  /**
-   * L'OMBRE DE CONTACT SOUS LE BÂTIMENT — ce qui le pose au sol.
-   *
-   * Le soleil porte déjà une ombre, franche et d'un seul côté. Ce qu'il ne fait
-   * pas, et qu'aucune carte d'ombre ne fera à ce prix, c'est le NOIRCISSEMENT
-   * COURT au pied des murs : ce demi-mètre où le sol ne voit plus le ciel parce
-   * que le bâtiment le lui cache. Sans lui, un volume clair posé sur un sol
-   * clair flotte — c'est la première chose qu'on reproche à une image de
-   * synthèse, et c'est la moins chère à corriger.
-   *
-   * C'est une tache peinte, posée à plat sur l'îlot, redimensionnée à chaque
-   * image sur l'emprise de l'ouvrage. Elle ne s'écrit pas dans le tampon de
-   * profondeur : c'est de l'ombre, elle ne doit rien cacher.
-   */
-  const contact = new THREE.Mesh(
-    new THREE.CircleGeometry(1, 48),
-    new THREE.MeshBasicMaterial({
-      map: M.textureOmbreDouce(),
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-    }),
-  )
-  contact.rotation.x = -Math.PI / 2
-  contact.position.y = 0.012
-  contact.renderOrder = -1
-  ilot.add(contact)
-
   /* ------------------------------ plan de coupe ------------------------------ */
 
   /** Ce qui n'est pas encore bâti est simplement au-dessus du plan. */
@@ -676,110 +432,12 @@ function creerScene(canvas, { mouvementReduit }) {
     })
   }
 
-  /* --------------------------- la chaîne de rendu ---------------------------- */
-
-  /**
-   * LE POST-TRAITEMENT — deux passes, et chacune répond à une demande précise.
-   *
-   * L'image partait directement à l'écran. Elle passe maintenant par une chaîne
-   * dont le premier maillon rend la scène dans un tampon en DEMI-FLOTTANTS, et
-   * c'est ce détail-là qui rend tout le reste possible : un tampon ordinaire
-   * écrête à 1, et une fenêtre allumée à 4,2 y serait indiscernable d'un mur
-   * blanc. En demi-flottants, elle vaut encore 4,2 quand le floraison la lit.
-   *
-   *   LE FLORAISON (`UnrealBloomPass`) ne prend QUE ce qui dépasse 2,4. Le
-   *   seuil est le réglage le plus délicat de toute la chaîne, et la valeur
-   *   qu'on met d'ordinaire — 0,9, parfois 1 — délavait ici l'image ENTIÈRE
-   *   jusqu'au blanc. La raison tient à ce qu'est ce décor : un sol blanc, un
-   *   ciel blanc et des murs clairs, tous éclairés par un soleil, une
-   *   hémisphérique et un environnement qui s'additionnent. En valeurs
-   *   linéaires — celles que la passe lit — une surface blanche au soleil y
-   *   vaut environ 1,6, soit bien au-dessus de 1 : à ce seuil-là, TOUT
-   *   rayonnait.
-   *
-   *   À 2,4, il ne reste au-dessus que ce qui est vraiment une source : les
-   *   fenêtres de l'étage déclaré (émission 4,2), le plafonnier de la cabine
-   *   d'ascenseur, et les points de soleil sur l'eau et le verre. Le seuil
-   *   garde une marge au-dessus du blanc le plus clair que la scène sache
-   *   produire — celui d'un bien réglé sur « Prestige », dont les matières
-   *   s'éclaircissent encore.
-   *
-   *   L'OCCULTATION AMBIANTE (`GTAOPass`) creuse les angles rentrants : le
-   *   dessous des dalles en débord, l'intérieur des balcons, le pied des murs,
-   *   la jonction d'une baie et de son tableau. C'est la passe la plus chère du
-   *   décor et elle n'est posée que sur les machines confortables — mais c'est
-   *   elle qui répond au reproche le plus juste qu'on pouvait faire à cette
-   *   scène : tout y était également éclairé, donc rien n'y avait de profondeur.
-   *
-   *   LA SORTIE (`OutputPass`) rend à l'image son encodage d'écran. Sans elle,
-   *   la chaîne écrirait des valeurs linéaires dans un tampon d'affichage qui
-   *   les attend en sRGB, et toute la scène partirait deux fois trop sombre.
-   */
-  let composer = null
-  let floraison = null
-  let occultation = null
-
-  if (cran.postTraitement) {
-    composer = new EffectComposer(renderer)
-    composer.addPass(new RenderPass(scene, camera))
-
-    if (cran.occultation) {
-      occultation = new GTAOPass(scene, camera, 1, 1)
-      occultation.updateGtaoMaterial({
-        radius: 0.4,
-        distanceExponent: 1.2,
-        thickness: 1.4,
-        scale: 0.9,
-        samples: 12,
-        screenSpaceRadius: false,
-      })
-      // LE PLAN DE COUPE VAUT AUSSI POUR LA PASSE DE NORMALES. Elle redessine
-      // la scène avec sa propre matière, laquelle ignore tout du chantier :
-      // sans cette ligne, l'occultation creuserait, pendant tout le montage, les
-      // angles d'un bâtiment qui n'est pas encore construit — une ombre de
-      // bâtiment fantôme posée sur le vide.
-      occultation.normalMaterial.clippingPlanes = [coupe]
-      occultation.normalMaterial.clipShadows = true
-      composer.addPass(occultation)
-    }
-
-    floraison = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.45, 0.42, 2.4)
-    composer.addPass(floraison)
-    composer.addPass(new OutputPass())
-  }
-
-  /**
-   * LE FOND DE SCÈNE S'EFFACE LE TEMPS DE LA PASSE DE NORMALES.
-   *
-   * `GTAOPass` redessine la scène pour en relever les normales et les
-   * profondeurs. Le fond de scène, lui, se dessine toujours — trois lignes en
-   * amont de three, et rien ne permet de l'en dissuader depuis la passe. Il
-   * écrirait donc les couleurs d'un ciel là où l'occultation attend des
-   * normales. Le retirer le temps de cette passe-là, et le remettre ensuite,
-   * coûte deux affectations par image et lève la question entièrement.
-   */
-  if (occultation) {
-    const rendreOcclusion = occultation.render.bind(occultation)
-    occultation.render = (...arguments_) => {
-      const fond = scene.background
-      scene.background = null
-      rendreOcclusion(...arguments_)
-      scene.background = fond
-    }
-  }
-
-  /** Rend une image — par la chaîne de post-traitement, ou en direct. */
-  const rendre = () => {
-    if (composer) composer.render()
-    else renderer.render(scene, camera)
-  }
-
   /* ------------------------------- état ------------------------------------- */
 
   const etat = {
     stade: 0,
     type: null,
-    surface: 30,
+    surface: 100,
     etage: null,
     options: {},
   }
@@ -799,26 +457,10 @@ function creerScene(canvas, { mouvementReduit }) {
     terrasse: 0,
     balcon: 0,
     // Appartements : le jardin privatif au pied de l'immeuble, et le rooftop
-    // qui prend la place du toit technique.
+    // qui prend la place du comble.
     rezDeJardin: 0,
     rooftop: 0,
     standing: 0,
-    // L'ascenseur, et le voile qu'il pose sur la masse du bâtiment pour qu'on
-    // voie la cabine monter dans sa cage.
-    ascenseur: 0,
-    /**
-     * LES TROIS SURFACES D'EXTÉRIEUR, de 0 à 1.
-     *
-     * Le balcon, le rez-de-jardin et la terrasse se déclaraient par oui ou par
-     * non ; ils se déclarent maintenant EN MÈTRES CARRÉS, comme le terrain et le
-     * rooftop le faisaient déjà (voir `EstimationAffinagePanel`). Ces trois
-     * valeurs-là sont la surface ramenée sur son échelle, et c'est tout ce que
-     * le décor en a besoin de savoir : à lui de décider de combien la dalle
-     * s'allonge et où le mobilier s'écarte.
-     */
-    balconEtendue: 0.35,
-    jardinEtendue: 0.3,
-    terrasseEtendue: 0.35,
     // Les fenêtres de l'étage déclaré, sur la façade de l'immeuble.
     etageAllume: 0,
   }
@@ -1021,21 +663,10 @@ function creerScene(canvas, { mouvementReduit }) {
      * raison — c'est le même bouton, et c'est le même ouvrage vu d'une autre
      * architecture.
      *
-     * LE RAPPROCHEMENT A ÉTÉ RAMENÉ DE 0,58 À 0,84, et c'est le scintillement
-     * qui le permet.
-     *
-     * À six dixièmes de la distance, le bâtiment débordait du cadre : on
-     * gagnait le balcon et l'on perdait tout le reste — le rooftop qu'on vient
-     * de déclarer, le jardin qui s'étend, la cabine qui monte dans sa cage.
-     * C'était acceptable tant que le balcon était le seul ouvrage déclarable à
-     * mi-façade ; ce ne l'est plus depuis qu'il y en a cinq.
-     *
-     * Et surtout : ce rapprochement n'existait que pour une raison — qu'on
-     * TROUVE l'ouvrage qu'on vient de cocher. Chaque ouvrage déclaré scintille
-     * désormais de lui-même (voir `eclat` et `scintillant` dans `kit.js`), et
-     * l'œil y va sans qu'on ait à sacrifier le plan d'ensemble. Il ne reste de
-     * l'ancien geste que ce qu'il avait de juste : la caméra DESCEND à la
-     * hauteur du balcon et le vise, au lieu de viser le milieu du bâtiment.
+     * Un peu moins de six dixièmes de la distance : c'est le rapprochement le
+     * plus franc qu'on puisse se permettre. En deçà, le bâtiment déborde du
+     * cadre — on aurait gagné sur le balcon ce qu'on aurait perdu sur tout le
+     * reste.
      */
     const ancreExterieur =
       etat.stade >= DERNIER_PLAN && (etat.options?.balcon || etat.options?.terrasse)
@@ -1043,13 +674,13 @@ function creerScene(canvas, { mouvementReduit }) {
         : null
 
     if (ancreExterieur) {
-      distance *= 0.84
+      distance *= 0.58
       ancrePivot = ancreExterieur.clone()
       ancreCible = ancreExterieur.clone()
     }
 
     droneCible.rayon = distance
-    droneCible.hauteur = Math.max(0.9, distance * (ancreExterieur ? 0.3 : p.elevation))
+    droneCible.hauteur = Math.max(0.9, distance * (ancreExterieur ? 0.16 : p.elevation))
 
     pivotVise.copy(ancrePivot)
     vise.copy(ancreCible)
@@ -1127,13 +758,6 @@ function creerScene(canvas, { mouvementReduit }) {
     cible.rezDeJardin = o.rezDeJardin ? 1 : 0
     cible.rooftop = borne(Number(o.rooftop) || 0, 0, 1)
     cible.standing = borne(Number(o.standing) || 0, 0, 1)
-    cible.ascenseur = o.ascenseur ? 1 : 0
-    // Les surfaces d'extérieur gardent leur valeur d'ouverture tant que rien
-    // n'est déclaré : un balcon coché sans surface donnée est un balcon de
-    // taille courante, pas un balcon de zéro mètre carré.
-    cible.balconEtendue = borne(Number(o.balconEtendue ?? 0.35) || 0, 0, 1)
-    cible.jardinEtendue = borne(Number(o.jardinEtendue ?? 0.3) || 0, 0, 1)
-    cible.terrasseEtendue = borne(Number(o.terrasseEtendue ?? 0.35) || 0, 0, 1)
 
     if (famille === 'immeuble' && ouvrage?.placerBalcon) {
       ouvrage.placerBalcon(niveauDemande())
@@ -1203,37 +827,13 @@ function creerScene(canvas, { mouvementReduit }) {
 
     if (mue.phase) avancerMue(dt)
 
-    /**
-     * L'ÉCLAT — le battement commun de tous les ouvrages déclarés.
-     *
-     * Il n'est PAS lissé comme le reste : c'est une mesure, pas une transition,
-     * et la passer par le lissage général l'arrondirait jusqu'à en faire une
-     * lueur continue — c'est-à-dire exactement ce qu'on ne veut pas (voir
-     * `eclatDuMoment`).
-     *
-     * En mouvement réduit, il ne bat plus : il se pose à un tiers, et les
-     * ouvrages déclarés gardent une lueur douce et fixe. Le repère demeure, le
-     * clignotement disparaît — c'est précisément ce que `prefers-reduced-motion`
-     * demande, et c'est aussi ce qu'on doit à qui est sensible aux flashs.
-     */
-    const eclat = mouvementReduit ? 0.32 : eclatDuMoment(secondes)
-
-    ouvrage?.poser?.({ ...val, surface: etat.surface, eclat, temps: secondes })
+    ouvrage?.poser?.({ ...val, surface: etat.surface })
 
     // L'ÎLOT SUIT LA PROPRIÉTÉ. Chaque ouvrage déclare l'emprise que ses abords
     // occupent au sol (`rayonSol`), et la maison la recalcule à chaque image :
     // la pelouse s'étend avec la surface de terrain déclarée, et le socle doit
     // s'étendre avec elle, sinon le jardin finirait dans le vide.
     poserSocle(ouvrage?.rayonSol ?? RAYON_SOL_DEFAUT)
-
-    // L'OMBRE DE CONTACT suit l'emprise du bâtiment, pas celle de l'îlot : ce
-    // qu'elle dit est « ce volume-ci touche le sol ici », et un disque réglé sur
-    // le socle la dirait d'un terrain entier. Elle est divisée par le rayon de
-    // l'îlot parce qu'elle est portée par lui, et hérite donc de son échelle.
-    const emprise = (ouvrage?.envergure?.largeur ?? 8) * 0.62
-    const echelleContact = emprise / Math.max(0.001, rayonIlot)
-    contact.scale.set(echelleContact, echelleContact, 1)
-    contact.material.opacity = 0.5 * borne(val.montage * 1.4, 0, 1)
 
     /**
      * LES OISEAUX passent toutes les sept secondes, jamais deux fois de suite
@@ -1311,7 +911,7 @@ function creerScene(canvas, { mouvementReduit }) {
     cercleOr.material.opacity = val.halo * 0.9
     cercleOr.visible = val.halo > 0.01
 
-    rendre()
+    renderer.render(scene, camera)
   }
 
   animer()
@@ -1327,19 +927,6 @@ function creerScene(canvas, { mouvementReduit }) {
       camera.aspect = largeur / hauteur
       camera.updateProjectionMatrix()
       renderer.setSize(largeur, hauteur, false)
-      /**
-       * LA CHAÎNE SE REDIMENSIONNE EN PIXELS CSS, PAS EN PIXELS PHYSIQUES.
-       *
-       * `EffectComposer.setSize` applique LUI-MÊME le rapport de pixels relevé
-       * à sa construction, puis le répercute sur chacune de ses passes. Lui
-       * donner une taille déjà multipliée revenait à la multiplier deux fois :
-       * sur un écran à deux pixels par point, les tampons faisaient quatre fois
-       * la surface demandée, le floraison en allouait cinq de plus, et la carte
-       * graphique renonçait — l'image sortait entièrement blanche. C'est aussi
-       * pourquoi les passes ne sont pas redimensionnées une à une ici : le
-       * compositeur s'en charge, et le faire deux fois n'ajoute rien.
-       */
-      composer?.setSize(largeur, hauteur)
       cadrer()
     },
 
@@ -1347,9 +934,6 @@ function creerScene(canvas, { mouvementReduit }) {
       cancelAnimationFrame(image)
       demonterOuvrage()
       voliere.detruire()
-      occultation?.dispose()
-      floraison?.dispose()
-      composer?.dispose()
       environnement.dispose()
       scene.traverse((objet) => {
         if (!objet.isMesh && !objet.isSprite) return
@@ -1369,7 +953,7 @@ function creerScene(canvas, { mouvementReduit }) {
 export function DroneScene({
   stade = 0,
   type = null,
-  surface = 30,
+  surface = 100,
   etage = null,
   options = null,
 }) {
@@ -1422,18 +1006,5 @@ export function DroneScene({
     })
   }, [stade, type, surface, etage, signatureOptions])
 
-  /**
-   * LE CANEVAS EST BLANC SOUS LE RENDU, et ce n'est pas décoratif.
-   *
-   * Quand la zone de la scène change de taille — la vignette de la conversation
-   * qui redevient une demi-page (voir `Estimer.jsx`) —, il s'écoule UNE image
-   * entre le redimensionnement du canevas et celui des tampons de
-   * post-traitement. Pendant cette image-là, une partie du canevas n'est
-   * dessinée par personne, et un canevas vierge est NOIR. Sur un décor blanc,
-   * c'est un éclair noir en travers de l'écran.
-   *
-   * Un fond blanc en CSS le rend invisible : la zone non dessinée a exactement
-   * la couleur de celle qui l'est.
-   */
-  return <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full bg-white" />
+  return <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full" />
 }

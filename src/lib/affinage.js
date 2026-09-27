@@ -97,55 +97,11 @@ export const OPTIONS_DEFAUT = {
   terrainM2: 0,
   panneaux: false,
   exterieur: false,
-  // La surface de l'extérieur déclaré — terrasse pour une maison, balcon pour
-  // un appartement. Les valeurs d'ouverture sont celles d'un extérieur
-  // COURANT, jamais zéro : cocher « Balcon » pour se voir proposer un balcon de
-  // zéro mètre carré n'aurait aucun sens.
-  exterieurM2: 10,
-  // Appartements : le jardin privatif de plain-pied, la terrasse en toiture, et
-  // l'ascenseur.
+  // Appartements : le jardin privatif de plain-pied, et la terrasse en toiture.
   rezDeJardin: false,
-  rezDeJardinM2: 30,
   rooftopM2: 0,
-  ascenseur: false,
   standing: STANDING_DEFAUT,
 }
-
-/**
- * LES TROIS SURFACES D'EXTÉRIEUR, ET CE QU'ELLES NE FONT PAS.
- *
- * Le balcon, le rez-de-jardin et la terrasse se déclaraient par oui ou par
- * non ; ils se déclarent désormais EN MÈTRES CARRÉS, comme le terrain et le
- * rooftop le faisaient déjà — un balcon de 3 m² et une loggia de 25 ne sont pas
- * le même bien, et le décor sait maintenant les distinguer.
- *
- * **CES SURFACES NE TOUCHENT PAS AU MONTANT.** Le barème ci-dessus n'a pas
- * bougé d'un point : la prime d'extérieur reste la même qu'avant, qu'on
- * déclare 3 m² ou 25. C'est délibéré — le calcul de l'estimation n'est pas
- * l'objet de cette passe, et une prime qui croîtrait avec la surface déclarée
- * serait une règle de marché inventée ici plutôt que relevée. Ce que ces
- * curseurs changent, c'est CE QU'ON VOIT : la dalle s'allonge, la pelouse
- * s'étend, le mobilier arrive. Le jour où le barème voudra les valoriser, la
- * valeur est déjà là et n'aura qu'à être lue.
- */
-export const BALCON_SAISIE_MAX = 30
-export const JARDIN_SAISIE_MAX = 200
-export const TERRASSE_SAISIE_MAX = 80
-
-/**
- * ASCENSEUR — déclaré, montré, et pas davantage.
- *
- * C'est l'équipement dont l'absence coûte le plus cher à un quatrième étage, et
- * il ne figure dans aucune base publique : la demander est juste (voir
- * `coefficientEtage` dans `etage.js`, dont le plafond de prime N'EXISTE QUE
- * parce qu'on ignorait s'il y avait un ascenseur).
- *
- * **ELLE NE CORRIGE PAS LE MONTANT POUR AUTANT.** Le barème de l'étage est
- * construit autour de cette ignorance ; le corriger ici reviendrait à toucher
- * deux fois au même facteur, et à déplacer tous les montants déjà rendus. La
- * déclaration est recueillie et dessinée — la cabine monte dans sa cage —, et
- * c'est au barème de l'étage, le jour où il sera révisé, de s'en servir.
- */
 
 /** Surface de rooftop que le curseur laisse déclarer, en m². */
 export const ROOFTOP_SAISIE_MAX = 120
@@ -222,30 +178,17 @@ export function optionsDecor(options, type = 'maison') {
   const o = { ...OPTIONS_DEFAUT, ...(options ?? {}) }
   const maison = type !== 'appartement'
 
-  const surface = Number(o.exterieurM2) || 0
-
   return {
     piscine: maison && o.piscine,
     // Le décor s'étend sur toute l'échelle DÉCLARABLE, pas sur celle du barème :
     // un terrain de 5 000 m² doit se voir cinq mille mètres carrés, même si la
     // prime, elle, a cessé de croître à 2 000 (voir `TERRAIN_SAISIE_MAX`).
     terrain: maison ? borne((Number(o.terrainM2) || 0) / TERRAIN_SAISIE_MAX, 0, 1) : 0,
-    // LES PANNEAUX SOLAIRES NE SE PROPOSENT PLUS AUX APPARTEMENTS, et le décor
-    // le sait aussi : un copropriétaire ne décide pas seul de la toiture de
-    // l'immeuble, et la question n'avait pas de sens. Le barème, lui, n'a pas
-    // changé — la case étant masquée, elle reste à faux, et aucun montant déjà
-    // rendu ne bouge (voir `coefficientAffinage`).
-    panneaux: maison && Boolean(o.panneaux),
+    panneaux: Boolean(o.panneaux),
     terrasse: maison && o.exterieur,
     balcon: !maison && o.exterieur,
     rezDeJardin: !maison && Boolean(o.rezDeJardin),
     rooftop: maison ? 0 : borne((Number(o.rooftopM2) || 0) / ROOFTOP_SAISIE_MAX, 0, 1),
-    ascenseur: !maison && Boolean(o.ascenseur),
-    // Les trois étendues, ramenées sur [0, 1] : le décor ne connaît pas les
-    // mètres carrés, il ne connaît que « de combien ça s'allonge ».
-    terrasseEtendue: borne(surface / TERRASSE_SAISIE_MAX, 0, 1),
-    balconEtendue: borne(surface / BALCON_SAISIE_MAX, 0, 1),
-    jardinEtendue: borne((Number(o.rezDeJardinM2) || 0) / JARDIN_SAISIE_MAX, 0, 1),
     standing: rangStanding(o.standing),
   }
 }

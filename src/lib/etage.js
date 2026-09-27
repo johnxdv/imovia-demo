@@ -19,33 +19,15 @@ export const ETAGE_MIN = 0
 export const ETAGE_MAX = 12
 
 /**
- * ÉTAGE DE RÉFÉRENCE DU BARÈME — celui dont le coefficient vaut exactement 1.
+ * Valeur d'ouverture — et étage de référence du barème, celui dont le
+ * coefficient vaut exactement 1.
  *
- * C'était AUSSI la valeur d'ouverture du champ, et les deux ne font plus qu'un :
- * le sélecteur s'ouvre désormais au REZ-DE-CHAUSSÉE (voir `ETAGE_OUVERTURE`).
- * Les séparer était la condition pour déplacer l'un sans toucher à l'autre —
- * le barème est resté rigoureusement identique, et un bien déclaré au deuxième
- * vaut au centime près ce qu'il valait avant.
+ * Les deux ne font qu'un à dessein : le champ n'apparaît qu'une fois le type
+ * détecté, c'est-à-dire une fraction de seconde après la fenêtre, et il peut
+ * n'être jamais touché. Ouvrir sur une valeur neutre garantit qu'un champ
+ * ignoré ne déplace rien — ni vers le haut, ni vers le bas.
  */
 export const ETAGE_DEFAUT = 2
-
-/**
- * VALEUR D'OUVERTURE DU SÉLECTEUR — le rez-de-chaussée.
- *
- * Elle ouvrait au deuxième étage, qui est la valeur neutre du barème : un champ
- * jamais touché ne déplaçait alors rien. Elle ouvre au rez-de-chaussée, et il
- * faut dire ce que ça change, parce que ce n'est pas rien : **un vendeur qui
- * ne touche pas au sélecteur déclare désormais un rez-de-chaussée**, lequel
- * porte une décote de 5 % (voir `COEFFICIENT_RDC`). Le barème n'a pas bougé
- * d'un point ; c'est la valeur déclarée par défaut qui a changé, et le montant
- * avec elle.
- *
- * Ouvrir en bas de l'échelle a une justification : c'est le seul cran depuis
- * lequel on ne peut aller que dans un sens, et c'est donc celui où l'on
- * remarque le plus vite que le champ est réglable. Le compromis est assumé, il
- * n'est pas silencieux.
- */
-export const ETAGE_OUVERTURE = 0
 
 /** Décote du rez-de-chaussée, et prime maximale des étages élevés. */
 const COEFFICIENT_RDC = 0.95
