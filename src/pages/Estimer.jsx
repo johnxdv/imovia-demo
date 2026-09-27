@@ -301,7 +301,10 @@ export default function Estimer() {
   // (voir la section, plus bas), et il la remplit d'un bord à l'autre.
   const stade = stadeChantier(step, stageProgress, affinage)
   const typeScene = selection?.type ?? typeDeclare
-  const surfaceScene = selection?.surfaceM2 ?? surfaceDeclaree ?? 100
+  // Le repli suit la valeur d'ouverture du curseur (voir `SURFACE_DEFAULT`
+  // dans `BuildingConfirmModal`) : le décor et la fenêtre de surface doivent
+  // montrer le même bien tant que rien n'a été déclaré.
+  const surfaceScene = selection?.surfaceM2 ?? surfaceDeclaree ?? 30
   const etageScene = selection?.etage ?? etageDeclare
 
   // Glissement horizontal léger ; réduit à un simple fondu si l'utilisateur
@@ -378,16 +381,56 @@ export default function Estimer() {
             pleineLargeur ? '' : 'lg:left-1/2',
           ].join(' ')}
         >
-          <div className="sticky top-0 h-[38vh] w-full overflow-hidden lg:h-screen">
-            <Suspense fallback={null}>
-              <DroneScene
-                stade={stade}
-                type={typeScene}
-                surface={surfaceScene}
-                etage={etageScene}
-                options={optionsDecor}
-              />
-            </Suspense>
+          {/* LA SCÈNE SE REPLIE EN VIGNETTE PENDANT LA CONVERSATION.
+
+              Elle occupait la moitié droite tout au long du parcours, puis la
+              conversation de finalisation reprenait toute la largeur et la
+              RECOUVRAIT entièrement : au moment précis où le prix s'affiche, le
+              bien qu'on vient de construire disparaissait de l'écran. C'était
+              le seul endroit du parcours où l'on perdait le bien de vue.
+
+              Il revient, RANGÉ EN BAS À GAUCHE, sous la colonne du montant et
+              de son bouton « Affiner mon estimation » : une vignette encadrée,
+              de la taille d'une photographie d'annonce. Elle ne dispute plus sa
+              place à la conversation — elle la borde —, et elle reste là
+              pendant qu'on répond aux questions comme pendant qu'on lit le
+              prix.
+
+              La vignette ne vaut qu'À PARTIR DU GABARIT ORDINATEUR. En dessous,
+              la scène garde la bande du haut qu'elle a sur tout le reste du
+              parcours et le panneau se range dessous : une vignette posée en
+              bas d'un écran de téléphone viendrait couvrir le clavier au moment
+              de saisir ses coordonnées.
+
+              Un seul `DroneScene` dans les deux cas, et c'est la raison de ces
+              classes conditionnelles plutôt que de deux branches : monter la
+              scène coûte des centaines de millisecondes, et la remonter à
+              chaque bascule ferait repartir le chantier de zéro sous les yeux
+              du vendeur. */}
+          <div
+            className={[
+              'sticky top-0 h-[38vh] w-full lg:h-screen',
+              pleineLargeur ? 'lg:flex lg:items-end lg:justify-start lg:p-6 xl:p-8' : '',
+            ].join(' ')}
+          >
+            <div
+              className={[
+                'h-full w-full overflow-hidden',
+                pleineLargeur
+                  ? 'lg:h-[27vh] lg:max-h-[17rem] lg:w-[20rem] lg:rounded-[14px] lg:border lg:border-ink/10 lg:bg-white lg:shadow-[0_18px_44px_-18px_rgba(20,20,20,0.45)] xl:w-[23rem]'
+                  : '',
+              ].join(' ')}
+            >
+              <Suspense fallback={null}>
+                <DroneScene
+                  stade={stade}
+                  type={typeScene}
+                  surface={surfaceScene}
+                  etage={etageScene}
+                  options={optionsDecor}
+                />
+              </Suspense>
+            </div>
           </div>
         </div>
 

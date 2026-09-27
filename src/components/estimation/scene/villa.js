@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import * as M from './matieres'
 import {
+  appui,
   arbre,
   baieVitree,
   boite,
@@ -8,11 +9,15 @@ import {
   disloquant,
   fut,
   gardeCorpsVerre,
+  encadrement,
+  gouttiere,
   graminee,
   pergola as creerPergola,
   poser,
   revelable,
+  scintillant,
   souche,
+  transat,
 } from './kit'
 
 /**
@@ -178,8 +183,21 @@ export const palierVilla = (surface) => {
 
 /* -------------------------------------------------------------------------- */
 
-/** Toiture à faible pente, deux versants et son débord — la couverture des
-    volumes hauts, en terre cuite comme sur la maison de référence. */
+/**
+ * TOITURE À FAIBLE PENTE, deux versants et son débord.
+ *
+ * ELLE EST PASSÉE DE LA TERRE CUITE À L'ARDOISE, et c'est un accord qu'on
+ * remet d'aplomb. Une couverture orangée sur un enduit blanc cassé et des
+ * menuiseries d'aluminium noir est une association qu'aucun architecte ne fait :
+ * la terre cuite appartient au Sud et aux maisons à volets bois, l'ardoise à
+ * celle-ci. Elle a de surcroît ce que la tuile n'avait pas — un ÉCLAT, qui
+ * change d'une écaille à l'autre et qui prend le soleil (voir `ardoise` dans
+ * `matieres.js`).
+ *
+ * ELLE A MAINTENANT SES GOUTTIÈRES. Personne ne regarde une gouttière ; tout le
+ * monde voit son absence — un toit d'où l'eau ne part nulle part se lit comme
+ * une maquette, et c'est exactement le reproche qu'on faisait à ces volumes.
+ */
 function toitPente(largeur, profondeur, { pente = 0.3, debord = 0.42 } = {}) {
   const groupe = new THREE.Group()
   const l = largeur + debord * 2
@@ -189,18 +207,26 @@ function toitPente(largeur, profondeur, { pente = 0.3, debord = 0.42 } = {}) {
   const longueurVersant = Math.sqrt(demiP * demiP + hauteur * hauteur)
 
   ;[-1, 1].forEach((cote) => {
-    const versant = poser(groupe, boite(l, 0.12, longueurVersant, M.tuile()))
+    const versant = poser(groupe, boite(l, 0.12, longueurVersant, M.ardoise()))
     versant.position.set(0, hauteur / 2, (cote * demiP) / 2)
     versant.rotation.x = cote * Math.atan2(hauteur, demiP)
   })
 
-  const faitage = poser(groupe, boite(l + 0.06, 0.09, 0.14, M.tuile()))
+  const faitage = poser(groupe, boite(l + 0.06, 0.09, 0.14, M.ardoise()))
   faitage.position.y = hauteur
 
   // Rives de pignon : la planche claire qui ferme la couverture sur le côté.
   ;[-1, 1].forEach((cote) => {
     const rive = poser(groupe, boite(0.09, 0.16, p, M.enduitClair()))
     rive.position.set((cote * l) / 2, hauteur / 2 - 0.02, 0)
+  })
+
+  // Le chéneau court en pied de chaque versant, et la descente tombe côté
+  // façade — là où on la verrait si elle manquait.
+  ;[-1, 1].forEach((cote) => {
+    const chenal = gouttiere({ longueur: l, hauteur: 1.3, descente: cote > 0 })
+    chenal.position.set(0, 0.02, (cote * p) / 2)
+    groupe.add(chenal)
   })
 
   groupe.userData.hauteur = hauteur
@@ -223,7 +249,21 @@ function toitPlat(largeur, profondeur, { debord = 0.5 } = {}) {
     avant.position.set(0, 0.24, (cote * p) / 2 - cote * 0.05)
     const lateral = poser(groupe, boite(0.1, 0.2, p, M.enduitClair()))
     lateral.position.set((cote * l) / 2 - cote * 0.05, 0.24, 0)
+    // La couvertine : le chapeau métallique qui coiffe l'acrotère. C'est la
+    // ligne brillante qui souligne un toit plat, et sans elle le relevé d'enduit
+    // se termine sur une arête nue.
+    const couvertine = poser(groupe, boite(l + 0.08, 0.035, 0.16, M.zincToiture()), { ombre: false })
+    couvertine.position.set(0, 0.35, (cote * p) / 2 - cote * 0.05)
+    const couvertineLaterale = poser(groupe, boite(0.16, 0.035, p + 0.08, M.zincToiture()), {
+      ombre: false,
+    })
+    couvertineLaterale.position.set((cote * l) / 2 - cote * 0.05, 0.35, 0)
   })
+
+  // Descente d'eau pluviale, à l'angle : un toit plat se vide aussi.
+  const descente = gouttiere({ longueur: 0.2, hauteur: 1.5, descente: true })
+  descente.position.set(l / 2 - 0.1, 0, p / 2 - 0.12)
+  groupe.add(descente)
 
   groupe.userData.hauteur = 0.34
   return groupe
@@ -418,6 +458,40 @@ export function creerVilla(indexPalier) {
   baie.position.set(corps.largeur * 0.12, y0 + 0.14, zFacade)
   montant.add(baie)
 
+  /**
+   * LES FINITIONS DE LA BAIE — le seuil, le linteau, les tableaux.
+   *
+   * Une baie posée à même un mur plat, c'est un rectangle collé sur une boîte :
+   * c'est le reproche qu'on faisait à ces volumes, et il était juste. Trois
+   * pièces le lèvent, et aucune ne coûte plus qu'une boîte :
+   *
+   *   LE SEUIL, une pierre saillante sous le dormant, qui porte son ombre sur
+   *   la terrasse ;
+   *   LE LINTEAU, la retombée de béton au-dessus, qui signe la portée ;
+   *   LES TABLEAUX, les deux joues en léger retrait de part et d'autre, qui
+   *   donnent son ÉPAISSEUR au mur — sans elles, la façade est un décalque.
+   */
+  const seuilBaie = appui({ largeur: palier.baie.largeur + 0.3, saillie: 0.2, matiere: M.betonLisse() })
+  seuilBaie.position.set(corps.largeur * 0.12, y0 + 0.14, zFacade)
+  montant.add(seuilBaie)
+
+  const linteauBaie = poser(
+    montant,
+    boite(palier.baie.largeur + 0.36, 0.16, 0.24, M.betonLisse()),
+    { ombre: false },
+  )
+  linteauBaie.position.set(corps.largeur * 0.12, y0 + 0.14 + hauteurBaie + 0.08, zFacade + 0.06)
+  ;[-1, 1].forEach((cote) => {
+    const tableau = poser(montant, boite(0.14, hauteurBaie + 0.16, 0.2, M.enduitOmbre()), {
+      ombre: false,
+    })
+    tableau.position.set(
+      corps.largeur * 0.12 + (cote * (palier.baie.largeur + 0.14)) / 2,
+      y0 + 0.14 + hauteurBaie / 2,
+      zFacade + 0.04,
+    )
+  })
+
   // L'entrée : un vantail d'aluminium sombre, encastré en bout de façade, et
   // son seuil de pierre.
   const hauteurPorte = Math.min(1.32, corps.hauteur * 0.76)
@@ -455,10 +529,29 @@ export function creerVilla(indexPalier) {
     if (retour && cote < 0) return
     if (aile && (cote === aile.cote || aile.symetrique)) return
     for (let i = 0; i < 2; i += 1) {
+      const z = (i === 0 ? -1 : 1) * corps.profondeur * 0.24
       const fenetre = baieVitree({ largeur: 0.85, hauteur: 0.78, meneaux: 2 })
       fenetre.rotation.y = cote * (Math.PI / 2)
-      fenetre.position.set(xPignon, y0 + 0.58, (i === 0 ? -1 : 1) * corps.profondeur * 0.24)
+      fenetre.position.set(xPignon, y0 + 0.58, z)
       montant.add(fenetre)
+
+      // Appui saillant et encadrement en plate-bande : les deux pièces qui
+      // font qu'un percement a une épaisseur.
+      const tablette = appui({ largeur: 1.1, saillie: 0.16, matiere: M.betonLisse() })
+      tablette.rotation.y = cote * (Math.PI / 2)
+      tablette.position.set(xPignon, y0 + 0.58, z)
+      montant.add(tablette)
+
+      const cadre = encadrement({
+        largeur: 0.85,
+        hauteur: 0.78,
+        epaisseur: 0.08,
+        saillie: 0.04,
+        matiere: M.enduitOmbre(),
+      })
+      cadre.rotation.y = cote * (Math.PI / 2)
+      cadre.position.set(xPignon, y0 + 0.58, z)
+      montant.add(cadre)
     }
   })
 
@@ -607,39 +700,171 @@ export function creerVilla(indexPalier) {
 
   /* --- Options d'affinage -------------------------------------------------- */
 
-  // Piscine : bassin creusé, margelle de pierre claire, plage immergée. Une
-  // piscine haut de gamme se reconnaît à sa margelle affleurante et à son
-  // liner sombre, pas à un rectangle bleu.
+  /**
+   * LA PISCINE — l'ouvrage qui se voyait le plus, et le plus mal.
+   *
+   * C'était trois boîtes : une margelle, une cuve sombre, et une plaque bleue
+   * à 92 % d'opacité posée dessus. Rien de ce qui fait qu'on reconnaît de l'eau
+   * n'y était : on ne voyait pas le fond, on ne voyait pas l'épaisseur, et rien
+   * ne bougeait.
+   *
+   * CE QU'ELLE A MAINTENANT, et pourquoi chaque chose y est :
+   *
+   *   UN FOND CARRELÉ. C'est le premier point : une piscine se lit à ce qu'on
+   *   voit AU TRAVERS. Le bassin est carrelé de petits formats bleu-vert avec
+   *   ses joints clairs, et ce sont eux qui donnent l'échelle et la profondeur.
+   *
+   *   UNE EAU QUI RÉFRACTE. La matière est une vraie transmission d'indice
+   *   1,33 — celui de l'eau — et non plus un voile bleu : les joints du
+   *   carrelage se tordent en passant la surface, et c'est cette torsion qu'on
+   *   lit comme de l'eau (voir `eauPiscine` dans `matieres.js`). Sur les
+   *   configurations modestes, la transmission est remplacée par l'ancien voile
+   *   — l'eau y perd son fond, elle garde son mouvement.
+   *
+   *   UNE SURFACE QUI ONDULE. Deux passages de la même carte de rides glissent
+   *   l'un sur l'autre, à des vitesses différentes : c'est leur battement qui
+   *   fait la ride. Une seule passe glisserait en bloc.
+   *
+   *   UNE MARGELLE TEXTURÉE, débordante de deux centimètres sur le bassin —
+   *   c'est la margelle affleurante des piscines soignées, et la ligne d'ombre
+   *   qu'elle porte sur l'eau vaut tous les bleus du monde.
+   *
+   *   LA LIGNE D'EAU, enfin : la frise de carrelage plus sombre au niveau de
+   *   la surface, qu'on voit dans toutes les piscines et dans aucune image de
+   *   synthèse.
+   */
   const piscine = new THREE.Group()
-  const bassinL = Math.max(4.2, terrasseL * 0.52)
-  const bassinP = 2.5
-  const bord = poser(piscine, boite(bassinL + 0.7, 0.14, bassinP + 0.7, M.margelle()), { ombre: false })
-  bord.position.y = 0.07
-  const cuve = poser(piscine, boite(bassinL, 0.5, bassinP, M.betonSombre()), { ombre: false })
-  cuve.position.y = -0.2
-  const eau = poser(piscine, boite(bassinL - 0.1, 0.42, bassinP - 0.1, M.eauPiscine()), { ombre: false })
-  eau.position.y = -0.05
-  // Deux bains de soleil au bord du bassin.
+  /**
+   * LE BASSIN SUIT LA MAISON, avec un plancher bas.
+   *
+   * Il était plafonné par le bas à 4,2 unités — sept mètres et demi — quelle
+   * que soit la maison. Sur le plus petit palier, que le curseur de surface
+   * propose désormais par défaut (30 m², voir `BuildingConfirmModal`), le
+   * bassin faisait deux fois la maison : on n'estimait plus un studio avec une
+   * piscine, on estimait une piscine avec un studio.
+   */
+  const bassinL = Math.max(3.0, terrasseL * 0.5)
+  const bassinP = Math.max(1.9, bassinL * 0.5)
+
+  /**
+   * LE BASSIN SE CONSTRUIT VERS LE HAUT, PAS VERS LE BAS — et il le faut.
+   *
+   * Le bien n'est pas posé sur un terrain : il est posé sur un ÎLOT, un disque
+   * opaque à l'altitude zéro (voir `DroneScene`). Tout ce qu'on creuserait sous
+   * cette altitude passerait derrière le plateau et ne se verrait jamais. La
+   * piscine monte donc : c'est sa PLAGE qui s'élève de trente centimètres
+   * au-dessus du terrain — ce que fait d'ailleurs toute piscine posée sur un
+   * terrain plat —, et le bassin se creuse dans cette épaisseur-là.
+   */
+  const PLAGE_H = 0.32
+  const FOND = 0.03
+
+  // La plage, en quatre dalles qui ceinturent le bassin : un seul plateau percé
+  // demanderait une géométrie extrudée pour un résultat identique.
+  // La plage suit le bassin : une margelle d'un mètre autour d'un bassin de
+  // trois mètres n'est pas une plage, c'est un trottoir.
+  const margeCote = Math.min(1.05, bassinL * 0.26)
+  const margeBout = Math.min(1.3, bassinL * 0.32)
+  ;[
+    [bassinL + margeCote * 2, margeBout, 0, bassinP / 2 + margeBout / 2],
+    [bassinL + margeCote * 2, margeBout, 0, -(bassinP / 2 + margeBout / 2)],
+    [margeCote, bassinP, bassinL / 2 + margeCote / 2, 0],
+    [margeCote, bassinP, -(bassinL / 2 + margeCote / 2), 0],
+  ].forEach(([l, prof, x, z]) => {
+    const dalle = poser(piscine, boite(l, PLAGE_H, prof, M.dallage()))
+    dalle.position.set(x, PLAGE_H / 2, z)
+  })
+
+  // LA MARGELLE, posée en couronne sur la rive du bassin et débordant de deux
+  // centimètres au-dessus du vide : c'est la margelle affleurante des piscines
+  // soignées, et l'ombre qu'elle porte sur l'eau vaut tous les bleus du monde.
+  ;[
+    [bassinL + 0.7, 0.35, 0, bassinP / 2 + 0.175 - 0.02],
+    [bassinL + 0.7, 0.35, 0, -(bassinP / 2 + 0.175 - 0.02)],
+    [0.35, bassinP + 0.7, bassinL / 2 + 0.175 - 0.02, 0],
+    [0.35, bassinP + 0.7, -(bassinL / 2 + 0.175 - 0.02), 0],
+  ].forEach(([l, prof, x, z]) => {
+    const pierre = poser(piscine, boite(l, 0.07, prof, M.margelle()))
+    pierre.position.set(x, PLAGE_H + 0.035, z)
+  })
+
+  /**
+   * LA CUVE CARRELÉE — le premier point, et celui qui manquait entièrement.
+   *
+   * Une piscine se lit à ce qu'on voit AU TRAVERS. Le fond est carrelé de
+   * petits formats bleu-vert avec leurs joints clairs, les quatre parois le
+   * sont aussi, et c'est la déformation de ces joints sous la surface qui dit
+   * qu'il y a de l'eau. Un fond uni sombre ne dit rien : il se lit comme un
+   * trou, et un trou n'a pas de profondeur.
+   */
+  const fondBassin = poser(piscine, boite(bassinL, FOND, bassinP, M.carrelageBassin()), {
+    ombre: false,
+  })
+  fondBassin.position.y = FOND / 2
   ;[-1, 1].forEach((cote) => {
-    const bain = new THREE.Group()
-    const assise = poser(bain, boite(0.45, 0.08, 1.15, M.tissuClair()))
-    assise.position.y = 0.24
-    const dossier = poser(bain, boite(0.45, 0.08, 0.5, M.tissuClair()))
-    dossier.position.set(0, 0.36, -0.45)
-    dossier.rotation.x = -0.6
-    ;[-1, 1].forEach((sz) => {
-      const pied = poser(bain, fut(0.025, 0.2, M.aluNoir(), 6))
-      pied.position.set(0, 0.1, sz * 0.45)
-    })
-    bain.position.set(cote * 0.9, 0, -(bassinP / 2 + 1.15))
+    const paroi = poser(piscine, boite(bassinL, PLAGE_H, 0.06, M.carrelageBassin()), { ombre: false })
+    paroi.position.set(0, PLAGE_H / 2, (cote * bassinP) / 2 - cote * 0.03)
+    const bout = poser(piscine, boite(0.06, PLAGE_H, bassinP, M.carrelageBassin()), { ombre: false })
+    bout.position.set((cote * bassinL) / 2 - cote * 0.03, PLAGE_H / 2, 0)
+  })
+
+  // LA LIGNE D'EAU : la frise de carrelage plus sombre au niveau de la surface.
+  // On la voit dans toutes les piscines, et dans aucune image de synthèse.
+  ;[-1, 1].forEach((cote) => {
+    const frise = poser(piscine, boite(bassinL, 0.08, 0.02, M.carrelageBassin()), { ombre: false })
+    frise.material.color.setHex(0x3e7c91)
+    frise.position.set(0, PLAGE_H - 0.09, (cote * bassinP) / 2 - cote * 0.07)
+    const friseBout = poser(piscine, boite(0.02, 0.08, bassinP, M.carrelageBassin()), { ombre: false })
+    friseBout.material.color.setHex(0x3e7c91)
+    friseBout.position.set((cote * bassinL) / 2 - cote * 0.07, PLAGE_H - 0.09, 0)
+  })
+
+  /**
+   * L'EAU. Une boîte, mais une boîte ÉPAISSE : la transmission a besoin d'une
+   * épaisseur à traverser pour teinter ce qu'elle laisse voir. Une plaque de
+   * quatre centimètres rendrait l'eau d'un verre, pas celle d'un bassin.
+   *
+   * Son plan d'eau s'arrête six centimètres sous la margelle — le niveau d'un
+   * bassin en service, celui où le skimmer travaille. À ras bord, on lit une
+   * fontaine.
+   */
+  const hauteurEau = PLAGE_H - 0.06 - FOND
+  const eau = poser(
+    piscine,
+    boite(bassinL - 0.1, hauteurEau, bassinP - 0.1, M.eauPiscine()),
+    { ombre: false },
+  )
+  eau.position.y = FOND + hauteurEau / 2
+  piscine.userData.eau = eau.material
+
+  // L'échelle inox : deux mains courantes cintrées qui plongent. C'est le
+  // détail qui donne la profondeur mieux qu'une cuve sombre.
+  ;[-1, 1].forEach((cote) => {
+    const rampe = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.021, 5, 10, Math.PI), M.laiton())
+    rampe.material.color.setHex(0xccd1d7)
+    rampe.material.roughness = 0.18
+    rampe.material.metalness = 0.92
+    rampe.rotation.y = Math.PI / 2
+    rampe.position.set(-bassinL / 2 + 0.6 + cote * 0.2, PLAGE_H + 0.06, bassinP / 2 + 0.06)
+    poser(piscine, rampe, { ombre: false })
+  })
+
+  // Deux bains de soleil sur la plage, et leur guéridon.
+  ;[-1, 1].forEach((cote) => {
+    const bain = transat({ echelle: 0.92 })
+    bain.position.set(cote * 0.95, PLAGE_H, -(bassinP / 2 + 0.75))
+    bain.rotation.y = Math.PI
     piscine.add(bain)
   })
+  const gueridonPiscine = poser(piscine, boite(0.4, 0.05, 0.4, M.boisClair()), { ombre: false })
+  gueridonPiscine.position.set(0, PLAGE_H + 0.34, -(bassinP / 2 + 0.75))
+
   // Du côté du séjour, décalée vers le pignon opposé à l'entrée : une piscine
   // ne se traverse pas pour aller sonner à la porte.
   piscine.position.set(
     corps.largeur * 0.42,
     0,
-    corps.profondeur / 2 + palier.terrasse.avance + 2.3,
+    corps.profondeur / 2 + palier.terrasse.avance + 2.8,
   )
   groupe.add(piscine)
 
@@ -664,18 +889,62 @@ export function creerVilla(indexPalier) {
   // Terrasse supplémentaire : un deck de bois en prolongement du dallage,
   // côté jardin, avec son salon d'extérieur.
   const terrasseBois = new THREE.Group()
-  const deck = poser(terrasseBois, boite(terrasseL * 0.6, 0.1, 2.4, M.boisClair()), { ombre: false })
+  const deck = poser(terrasseBois, boite(terrasseL, 0.1, 2.4, M.boisClair()), { ombre: false })
   deck.position.y = 0.06
+  const lamesDeck = []
   for (let i = 0; i < 12; i += 1) {
-    const lame = poser(terrasseBois, boite(terrasseL * 0.6, 0.02, 0.16, M.boisBardage()), {
+    const lame = poser(terrasseBois, boite(terrasseL, 0.02, 0.16, M.boisBardage()), {
       ombre: false,
     })
     lame.position.set(0, 0.115, -1.1 + i * 0.2)
+    lamesDeck.push(lame)
   }
-  const canapeExt = poser(terrasseBois, boite(1.6, 0.32, 0.6, M.tissuClair()))
-  canapeExt.position.set(-terrasseL * 0.12, 0.26, -0.5)
-  const tableExt = poser(terrasseBois, boite(0.85, 0.07, 0.5, M.boisBardage()))
-  tableExt.position.set(-terrasseL * 0.12, 0.3, 0.5)
+  const salonExt = new THREE.Group()
+  const canapeExt = poser(salonExt, boite(1.6, 0.32, 0.6, M.tissuClair()))
+  canapeExt.position.set(0, 0.26, -0.5)
+  const dossierExt = poser(salonExt, boite(1.6, 0.34, 0.14, M.tissuBleu()), { ombre: false })
+  dossierExt.position.set(0, 0.46, -0.76)
+  const tableExt = poser(salonExt, boite(0.85, 0.07, 0.5, M.boisBardage()))
+  tableExt.position.set(0, 0.3, 0.5)
+  terrasseBois.add(salonExt)
+
+  // Deux bains de soleil, à l'autre bout : ils n'arrivent qu'à partir d'une
+  // terrasse qui peut les porter (voir `etendreTerrasse`).
+  const bainsTerrasse = [-1, 1].map((cote) => {
+    const bain = transat({ echelle: 0.85 })
+    bain.rotation.y = Math.PI
+    bain.userData.cote = cote
+    terrasseBois.add(bain)
+    return bain
+  })
+
+  /**
+   * LA TERRASSE S'ÉTEND AVEC LA SURFACE DÉCLARÉE.
+   *
+   * Elle se déclarait par oui ou par non ; elle se déclare maintenant en mètres
+   * carrés, comme le terrain (voir `EstimationAffinagePanel`). Le deck
+   * s'allonge, le salon glisse vers le fond, et les bains de soleil n'arrivent
+   * qu'au-delà d'une trentaine de mètres carrés — une terrasse de 8 m² où l'on
+   * poserait deux transats serait une terrasse où l'on ne passe pas.
+   */
+  function etendreTerrasse(t) {
+    // Les deux facteurs partent du dessin d'origine — un deck de six dixièmes
+    // de la terrasse dallée — et n'y ajoutent qu'une moitié : au-delà, le
+    // platelage déborde des limites de la maison, ce qu'aucune terrasse ne
+    // fait.
+    const largeur = 0.44 + 0.42 * t
+    const avance = 0.62 + 0.55 * t
+    deck.scale.set(largeur, 1, avance)
+    lamesDeck.forEach((lame, i) => {
+      lame.scale.x = largeur
+      lame.position.z = (-1.1 + i * 0.2) * avance
+    })
+    salonExt.position.set(-terrasseL * 0.12, 0, -0.34 * avance)
+    bainsTerrasse.forEach((bain) => {
+      bain.position.set(bain.userData.cote * terrasseL * 0.2, 0.11, 0.8 * avance)
+      bain.visible = t > 0.32
+    })
+  }
   terrasseBois.position.set(
     -corps.largeur * 0.06,
     0,
@@ -712,7 +981,16 @@ export function creerVilla(indexPalier) {
   })
   const vantaux = poser(portail, boite(2.5, 0.92, 0.07, M.ferForge()), { ombre: false })
   vantaux.position.y = 0.5
-  portail.position.set(xPorte, 0, corps.profondeur / 2 + 12.2)
+  /**
+   * LE PORTAIL SE POSE AU BOUT DE L'ALLÉE, ET IL L'Y SUIT.
+   *
+   * Il était planté à douze mètres de la façade, quelle que soit la parcelle.
+   * Sur un terrain déclaré petit, l'allée s'arrêtait bien avant lui et l'îlot
+   * aussi : on voyait deux piliers de pierre flotter dans le vide blanc, à côté
+   * du socle. Il est désormais accroché à l'allée, et il se replace à chaque
+   * image avec elle (voir `poser`).
+   */
+  portail.position.set(xPorte, 0, allee.position.z + 3.75)
   standing.add(portail)
   groupe.add(standing)
 
@@ -748,7 +1026,7 @@ export function creerVilla(indexPalier) {
   const accorderStanding = M.accorderStanding(bati, {
     enduit: { couleur: 0xfbf8f1, roughness: 0.4 },
     'enduit-ombre': { couleur: 0xeee8dc, roughness: 0.48 },
-    tuile: { couleur: 0x4e545c, roughness: 0.42, metalness: 0.2 },
+    ardoise: { couleur: 0x2f3742, roughness: 0.3, metalness: 0.26 },
     bois: { couleur: 0x6f4d2c, roughness: 0.5, metalness: 0.03 },
     menuiserie: { couleur: 0x16171b, roughness: 0.19, metalness: 0.82 },
     beton: { couleur: 0xa6a096, roughness: 0.48 },
@@ -761,6 +1039,22 @@ export function creerVilla(indexPalier) {
   const revelerPanneaux = revelable(panneaux)
   const revelerTerrasse = revelable(terrasseBois)
   const revelerStanding = revelable(standing)
+
+  /**
+   * LE SCINTILLEMENT DES OUVRAGES DÉCLARÉS.
+   *
+   * Un ouvrage qu'on vient de cocher fait, sur le plan d'ensemble de
+   * l'affinage, quelques dizaines de pixels : le vendeur coche « Terrasse
+   * aménagée » et ne voit rien bouger. Chaque ouvrage sait donc s'allumer
+   * brièvement, et c'est le décor qui bat la mesure (voir `scintillant` dans
+   * `kit.js` et `eclat` dans `DroneScene`).
+   *
+   * La piscine scintille en BLEU et non en doré, seule exception : une eau qui
+   * s'allume en or ne se lit plus comme de l'eau.
+   */
+  const scintillerPiscine = scintillant(piscine, { couleur: 0x9fe8ff, force: 1.1 })
+  const scintillerTerrasse = scintillant(terrasseBois)
+  const scintillerPanneaux = scintillant(panneaux, { couleur: 0xbfe0ff })
 
   // Toutes les vitres de la maison : c'est par elles que le soir se voit. Les
   // matières sont reconnues à leur nom — le verre d'un garde-corps ne s'allume
@@ -854,6 +1148,8 @@ export function creerVilla(indexPalier) {
       const rayon = 9 + v.terrain * 23
       pelouse.scale.set(rayon, rayon, 1)
       allee.scale.z = 1 + v.terrain * 1.1
+      // Le portail ferme l'allée, où qu'elle s'arrête.
+      portail.position.z = allee.position.z + 3.75 * allee.scale.z
       bosquet.scale.setScalar(1 + v.terrain * 0.42)
       bosquet.position.z = -v.terrain * 6.5
 
@@ -883,6 +1179,19 @@ export function creerVilla(indexPalier) {
       revelerPanneaux(v.panneaux)
       revelerTerrasse(v.terrasse)
       revelerStanding(v.standing)
+      etendreTerrasse(v.terrasseEtendue ?? 0.35)
+
+      // L'ÉCLAT ne s'allume que sur un ouvrage RÉVÉLÉ : un scintillement sur une
+      // piscine encore transparente désignerait un vide.
+      const eclat = v.eclat ?? 0
+      scintillerPiscine(v.piscine * eclat)
+      scintillerTerrasse(v.terrasse * eclat)
+      scintillerPanneaux(v.panneaux * eclat)
+
+      // L'EAU BOUGE — et c'est la seule chose du décor qui bouge d'elle-même.
+      // Deux passages de la carte de rides glissent l'un sur l'autre à des
+      // vitesses différentes ; c'est leur battement qui fait l'ondulation.
+      M.onduler(piscine.userData.eau, v.temps ?? 0)
 
       vitres.forEach((matiere) => {
         matiere.emissive.setHex(0xf6c978)

@@ -79,9 +79,19 @@ export function murPerce({ largeur, hauteur, epaisseur = 0.16, ouvertures = [] }
  *
  * Le groupe est centré en x, posé en y = 0, plan dans le plan XY.
  */
-export function baieVitree({ largeur, hauteur, meneaux = 3, traverse = false, sombre = false }) {
+export function baieVitree({
+  largeur,
+  hauteur,
+  meneaux = 3,
+  traverse = false,
+  sombre = false,
+  circulation = false,
+}) {
   const groupe = new THREE.Group()
-  const verre = sombre ? M.murVitre() : M.vitrage()
+  // Trois verres, et trois emplois : le mur-rideau sombre d'un séjour, la
+  // fenêtre ordinaire d'une chambre, et le vitrage très clair d'une cage
+  // d'escalier — le seul qu'on doive traverser des yeux (voir `matieres.js`).
+  const verre = circulation ? M.verreCirculation() : sombre ? M.murVitre() : M.vitrage()
 
   const vitre = poser(groupe, boite(largeur, hauteur, 0.05, verre), { ombre: false })
   vitre.position.y = hauteur / 2
@@ -272,33 +282,98 @@ export function lucarne({ largeur = 0.54, hauteur = 0.72 }) {
 /*  Végétation                                                                */
 /* -------------------------------------------------------------------------- */
 
-/** Arbre de jardin : un tronc et deux masses de feuillage décalées. */
-export function arbre(hauteur = 2.6) {
+/**
+ * L'ARBRE — et pourquoi ce n'est plus un caillou vert.
+ *
+ * Un arbre était un cylindre surmonté de deux icosaèdres. Vu de loin ça passe ;
+ * vu à la distance où le drone se tient, c'est une pierre posée sur un tuyau,
+ * et c'est le détail qui trahissait le plus la scène — davantage que les murs,
+ * parce qu'on sait tous à quoi ressemble un arbre.
+ *
+ * Ce qui manque à une sphère pour faire un houppier, ce n'est pas de la
+ * définition : c'est du VIDE. Un feuillage est poreux, on voit le ciel au
+ * travers, sa silhouette est dentelée et la lumière y entre par les trous. Une
+ * sphère, si finement subdivisée soit-elle, reste une masse pleine.
+ *
+ * D'où ces PLANS CROISÉS, habillés d'une touffe de feuilles à découpe (voir
+ * `houppier` dans `matieres.js`). Trois plans inclinés les uns par rapport aux
+ * autres donnent un volume qui se tient sous tous les angles du parcours — la
+ * caméra ne fait plus le tour du bien (voir `plans.js`), on n'a donc jamais à
+ * défendre l'arbre de dos. Douze triangles par sujet, contre une centaine pour
+ * l'icosaèdre qu'ils remplacent : c'est même une économie.
+ *
+ * Le tronc garde sa géométrie — un tronc EST un volume plein — mais gagne son
+ * écorce et le léger dévers qui fait qu'aucun arbre ne pousse à l'équerre.
+ */
+export function arbre(hauteur = 2.6, { variante = null } = {}) {
   const groupe = new THREE.Group()
-  const bois = poser(groupe, fut(hauteur * 0.05, hauteur * 0.52, M.tronc(), 8))
-  bois.position.y = hauteur * 0.26
+  const espece = variante ?? (Math.random() < 0.5 ? 0 : 1)
 
-  const basse = poser(groupe, new THREE.Mesh(new THREE.IcosahedronGeometry(hauteur * 0.3, 0), M.feuillage()))
-  basse.position.y = hauteur * 0.62
-  basse.scale.set(1, 0.85, 1)
+  const bois = poser(groupe, fut(hauteur * 0.045, hauteur * 0.55, M.tronc(), 7))
+  bois.position.y = hauteur * 0.275
+  bois.rotation.z = (Math.random() - 0.5) * 0.06
 
-  const haute = poser(
-    groupe,
-    new THREE.Mesh(new THREE.IcosahedronGeometry(hauteur * 0.24, 0), M.feuillageClair()),
-  )
-  haute.position.set(hauteur * 0.08, hauteur * 0.86, -hauteur * 0.05)
+  // Deux charpentières : ce qui fait qu'on lit un arbre et non un poteau.
+  ;[-1, 1].forEach((cote) => {
+    const branche = poser(groupe, fut(hauteur * 0.022, hauteur * 0.3, M.tronc(), 5))
+    branche.position.set(cote * hauteur * 0.05, hauteur * 0.5, 0)
+    branche.rotation.z = -cote * 0.5
+  })
+
+  // LES PLANS DU HOUPPIER. Trois, tournés d'un tiers de tour chacun, et
+  // légèrement basculés : trois plans strictement verticaux se verraient comme
+  // trois cartes plantées dans le sol dès que la caméra prend de la hauteur.
+  const houppier = M.houppier(espece)
+  const envergure = hauteur * 0.78
+  for (let i = 0; i < 3; i += 1) {
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(envergure, envergure), houppier)
+    plan.position.y = hauteur * 0.74
+    plan.rotation.y = (i * Math.PI) / 3 + Math.random() * 0.3
+    plan.rotation.x = -0.22 + i * 0.16
+    plan.castShadow = true
+    plan.receiveShadow = false
+    groupe.add(plan)
+  }
+
+  // Un quatrième plan, couché : vu de dessus — et le drone est en plongée —,
+  // trois plans verticaux ne montrent que leurs tranches.
+  const couronne = new THREE.Mesh(new THREE.PlaneGeometry(envergure * 0.9, envergure * 0.9), houppier)
+  couronne.rotation.x = -Math.PI / 2
+  couronne.position.y = hauteur * 0.86
+  couronne.castShadow = true
+  groupe.add(couronne)
 
   return groupe
 }
 
-/** Buisson taillé : la masse basse des massifs. */
+/**
+ * BUISSON — la même idée, en plus bas et en plus dense.
+ *
+ * Un massif taillé garde une masse : on lui laisse donc son volume, mais
+ * habillé de feuilles découpées plutôt que d'un vert uni, et coiffé de deux
+ * plans qui lui cassent sa silhouette de galet.
+ */
 export function buisson(rayon = 0.34) {
-  const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(rayon, 0), M.feuillage())
-  mesh.scale.set(1, 0.7, 1)
-  mesh.position.y = rayon * 0.6
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  return mesh
+  const groupe = new THREE.Group()
+  const feuilles = M.houppier(0)
+
+  const masse = new THREE.Mesh(new THREE.IcosahedronGeometry(rayon * 0.82, 0), M.feuillage())
+  masse.scale.set(1, 0.7, 1)
+  masse.position.y = rayon * 0.6
+  masse.castShadow = true
+  masse.receiveShadow = true
+  groupe.add(masse)
+
+  for (let i = 0; i < 2; i += 1) {
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(rayon * 2.4, rayon * 1.9), feuilles)
+    plan.position.y = rayon * 0.72
+    plan.rotation.y = i * (Math.PI / 2) + 0.4
+    plan.rotation.x = -0.3
+    plan.castShadow = true
+    groupe.add(plan)
+  }
+
+  return groupe
 }
 
 /** Graminée : la touffe claire des massifs contemporains. */
@@ -316,6 +391,147 @@ export function graminee(hauteur = 0.5) {
     brin.castShadow = true
     groupe.add(brin)
   }
+  return groupe
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Les finitions — ce qui distingue un bâtiment d'une boîte                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * GOUTTIÈRE et sa descente. Personne ne regarde une gouttière ; tout le monde
+ * voit son absence. Un volume couvert d'où l'eau ne part nulle part se lit
+ * comme une maquette, et c'est trois cylindres.
+ */
+export function gouttiere({ longueur, hauteur, descente = true }) {
+  const groupe = new THREE.Group()
+  const zinc = M.zincToiture()
+
+  const chenal = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.075, longueur, 8, 1, false, 0, Math.PI),
+    zinc,
+  )
+  chenal.rotation.z = Math.PI / 2
+  chenal.rotation.y = Math.PI
+  poser(groupe, chenal, { ombre: false })
+
+  if (descente) {
+    const tube = poser(groupe, fut(0.048, hauteur, zinc, 7), { ombre: false })
+    tube.position.set(longueur / 2 - 0.12, -hauteur / 2 - 0.04, 0)
+    // Les deux colliers de fixation : sans eux, la descente flotte le long du mur.
+    ;[0.3, 0.75].forEach((part) => {
+      const collier = poser(groupe, boite(0.1, 0.035, 0.09, zinc), { ombre: false })
+      collier.position.set(longueur / 2 - 0.12, -hauteur * part, 0)
+    })
+  }
+
+  return groupe
+}
+
+/**
+ * APPUI DE FENÊTRE — la pierre saillante sous une baie, avec son larmier.
+ *
+ * Le larmier est la gorge creusée sous le nez de l'appui : c'est elle qui
+ * empêche l'eau de revenir sur la façade, et c'est la ligne d'ombre qui fait
+ * qu'un appui se voit. Un appui sans larmier est une planche.
+ */
+export function appui({ largeur, saillie = 0.16, matiere = null }) {
+  const groupe = new THREE.Group()
+  const pierre = matiere ?? M.pierreMoulure()
+  const tablette = poser(groupe, boite(largeur, 0.07, saillie, pierre))
+  tablette.position.z = saillie / 2
+  const larmierPiece = poser(groupe, boite(largeur, 0.03, 0.035, M.betonSombre()), { ombre: false })
+  larmierPiece.position.set(0, -0.045, saillie - 0.03)
+  return groupe
+}
+
+/**
+ * ENCADREMENT — le tableau rapporté autour d'une baie.
+ *
+ * C'est la pièce qui manquait le plus aux façades : une ouverture percée à même
+ * un mur plat n'a pas d'épaisseur, et une façade sans épaisseur est un décalque.
+ * Quatre plates-bandes en saillie de trois centimètres suffisent à ce que la
+ * lumière rasante y accroche.
+ */
+export function encadrement({ largeur, hauteur, epaisseur = 0.09, saillie = 0.05, matiere = null }) {
+  const groupe = new THREE.Group()
+  const pierre = matiere ?? M.pierreMoulure()
+
+  const haut = poser(groupe, boite(largeur + epaisseur * 2, epaisseur, saillie, pierre), {
+    ombre: false,
+  })
+  haut.position.set(0, hauteur + epaisseur / 2, saillie / 2)
+  const bas = poser(groupe, boite(largeur + epaisseur * 2, epaisseur, saillie, pierre), {
+    ombre: false,
+  })
+  bas.position.set(0, -epaisseur / 2, saillie / 2)
+  ;[-1, 1].forEach((cote) => {
+    const jambage = poser(groupe, boite(epaisseur, hauteur, saillie, pierre), { ombre: false })
+    jambage.position.set((cote * (largeur + epaisseur)) / 2, hauteur / 2, saillie / 2)
+  })
+
+  return groupe
+}
+
+/**
+ * TRANSAT — le bain de soleil des rooftops et des plages de piscine.
+ * Assise, dossier relevé, piétement : trois pièces, et on sait à quoi sert la
+ * terrasse sur laquelle il est posé.
+ */
+export function transat({ echelle = 1 } = {}) {
+  const groupe = new THREE.Group()
+  const toile = M.tissuClair()
+
+  const assise = poser(groupe, boite(0.5 * echelle, 0.08 * echelle, 1.2 * echelle, toile))
+  assise.position.y = 0.26 * echelle
+  const dossier = poser(groupe, boite(0.5 * echelle, 0.08 * echelle, 0.56 * echelle, toile))
+  dossier.position.set(0, 0.42 * echelle, -0.48 * echelle)
+  dossier.rotation.x = -0.66
+  const coussin = poser(groupe, boite(0.34 * echelle, 0.07 * echelle, 0.22 * echelle, M.tissuBleu()), {
+    ombre: false,
+  })
+  coussin.position.set(0, 0.55 * echelle, -0.58 * echelle)
+  coussin.rotation.x = -0.66
+  ;[-1, 1].forEach((sz) => {
+    const pied = poser(groupe, fut(0.025 * echelle, 0.22 * echelle, M.aluNoir(), 6), { ombre: false })
+    pied.position.set(0, 0.12 * echelle, sz * 0.46 * echelle)
+  })
+
+  return groupe
+}
+
+/**
+ * JACUZZI — la cuve encastrée d'un rooftop aménagé.
+ *
+ * Il porte la même eau que la piscine, et c'est voulu : c'est la seule matière
+ * du décor qui bouge d'elle-même, et deux eaux différentes sur le même bien se
+ * verraient. La cuve est habillée de bois — c'est ainsi que se pose un spa en
+ * toiture, jamais à même la dalle — et le remous est dit par les trois buses
+ * claires posées au fond.
+ */
+export function jacuzzi({ largeur = 1.9, profondeur = 1.6, hauteur = 0.62 } = {}) {
+  const groupe = new THREE.Group()
+
+  const habillage = poser(groupe, boite(largeur, hauteur, profondeur, M.boisBardage()))
+  habillage.position.y = hauteur / 2
+  const couronne = poser(groupe, boite(largeur + 0.12, 0.09, profondeur + 0.12, M.boisClair()))
+  couronne.position.y = hauteur
+  const fond = poser(groupe, boite(largeur - 0.3, 0.06, profondeur - 0.3, M.carrelageBassin()), {
+    ombre: false,
+  })
+  fond.position.y = hauteur - 0.34
+
+  const bain = poser(groupe, boite(largeur - 0.28, 0.26, profondeur - 0.28, M.eauPiscine()), {
+    ombre: false,
+  })
+  bain.position.y = hauteur - 0.16
+  groupe.userData.eau = bain.material
+
+  for (let i = 0; i < 3; i += 1) {
+    const remous = poser(groupe, fut(0.07, 0.03, M.margelle(), 8), { ombre: false })
+    remous.position.set(-0.4 + i * 0.4, hauteur - 0.03, 0)
+  }
+
   return groupe
 }
 
@@ -461,5 +677,130 @@ export function disloquant(groupe, { hauteur = null, envol = 1 } = {}) {
     })
 
     groupe.visible = v < 0.999
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Le scintillement                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * CE QUI EST COCHÉ DOIT SE TROUVER TOUT DE SUITE.
+ *
+ * L'écran d'affinage pose une case, et quelque chose apparaît quelque part sur
+ * le bien. Tant que le bien tenait dans un plan serré, ça suffisait ; sur un
+ * plan d'ensemble qui montre une maison, son jardin, sa piscine et son toit, le
+ * balcon qu'on vient de déclarer fait quarante pixels — le vendeur coche, et
+ * ne voit rien changer.
+ *
+ * D'où ce SCINTILLEMENT : l'ouvrage correspondant s'allume brièvement, à
+ * intervalles réguliers, tant que l'option est cochée. Ce n'est pas un ornement,
+ * c'est un INDEX : l'œil va là où ça clignote, trouve l'ouvrage, et le
+ * clignotement a fait son travail.
+ *
+ * Il est délibérément COURT et ESPACÉ (voir `eclat` dans `DroneScene`) : une
+ * lueur continue se lirait comme un défaut de matière, et un clignotement rapide
+ * comme une alarme. Un éclat bref toutes les deux secondes et demie se lit comme
+ * un signal, et c'est tout ce qu'on lui demande.
+ *
+ * L'émission est appliquée PAR-DESSUS l'état de la matière, et l'état d'origine
+ * est restauré dès que l'éclat retombe : une matière qui porte déjà une émission
+ * — un vitrage allumé le soir — la retrouve intacte.
+ */
+export function scintillant(groupe, { couleur = 0xffd9a0, force = 1.35 } = {}) {
+  const teinte = new THREE.Color(couleur)
+  const matieres = []
+
+  groupe.traverse((objet) => {
+    if (!objet.isMesh) return
+    const liste = Array.isArray(objet.material) ? objet.material : [objet.material]
+    liste.forEach((matiere) => {
+      if (!matiere?.emissive) return
+      matieres.push({
+        matiere,
+        emissive: matiere.emissive.clone(),
+        intensite: matiere.emissiveIntensity ?? 1,
+      })
+    })
+  })
+
+  let dernier = -1
+
+  return (valeur) => {
+    const v = Math.max(0, Math.min(1, valeur))
+    // Rien n'est écrit tant que rien n'a bougé : le scintillement est appelé à
+    // chaque image pour chaque ouvrage, et la plupart sont éteints la plupart
+    // du temps.
+    if (Math.abs(v - dernier) < 0.004) return
+    dernier = v
+
+    matieres.forEach((piece) => {
+      if (v < 0.004) {
+        piece.matiere.emissive.copy(piece.emissive)
+        piece.matiere.emissiveIntensity = piece.intensite
+        return
+      }
+      piece.matiere.emissive.copy(piece.emissive).lerp(teinte, v)
+      piece.matiere.emissiveIntensity = Math.max(piece.intensite, v * force)
+    })
+  }
+}
+
+/**
+ * LE VOILE — un ouvrage qu'on rend translucide sans le faire disparaître.
+ *
+ * C'est le pendant exact de [`revelable`](#revelable), et il sert à une seule
+ * chose : l'ASCENSEUR. On ne peut pas montrer une cabine qui monte dans une
+ * cage sans regarder à travers la façade, et on ne peut pas retirer la façade
+ * sans que l'immeuble cesse d'en être un. Il reste donc en place, à demi
+ * effacé — une coupe de maquette d'architecte, pas une disparition.
+ *
+ * Il s'applique APRÈS la révélation, jamais avant : les deux écrivent la même
+ * opacité, et c'est le voile qui doit avoir le dernier mot.
+ */
+export function voilant(cibles, { plancher = 0.34 } = {}) {
+  const matieres = []
+  // Plusieurs ouvrages, parce que la masse d'un bâtiment n'est presque jamais
+  // un seul groupe : le noyau, ses refends et ses dalles sont trois familles
+  // distinctes, et c'est leur RÉUNION qu'on voile.
+  ;(Array.isArray(cibles) ? cibles : [cibles]).forEach((groupe) => {
+    groupe.traverse((objet) => {
+      if (!objet.isMesh) return
+      const liste = Array.isArray(objet.material) ? objet.material : [objet.material]
+      liste.forEach((matiere) => {
+        if (matiere) matieres.push({ matiere, pleine: matiere.opacity, profondeur: matiere.depthWrite })
+      })
+    })
+  })
+
+  // LE VOILE PART DE ZÉRO, PAS DE « JAMAIS APPELÉ ». C'est ce qui lui évite
+  // d'écrire quoi que ce soit tant qu'il n'a pas été levé : il partage ses
+  // matières avec `revelable`, et une écriture à l'opacité pleine au premier
+  // appel effacerait le fondu d'arrivée de l'ouvrage.
+  let dernier = 0
+
+  return (valeur) => {
+    const v = Math.max(0, Math.min(1, valeur))
+    if (Math.abs(v - dernier) < 0.003) return
+    dernier = v
+
+    matieres.forEach(({ matiere, pleine, profondeur }) => {
+      const opacite = pleine * (1 - (1 - plancher) * v)
+      matiere.opacity = opacite
+      matiere.transparent = opacite < 0.999
+      /**
+       * ET IL CESSE D'ÉCRIRE LA PROFONDEUR TANT QU'IL EST POSÉ.
+       *
+       * C'est la ligne sans laquelle rien de tout cela ne marche. Une surface
+       * translucide qui écrit sa profondeur REJETTE ce qui est dessiné derrière
+       * elle ensuite : on voyait au travers de la façade, et l'on n'y voyait
+       * rien — ni la cage, ni la cabine, ni le fond du bâtiment. C'est
+       * exactement le contraire de ce qu'on demande à une coupe de maquette.
+       *
+       * La profondeur est rendue dès que le voile retombe : hors de ce moment-là,
+       * la masse du bâtiment est opaque et doit l'être.
+       */
+      matiere.depthWrite = v < 0.01 ? profondeur : false
+    })
   }
 }

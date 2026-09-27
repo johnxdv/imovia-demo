@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Minus, Plus } from 'lucide-react'
 import { useChantier } from './chantier'
-import { ETAGE_DEFAUT, ETAGE_MAX, ETAGE_MIN, etageLabel } from '../../lib/etage'
+import { ETAGE_MAX, ETAGE_MIN, ETAGE_OUVERTURE, etageLabel } from '../../lib/etage'
 import { EASE } from '../../lib/motion'
 
 /** Éléments focusables du panneau, pour le maintien du focus à l'intérieur. */
@@ -45,11 +45,21 @@ const MONACO_TYPES = [
 ]
 
 /**
- * Valeur d'ouverture. Volontairement médiane : ouvrir à 10 m² obligerait tout
- * le monde à traverser l'échelle, et laisserait croire que le parcours part du
- * plus petit. 100 m² est l'ordre de grandeur d'une maison française.
+ * VALEUR D'OUVERTURE DU CURSEUR DE SURFACE : 30 m².
+ *
+ * Elle était de 100 — l'ordre de grandeur d'une maison française — et c'était
+ * la bonne valeur tant que le parcours s'adressait d'abord à des maisons. Elle
+ * descend à 30, c'est-à-dire au bas de l'échelle des logements : un studio, un
+ * deux-pièces, le premier bien qu'on vend.
+ *
+ * CE QUE ÇA CHANGE, ET IL FAUT LE DIRE : un vendeur qui ne touche pas au
+ * curseur déclare désormais 30 m² au lieu de 100, et le montant rendu suit
+ * proportionnellement. Le calcul, lui, n'a pas bougé d'une ligne — c'est la
+ * valeur qu'on lui soumet qui est différente. Ouvrir en bas de l'échelle a le
+ * mérite qu'on ne peut que monter : le curseur se remarque, là où une valeur
+ * médiane se laisse valider sans y penser.
  */
-const SURFACE_DEFAULT = 100
+const SURFACE_DEFAULT = 30
 
 /**
  * Fenêtre de saisie de la surface habitable.
@@ -128,7 +138,7 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
   // Étage déclaré. Ouvre sur l'étage de référence du barème — celui dont le
   // coefficient vaut exactement 1 : un champ apparu tard et laissé tel quel ne
   // doit déplacer le montant ni dans un sens ni dans l'autre.
-  const [etage, setEtage] = useState(ETAGE_DEFAUT)
+  const [etage, setEtage] = useState(ETAGE_OUVERTURE)
 
   // En France le type vient de la détection, en Principauté du choix ci-dessus.
   // Tant que la détection n'a pas répondu, `type` vaut `null` : le champ étage
