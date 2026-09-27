@@ -55,7 +55,8 @@ const SURFACE_DEFAULT = 100
  * Fenêtre de saisie de la surface habitable.
  *
  * Vraie fenêtre modale, et non un calque posé sur la carte : le fond assombri
- * et flouté couvre toute la page, le panneau s'ouvre au centre de l'écran.
+ * couvre toute la page, et le panneau s'ouvre dans la zone du parcours — à la
+ * place même du panneau d'étape qu'il remplace.
  *
  * Le positionnement `fixed` fonctionne ici sans portail parce que Framer Motion
  * laisse `transform: none` sur l'étape au repos. Pendant la transition vers
@@ -239,13 +240,20 @@ export function BuildingConfirmModal({ type = null, onClose, onEstimate, monaco 
       // ce qu'il faut de gris pour que la fenêtre se détache du décor, et le
       // fond garde son rôle : un clic dessus la ferme.
       //
-      // Tant que les panneaux d'étape sont rangés en bas (sous 1024 px), la
-      // fenêtre s'y range aussi : c'est la bande du haut qui montre le bien, et
-      // elle doit rester libre.
-      // La fenêtre se range du même côté que les panneaux d'étape (voir
-      // `Estimer.jsx`) : c'est sous son curseur que le bâtiment se construit,
-      // et elle le couvrirait si elle restait au milieu.
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/10 px-5 pb-6 pt-24 lg:items-center lg:justify-start lg:py-10 lg:pl-[3vw] xl:pl-[5vw]"
+      // LA FENÊTRE TIENT DANS LA ZONE DU PARCOURS, et pas au milieu de l'écran.
+      //
+      // Le parcours occupe une zone à lui — la moitié gauche sur ordinateur, ce
+      // qui est sous la bande de la scène sur téléphone — et la scène occupe
+      // l'autre (voir `Estimer.jsx`). La fenêtre remplace un panneau d'étape :
+      // elle se pose donc là où ce panneau se posait, et pas ailleurs. C'est
+      // sous son curseur que le bâtiment se construit ; centrée sur l'écran,
+      // elle le couvrirait.
+      //
+      // Le retrait de droite vaut la moitié de la fenêtre plus la marge de la
+      // zone : la fenêtre se centre alors exactement comme le panneau qu'elle
+      // remplace. Le fond assombri, lui, reste plein écran — c'est une modale,
+      // et ce qu'elle suspend, elle le suspend partout.
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/10 px-5 pb-6 pt-24 lg:items-center lg:py-10 lg:pl-10 lg:pr-[calc(50vw+2.5rem)] xl:pl-14 xl:pr-[calc(50vw+3.5rem)]"
     >
       {/* Le fond ferme la fenêtre ; le panneau, posé au-dessus, retient le clic. */}
       <button

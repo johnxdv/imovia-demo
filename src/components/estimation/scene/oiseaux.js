@@ -26,17 +26,70 @@ import * as M from './matieres'
  * traverser, puis y retourne.
  */
 
+const TOUR = Math.PI * 2
+
 /** Combien d'oiseaux la volière tient en réserve. */
 const RESERVE = 6
 
-/** Temps moyen entre deux vols, en secondes, et son écart. */
-const INTERVALLE = 5
-const INTERVALLE_ECART = 1.6
+/**
+ * TEMPS ENTRE DEUX VOLS — sept secondes, et sept exactement.
+ *
+ * C'était cinq secondes à un tirage près, soit un vol toutes les trois à sept
+ * secondes. Le ciel était trop fréquenté : à ce rythme, on finissait par
+ * regarder les oiseaux, ce qui est précisément ce qu'ils ne doivent pas
+ * provoquer. Sept secondes, sans tirage : le ciel se vide entre deux passages,
+ * et chaque vol redevient quelque chose qu'on aperçoit.
+ */
+const INTERVALLE = 7
+
+/**
+ * DEUX VOLS DE SUITE NE SE RESSEMBLENT JAMAIS, et c'est réglé ici.
+ *
+ * Le cap et l'altitude étaient tirés au sort indépendamment à chaque vol : deux
+ * tirages voisins donnaient deux passages identiques, et un oiseau qui repasse
+ * au même endroit dans le même sens se lit comme une boucle — le défaut qu'on
+ * cherche justement à éviter avec un ciel animé.
+ *
+ * Chaque vol part donc d'un CAP écarté d'au moins un tiers de tour de celui qui
+ * le précède, et d'une ALTITUDE écartée d'au moins quatre dixièmes de la plage
+ * disponible. Le hasard décide de tout le reste — de quel côté, de combien
+ * au-delà du minimum, et à quelle allure.
+ */
+const ECART_CAP_MIN = TOUR / 3
+const ECART_ALTITUDE_MIN = 0.4
 
 /** Un oiseau seul, deux, ou trois — jamais davantage : ce serait un lâcher. */
 const tailleDuVol = () => (Math.random() < 0.52 ? 1 : Math.random() < 0.78 ? 2 : 3)
 
 const lisser = (a, b, t) => a + (b - a) * t
+
+/**
+ * Un cap écarté d'au moins `ECART_CAP_MIN` du précédent, de l'un ou l'autre
+ * côté. Le premier vol de la scène n'en a pas : il part où il veut.
+ */
+function tirerCap(precedent) {
+  if (precedent === null) return Math.random() * TOUR
+  return precedent + ECART_CAP_MIN + Math.random() * (TOUR - 2 * ECART_CAP_MIN)
+}
+
+/**
+ * Une part d'altitude (0 à 1) écartée d'au moins `ECART_ALTITUDE_MIN` de la
+ * précédente. On tire dans ce qui reste de la plage de part et d'autre de la
+ * bande interdite, au prorata : sans ce prorata, un vol passé tout en haut
+ * renverrait le suivant tout en bas une fois sur deux.
+ */
+function tirerAltitude(precedente) {
+  if (precedente === null) return Math.random()
+
+  const sousLaBande = Math.max(0, precedente - ECART_ALTITUDE_MIN)
+  const surLaBande = Math.max(0, 1 - (precedente + ECART_ALTITUDE_MIN))
+  // Bande interdite plus large que la plage : impossible avec les valeurs
+  // retenues, mais on rend alors le point le plus éloigné plutôt que rien.
+  if (sousLaBande + surLaBande <= 0) return precedente > 0.5 ? 0 : 1
+
+  const tirage = Math.random() * (sousLaBande + surLaBande)
+  return tirage < sousLaBande ? tirage : precedente + ECART_ALTITUDE_MIN + (tirage - sousLaBande)
+}
 
 /**
  * UN OISEAU — un corps, une tête, une queue, deux ailes qui battent.
@@ -86,16 +139,17 @@ function creerOiseau() {
 /**
  * UNE TRAJECTOIRE — d'un bord du ciel à l'autre, et jamais deux fois la même.
  *
- * Le cap est tiré au sort sur tout le tour d'horizon, l'oiseau entre par un
- * côté et sort par l'opposé en coupant le champ en biais, et il ne finit
- * jamais à la hauteur où il a commencé. Rien n'y est répété : deux vols de
- * suite dans la même direction se liraient comme une boucle.
+ * Le cap et l'altitude sont tirés à l'écart de ceux du vol précédent (voir
+ * `tirerCap` et `tirerAltitude`) : un passage ne se fait jamais dans la même
+ * direction ni à la même hauteur que celui d'avant. L'oiseau entre par un côté
+ * et sort par l'opposé en coupant le champ en biais, et il ne finit jamais à la
+ * hauteur où il a commencé.
  *
  * `decalage` écarte les compagnons de vol du meneur, latéralement et en
  * hauteur : une bande d'oiseaux n'est ni une file ni un peloton.
  */
-function tracerVol(hauteurBien, rayon, decalage) {
-  const cap = Math.random() * Math.PI * 2
+function tracerVol(hauteurBien, rayon, decalage, precedent) {
+  const cap = tirerCap(precedent.cap)
   const traverse = new THREE.Vector3(Math.cos(cap), 0, Math.sin(cap))
   const lateral = new THREE.Vector3(-traverse.z, 0, traverse.x)
 
@@ -108,7 +162,8 @@ function tracerVol(hauteurBien, rayon, decalage) {
   // remplit le quart du cadre d'une tache blanche. Au-dessus du toit, il reste
   // ce qu'il doit être — quelque chose qui passe dans le ciel.
   const plancher = Math.max(hauteurBien * 1.15, 7)
-  const altitude = plancher + hauteurBien * lisser(0, 0.9, Math.random())
+  const part = tirerAltitude(precedent.part)
+  const altitude = plancher + hauteurBien * lisser(0, 0.9, part)
 
   const depart = traverse
     .clone()
@@ -124,6 +179,10 @@ function tracerVol(hauteurBien, rayon, decalage) {
   arrivee.y = altitude * lisser(0.72, 1.3, Math.random()) + decalage.y
 
   return {
+    // Le cap et la part d'altitude voyagent avec le vol : c'est la volière qui
+    // les retient pour en écarter le vol suivant.
+    cap,
+    part,
     depart,
     arrivee,
     t: 0,
@@ -158,6 +217,8 @@ export function creerVoliere() {
   // regarde le panneau d'accueil.
   let prochain = 1.2
   let especePosee = null
+  /** Le cap et l'altitude du dernier vol lancé — voir `tirerCap`. */
+  const dernier = { cap: null, part: null }
 
   function accorderEspece(espece) {
     if (espece === especePosee) return
@@ -179,7 +240,9 @@ export function creerVoliere() {
     // Les compagnons partagent le cap du meneur : ils sont tracés à partir du
     // même tirage, seulement décalés. Sans cela, trois oiseaux « en bande »
     // partiraient dans trois directions.
-    const meneur = tracerVol(hauteurBien, rayon, { x: 0, y: 0 })
+    const meneur = tracerVol(hauteurBien, rayon, { x: 0, y: 0 }, dernier)
+    dernier.cap = meneur.cap
+    dernier.part = meneur.part
 
     for (let i = 0; i < combien; i += 1) {
       const oiseau = libres[i]
@@ -209,7 +272,7 @@ export function creerVoliere() {
       prochain -= dt
       if (prochain <= 0) {
         lancerVol(hauteurBien, rayon)
-        prochain = INTERVALLE + (Math.random() - 0.5) * 2 * INTERVALLE_ECART
+        prochain = INTERVALLE
       }
 
       oiseaux.forEach((oiseau) => {

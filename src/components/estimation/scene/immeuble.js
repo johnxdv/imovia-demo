@@ -394,20 +394,36 @@ export function creerImmeuble() {
   const abords = new THREE.Group()
   groupe.add(abords)
 
-  // La rue file bien au-delà du bien : un trottoir qui s'arrêterait à
-  // l'aplomb de l'immeuble ferait un décor de maquette, pas une adresse.
-  const RUE = 74
+  // LA RUE A ÉTÉ RACCOURCIE DE SOIXANTE-QUATORZE UNITÉS À VINGT-QUATRE,
+  // ET LA CHAUSSÉE RAPPROCHÉE D'AUTANT.
+  //
+  // Elle filait bien au-delà du bien, et c'était juste tant que la scène avait
+  // un sol qui allait jusqu'à l'horizon : un trottoir qui s'arrête à l'aplomb
+  // de l'immeuble fait un décor de maquette, pas une adresse.
+  //
+  // Le bien se tient désormais sur un ÎLOT — un disque posé dans un vide blanc
+  // (voir `DroneScene`) —, et trente-sept unités de chaussée déborderaient très
+  // largement de son bord, en porte-à-faux dans le vide — et un îlot taillé pour
+  // les contenir serait si large qu'on n'en verrait plus le bord.
+  //
+  // Vingt-quatre unités de long, et une chaussée de six au lieu de neuf : de
+  // quoi voir l'alignement partir de part et d'autre et le bitume commencer, ce
+  // qui est tout ce qu'on demande à une rue. L'immeuble, ses mitoyens, son
+  // trottoir et leur implantation n'ont pas bougé d'un pouce.
+  const RUE = 24
   const trottoir = poser(abords, boite(RUE, 0.12, 4.6, M.dallage()), { ombre: false })
   trottoir.position.set(0, 0.06, zFacade + 2.3)
   const bordure = poser(abords, boite(RUE, 0.2, 0.3, M.betonSombre()), { ombre: false })
   bordure.position.set(0, 0.1, zFacade + 4.45)
-  const chaussee = poser(abords, boite(RUE, 0.06, 9, M.gravier()), { ombre: false })
+  const chaussee = poser(abords, boite(RUE, 0.06, 6, M.gravier()), { ombre: false })
   chaussee.material.color.setHex(0x4a4a4e)
-  chaussee.position.set(0, 0.03, zFacade + 9.1)
+  chaussee.position.set(0, 0.03, zFacade + 7.6)
   // Bande axiale : deux traits suffisent à dire qu'on est sur une chaussée.
-  for (let i = -7; i <= 7; i += 1) {
+  // La série suit la longueur de la rue — au-delà de trois intervalles, les
+  // traits sortiraient de la chaussée raccourcie.
+  for (let i = -2; i <= 2; i += 1) {
     const trait = poser(abords, boite(2.2, 0.02, 0.14, M.platre()), { ombre: false })
-    trait.position.set(i * 4.6, 0.07, zFacade + 9.1)
+    trait.position.set(i * 4.6, 0.07, zFacade + 7.6)
   }
 
   ;[-1, 1].forEach((cote) => {
@@ -765,9 +781,21 @@ export function creerImmeuble() {
     hauteurCoupe: hauteurTotale,
     envergure: { largeur: Math.max(LARGEUR + 3.2, PROFONDEUR + 3), hauteur: hauteurTotale },
 
+    /**
+     * Emprise au sol, pour l'îlot sur lequel le décor pose l'immeuble (voir
+     * `DroneScene`). Contrairement à la maison, elle ne bouge pas : un
+     * appartement n'a pas de surface de terrain à déclarer, et ce que l'immeuble
+     * occupe au sol — sa rue, ses deux mitoyens, ses arbres d'alignement — est
+     * bâti une fois pour toutes.
+     *
+     * Le coin le plus éloigné est celui de la chaussée : une demi-longueur de rue
+     * d'un côté, le bord extérieur du bitume de l'autre. Le rayon les couvre,
+     * avec ce qu'il faut de marge pour que le revêtement ne meure pas sur le
+     * liseré du socle.
+     */
+    rayonSol: Math.hypot(RUE / 2, zFacade + 10.6) + 1.5,
+
     ancrages: {
-      porte: new THREE.Vector3(xPorte, 1.15, zFacade),
-      toit: new THREE.Vector3(0, hauteurTotale, 0),
       hauteur: hauteurTotale,
       exterieur: ancreExterieur,
     },

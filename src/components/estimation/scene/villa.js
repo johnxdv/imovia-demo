@@ -489,9 +489,18 @@ export function creerVilla(indexPalier) {
   pelouse.rotation.x = -Math.PI / 2
   pelouse.position.y = 0.015
 
-  // Allée de gravier, de la rue jusqu'au seuil.
-  const allee = poser(abords, boite(1.9, 0.03, 12, M.gravier()), { ombre: false })
-  allee.position.set(xPorte, 0.03, corps.profondeur / 2 + 6.6)
+  // Allée de gravier, du seuil jusqu'au bord de la propriété.
+  //
+  // ELLE A ÉTÉ RAMENÉE DE DOUZE UNITÉS À SEPT ET DEMIE. Elle venait de la rue,
+  // et c'était juste tant que la scène avait un sol qui allait jusqu'à
+  // l'horizon. La maison se tient désormais sur un ÎLOT posé dans un vide blanc
+  // (voir `DroneScene`), et c'est l'allée — plus longue que le jardin n'est
+  // large — qui commandait à elle seule la taille de cet îlot : la propriété
+  // faisait trente mètres de diamètre pour une pelouse qui en fait dix-huit, et
+  // l'on ne voyait plus le bord de l'îlot dans le cadre. Elle s'arrête
+  // maintenant au bord du jardin, et s'allonge toujours avec lui (voir `poser`).
+  const allee = poser(abords, boite(1.9, 0.03, 7.5, M.gravier()), { ombre: false })
+  allee.position.set(xPorte, 0.03, corps.profondeur / 2 + 4.1)
 
   // Massifs : buissons taillés, graminées, et quelques arbres en fond de
   // parcelle. Posés au cordeau le long de la terrasse, comme sur le projet.
@@ -766,17 +775,33 @@ export function creerVilla(indexPalier) {
     hauteur: hauteurToit + 0.5,
   }
 
-  return {
+  /**
+   * PORTÉE DES ABORDS — jusqu'où va la propriété au sol.
+   *
+   * Le décor pose le bien sur un ÎLOT dont il ne connaît pas l'emprise : la
+   * pelouse s'étend avec la surface de terrain déclarée, l'allée s'allonge avec
+   * elle et les sujets du parc s'éloignent (voir `poser`). C'est donc la maison
+   * qui la lui dit, et elle la recalcule à chaque image — un socle réglé sur une
+   * valeur figée laisserait le jardin déborder dans le vide dès le premier tour
+   * de curseur.
+   *
+   * Rien n'est construit ni déplacé ici : c'est une MESURE de ce qui est déjà
+   * posé, rendue au décor pour qu'il taille son socle.
+   */
+  const bien = {
     groupe,
     montant,
     palier,
     disloquer,
     hauteurCoupe: hauteurToit + 0.6,
     envergure,
-    /** Points visés par les plans de caméra. */
+    rayonSol: 16,
+    /**
+     * Repères lus par le décor : la hauteur hors tout, et le point d'appel du
+     * plan rapproché de la terrasse. La porte et le faîtage étaient les pivots
+     * des plans serrés — il n'y a plus de plan serré (voir `PLANS`).
+     */
     ancrages: {
-      porte: new THREE.Vector3(xPorte, y0 + hauteurPorte * 0.55, corps.profondeur / 2 + 0.6),
-      toit: new THREE.Vector3(0, hauteurToit, 0),
       hauteur: hauteurToit,
       /**
        * La terrasse de bois — le point que le drone vient filmer de près quand
@@ -832,6 +857,10 @@ export function creerVilla(indexPalier) {
       bosquet.scale.setScalar(1 + v.terrain * 0.42)
       bosquet.position.z = -v.terrain * 6.5
 
+      // `porteeParc` retient le plus éloigné des sujets SORTIS DE TERRE : c'est
+      // la seule mesure qui compte pour le socle, un arbre qui n'a pas encore
+      // poussé n'ayant rien à porter.
+      let porteeParc = 0
       haie.forEach((sujet, i) => {
         const retard = (i / haie.length) * 0.82
         const t = Math.max(0, Math.min(1, (v.terrain - retard) / Math.max(0.18, 1 - retard)))
@@ -845,6 +874,9 @@ export function creerVilla(indexPalier) {
           0,
           sujet.userData.base.z * (1 + v.terrain * 1.5),
         )
+        if (sujet.visible) {
+          porteeParc = Math.max(porteeParc, Math.hypot(sujet.position.x, sujet.position.z) + 2.6)
+        }
       })
 
       revelerPiscine(v.piscine)
@@ -856,6 +888,13 @@ export function creerVilla(indexPalier) {
         matiere.emissive.setHex(0xf6c978)
         matiere.emissiveIntensity = v.lumiere * 1.15
       })
+
+      // CE QUE LE SOCLE DOIT COUVRIR : la pelouse, le bout de l'allée — qui va
+      // plus loin qu'elle, c'est une allée —, et le sujet du parc le plus
+      // éloigné de ceux qui sont sortis de terre.
+      bien.rayonSol = Math.max(rayon + 2.4, allee.position.z + 3.75 * allee.scale.z + 1.4, porteeParc)
     },
   }
+
+  return bien
 }

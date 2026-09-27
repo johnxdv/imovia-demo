@@ -42,10 +42,8 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
   }, [address, mappable, onConfirm])
 
   return (
-    // Le retour reste HORS du panneau : `.panneau-verre` porte un
-    // `backdrop-filter`, et un tel filtre fait du panneau le bloc conteneur de
-    // ses descendants `fixed` — le lien s'y retrouverait ancré au panneau plutôt
-    // qu'au coin de la fenêtre.
+    // Le retour reste au-dessus du panneau, en tête de colonne (voir
+    // `StepBackLink`).
     <div className="w-full max-w-2xl">
       {onBack ? <StepBackLink onClick={onBack}>Retour</StepBackLink> : null}
 

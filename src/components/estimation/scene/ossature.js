@@ -232,12 +232,22 @@ export function creerOssature() {
     hauteurCoupe: y0 + HAUTEUR_MUR + 0.25,
     envergure: { largeur: LARGEUR + 2.4, hauteur: hauteurHorsTout },
 
-    /** Repères visés par les plans de caméra. */
-    ancrages: {
-      porte: new THREE.Vector3(-1.55, y0 + 0.62, PROFONDEUR / 2),
-      toit: new THREE.Vector3(0, hauteurHorsTout, 0),
-      hauteur: hauteurHorsTout,
-    },
+    /**
+     * Emprise au sol, pour l'îlot sur lequel le décor pose le chantier (voir
+     * `DroneScene`). Un chantier, ça tient sur sa dalle et le tour de ses
+     * échafaudages : de quoi poser la palette de parpaings et le tas de sable,
+     * et rien de plus — c'est le plus PETIT îlot du parcours, et c'est juste,
+     * puisqu'on n'a encore rien repéré.
+     */
+    rayonSol: LARGEUR / 2 + 3.4,
+
+    /**
+     * Repères lus par le décor. Il n'en reste qu'un : la hauteur hors tout, qui
+     * sert à viser le bien et à faire passer les oiseaux au-dessus. La porte et
+     * le faîtage étaient les pivots des plans serrés — il n'y a plus de plan
+     * serré (voir `PLANS`).
+     */
+    ancrages: { hauteur: hauteurHorsTout },
 
     /**
      * L'ossature n'a rien à révéler ni à éclairer : elle n'a ni abords, ni

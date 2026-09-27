@@ -216,10 +216,10 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   }, [selection, isBuilding, detection, startEstimate])
 
   return (
-    // Retour et fenêtre modale restent HORS du panneau : `.panneau-verre` porte
-    // un `backdrop-filter`, et un tel filtre fait du panneau le bloc conteneur
-    // de ses descendants `fixed` — le retour comme la fenêtre s'y retrouveraient
-    // enfermés au lieu de se caler sur la fenêtre du navigateur.
+    // La fenêtre modale reste HORS du panneau : `.panneau-verre` porte un
+    // `backdrop-filter`, et un tel filtre fait du panneau le bloc conteneur de
+    // ses descendants `fixed` — elle s'y retrouverait enfermée au lieu de se
+    // caler sur la fenêtre du navigateur.
     <div className="w-full max-w-3xl">
       <StepBackLink onClick={onBack}>Modifier l’adresse</StepBackLink>
 
@@ -285,7 +285,7 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
  */
 function MapPlaceholder() {
   return (
-    <div className="flex h-[65vh] max-h-[588px] min-h-[357px] w-full items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)] sm:h-[552px]">
+    <div className="flex h-[52vh] max-h-[452px] min-h-[288px] w-full items-center justify-center overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-[0_22px_54px_-18px_rgba(16,20,28,0.45)] sm:h-[424px]">
       <span
         role="status"
         className="inline-flex items-center gap-3 font-mono text-[0.62rem] uppercase tracking-micro text-stone/60"

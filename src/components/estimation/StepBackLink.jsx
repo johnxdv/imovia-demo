@@ -4,28 +4,22 @@ import { ArrowLeft } from 'lucide-react'
  * Retour en arrière du parcours d'estimation — un seul composant pour les
  * quatre écrans qui en portent un.
  *
- * **Deux positions, selon le gabarit.** Sur téléphone il reste dans le flux,
- * en tête de colonne : c'est là qu'on le cherche, et l'écran n'a pas de marge
- * où le poser ailleurs. Sur ordinateur il passe en haut à gauche de la
- * fenêtre — la colonne du parcours est centrée et étroite, un retour aligné
- * sur son bord gauche flottait au milieu de l'écran sans se rattacher à rien.
+ * **Il reste dans le flux, en tête de colonne, à tous les gabarits.** Il passait
+ * jusqu'ici en position fixe au coin de la fenêtre sur ordinateur, faute de
+ * colonne à laquelle s'accrocher : le parcours était centré et étroit, et un
+ * retour aligné sur son bord gauche flottait au milieu de l'écran.
  *
- * `lg:fixed` fonctionne ici pour la même raison que le positionnement de
- * [`BuildingConfirmModal`](./BuildingConfirmModal.jsx) : Framer Motion laisse
- * `transform: none` sur l'étape au repos, si bien qu'aucun ancêtre transformé
- * ne vient requalifier le `fixed` en `absolute`. Pendant la transition d'étape,
- * l'étape reprend un `transform` et le retour glisse avec elle — ce qui est
- * bien ce qu'on veut : il appartient à l'écran qu'il quitte.
- *
- * `lg:top` est calé sous la navbar (~68 px) et sa barre de progression (8 px),
- * avec l'air qu'il faut pour ne pas s'y coller.
+ * Le parcours a désormais sa propre zone — la moitié gauche de l'écran, sur
+ * fond blanc (voir `Estimer.jsx`) —, et le haut de cette colonne est exactement
+ * l'endroit où l'on cherche un retour. Posé au coin de la fenêtre, il venait en
+ * plus buter contre les panneaux les plus hauts, qui montent jusque-là.
  */
 export function StepBackLink({ onClick, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group mb-8 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/55 transition-colors hover:text-ink lg:fixed lg:left-8 lg:top-[6.5rem] lg:z-40 lg:mb-0 xl:left-12"
+      className="group mb-6 inline-flex touch-manipulation items-center gap-2 font-mono text-[0.68rem] uppercase tracking-micro text-ink/55 transition-colors hover:text-ink"
     >
       <ArrowLeft
         className="h-4 w-4 transition-transform duration-300 ease-plan group-hover:-translate-x-1"

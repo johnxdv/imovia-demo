@@ -64,6 +64,7 @@ export function EstimationResultStep({
   onDone,
   onProgress,
   onAffinage,
+  onPleineLargeur,
   onClose,
 }) {
   const reduce = useReducedMotion()
@@ -117,6 +118,29 @@ export function EstimationResultStep({
   useEffect(() => {
     onProgress?.(finished ? 1 : started ? revealStage / QUESTION_COUNT : 0)
   }, [started, revealStage, finished, onProgress])
+
+  /**
+   * L'EXCEPTION DE LA CONVERSATION — le seul écran du parcours qui ne se range
+   * pas dans sa moitié.
+   *
+   * Tout le reste du parcours tient dans une zone à lui, sur fond blanc, la
+   * scène occupant l'autre moitié sans jamais passer derrière (voir
+   * `Estimer.jsx`). Cet écran-ci n'y tiendrait pas : c'est déjà lui-même un
+   * deux-colonnes — le montant d'un côté, la conversation de l'autre — et le
+   * replier dans une demi-largeur reviendrait à mettre un deux-colonnes dans un
+   * deux-colonnes.
+   *
+   * Il reprend donc toute la largeur, et recouvre la scène. Ce n'est pas gênant
+   * ici, et pour une raison précise : à ce stade, LA SCÈNE NE BOUGE PLUS —
+   * le bien est achevé, la caméra est posée (voir `PLANS`). Ce que le panneau
+   * cache est une image fixe.
+   *
+   * L'affinage, lui, retombe dans la règle commune : c'est un panneau étroit,
+   * et c'est l'écran où il faut justement le plus voir le bien.
+   */
+  useEffect(() => {
+    onPleineLargeur?.(started && !affinage)
+  }, [started, affinage, onPleineLargeur])
 
   const handleChatDone = (collected) => {
     setContact(collected)
@@ -179,8 +203,8 @@ export function EstimationResultStep({
 
   if (!started) {
     return (
-      // Le retour reste hors du panneau : son `backdrop-filter` ferait du verre
-      // dépoli le bloc conteneur de sa position `fixed` (voir `StepBackLink`).
+      // Le retour reste au-dessus du panneau, en tête de colonne (voir
+      // `StepBackLink`).
       <div className="w-full max-w-lg">
         <StepBackLink onClick={onBack}>Modifier ma sélection</StepBackLink>
 

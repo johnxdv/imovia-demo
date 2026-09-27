@@ -8,26 +8,23 @@ import { creerVilla, palierVilla } from './scene/villa'
 import { creerImmeuble, ETAGES as ETAGES_IMMEUBLE } from './scene/immeuble'
 import {
   azimutDuPlan,
-  BANDE_HAUTE,
-  borneEcart,
   cibleDuPlan,
   DERNIER_PLAN,
-  ECART_FACE_MAX,
   FACE,
   MARGE_CADRAGE,
-  MARGE_CADRAGE_BANDE,
   PLANS,
-  pivotDuPlan,
 } from './scene/plans'
 
 /**
  * LE DÉCOR DU PARCOURS D'ESTIMATION — un bien filmé au drone, en vraie 3D.
  *
- * Ce n'est qu'un FOND. Le composant ne lit rien, ne décide rien et ne remonte
- * rien : il reçoit l'état du parcours et se contente de le mettre en scène
- * derrière le panneau de verre des étapes (voir `src/pages/Estimer.jsx`). La
- * page reste entièrement utilisable si WebGL manque — le canevas n'affiche
- * alors rien.
+ * LA SCÈNE A SA ZONE, ET ELLE Y EST SEULE. Elle ne passe plus derrière le
+ * panneau des étapes : la page lui donne la moitié droite de l'écran — la bande
+ * du haut sur téléphone — et garde le panneau sur un fond blanc nu à côté (voir
+ * `src/pages/Estimer.jsx`). Le composant ne lit rien, ne décide rien et ne
+ * remonte rien : il reçoit l'état du parcours et se contente de le mettre en
+ * scène. La page reste entièrement utilisable si WebGL manque — le canevas
+ * n'affiche alors rien.
  *
  * TROIS ARCHITECTURES, ET DEUX D'ENTRE ELLES NE CHANGENT JAMAIS.
  *
@@ -53,23 +50,24 @@ import {
  * bien qu'on estime — dans un intérieur qui n'était celui de personne. La
  * séquence et son décor ont été retirés en entier.
  *
- * LES TROIS TEMPS DE L'ANALYSE ONT CHACUN LEUR PLAN, et chacun son ouvrage :
+ * LA CAMÉRA, ELLE, NE VOYAGE PLUS.
  *
- *   1/3 — en bas, devant la porte : l'entrée, le seuil, les abords.
- *   2/3 — trois-quarts côté gauche : les menuiseries, les volets, les balcons.
- *   3/3 — au-dessus du toit : la couverture, la corniche, les souches.
- *
- * C'est le même geste dans les deux architectures : le drone va là où quelque
- * chose se construit, et il y arrive avant que ça se construise.
+ * Elle tournait autour du bien, plongeait au ras de la dalle, venait coller à
+ * la porte pour le premier temps de l'analyse et repassait au-dessus du toit
+ * pour le troisième. C'étaient de vrais mouvements de drone, et c'est
+ * exactement le reproche : ça se regarde comme un JEU VIDÉO. Tous les plans
+ * sont désormais presque le même plan — la façade, une légère plongée — et
+ * pendant l'écran d'analyse, ils sont rigoureusement identiques (voir `PLANS`).
+ * Ce qui change à l'écran, c'est le bien ; jamais le point de vue.
  *
  * L'AFFINAGE, enfin : le vendeur ajoute une piscine, du terrain, des panneaux,
  * une terrasse ou un balcon, il choisit son standing — et chaque option se
- * DESSINE sur le bien. C'est le dernier stade, et le drone y prend le recul
+ * DESSINE sur le bien. C'est le dernier stade, et la caméra y prend le recul
  * qu'il faut pour que tout tienne dans le cadre.
  *
- * `prefers-reduced-motion` immobilise le drone — la caméra se cale sur un
- * point de vue fixe — et fige les transitions de géométrie sur leur valeur
- * d'arrivée : la scène reste juste, elle ne bouge plus.
+ * `prefers-reduced-motion` supprime le peu qui reste — le balancement et la
+ * respiration — et fige les transitions de géométrie sur leur valeur d'arrivée :
+ * la scène reste juste, elle ne bouge plus du tout.
  */
 
 /**
@@ -80,7 +78,33 @@ import {
  */
 const FACTEUR_LUMIERE = Math.PI
 
-const TOUR = Math.PI * 2
+/* -------------------------------------------------------------------------- */
+/*  L'ÎLOT                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * LE BIEN NE SE CONSTRUIT PLUS À MÊME LE SOL : IL SE CONSTRUIT SUR UN ÎLOT.
+ *
+ * Un disque légèrement surélevé, cerclé d'un trait noir, détaché du sol blanc
+ * qui l'entoure par un vide de quelques dizaines de centimètres. Ce n'est pas
+ * un ornement : c'est ce qui dit que le bien qu'on voit est POSÉ quelque part,
+ * dans un espace qui n'est nulle part. Sans lui, un bâtiment blanc sur un sol
+ * blanc n'a plus d'assise — il flotte, et on ne sait plus ce qui est le sujet.
+ *
+ *   `CREUX`         de combien le sol alentour est descendu sous l'îlot. C'est
+ *                   la profondeur du vide qu'on voit entre les deux.
+ *   `EPAISSEUR`     la tranche du socle. Son dessus est à l'altitude zéro —
+ *                   celle où tout le bien est construit —, et il descend de là.
+ *   `LISERE`        l'épaisseur du trait noir du bord, en part du rayon. Un
+ *                   trait tracé en unités du monde grossirait avec l'îlot ; en
+ *                   part du rayon, il garde la même finesse à l'écran quelle
+ *                   que soit la taille de la propriété.
+ *   `RAYON_SOL_DEFAUT`  l'emprise retenue tant qu'aucun ouvrage n'en déclare.
+ */
+const CREUX = 0.8
+const EPAISSEUR_SOCLE = 0.5
+const LISERE = 0.015
+const RAYON_SOL_DEFAUT = 12
 
 /**
  * L'AVANCEMENT DU CHANTIER, STADE PAR STADE.
@@ -163,12 +187,22 @@ function creerScene(canvas, { mouvementReduit }) {
   renderer.localClippingEnabled = true
 
   const scene = new THREE.Scene()
-  scene.background = M.textureCiel()
-  // Brouillard léger : c'est lui qui donne la profondeur et qui évite au sol
-  // circulaire de finir sur une arête franche à l'horizon. Il commence bien
-  // au-delà du bien — un immeuble se cadre à quarante unités, et un brouillard
-  // qui mordrait dessus le délaverait au lieu de l'éloigner.
-  scene.fog = new THREE.Fog(0xcfe0ea, 90, 260)
+  scene.background = M.textureFondBlanc()
+  /**
+   * LE BROUILLARD BLANC — ce qui fait du sol un espace sans fin.
+   *
+   * Il servait, sous le ciel bleu, à éviter que le disque de sol ne finisse sur
+   * une arête franche à l'horizon. Il fait désormais davantage : c'est lui qui
+   * SOUDE le sol au fond de scène. Réglé sur le blanc du fond, il efface le
+   * bord du disque bien avant qu'on y arrive, et le sol paraît continuer
+   * indéfiniment — l'îlot se tient au milieu d'un vide, et non sur une table.
+   *
+   * Il mord plus tôt qu'avant (70 au lieu de 90) : le décor n'a plus de lointain
+   * à montrer, et plus rien ne se perd à l'effacer plus près. Il commence
+   * toujours bien au-delà du bien — un immeuble se cadre à quarante unités, et
+   * un brouillard qui mordrait dessus le délaverait au lieu de l'éloigner.
+   */
+  scene.fog = new THREE.Fog(0xf8f8f7, 70, 185)
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.08, 400)
   scene.add(camera)
@@ -182,10 +216,18 @@ function creerScene(canvas, { mouvementReduit }) {
   // l'enduit et le zinc cessent de se distinguer les uns des autres. Ces
   // valeurs-là sont celles où la façade garde ses nuances et où les ombres
   // portées se lisent encore.
-  const ciel = new THREE.HemisphereLight(0xdfeeff, 0x8a7a5e, 0.44 * FACTEUR_LUMIERE)
+  //
+  // TOUT A BAISSÉ D'UN CRAN AVEC LE FOND BLANC, et il le fallait. Le sol est
+  // désormais blanc et horizontal : aux anciennes valeurs, il recevait à lui
+  // seul plus de lumière qu'il n'en peut rendre, brûlait entièrement, et son
+  // grain — la seule chose qui l'empêche d'être un calque vide — disparaissait
+  // avec. Le rebond du sol, lui aussi, a changé de couleur : ce n'est plus une
+  // terre brune qui renvoie sa chaleur sous les avant-toits, c'est un blanc
+  // neutre.
+  const ciel = new THREE.HemisphereLight(0xffffff, 0xeceded, 0.34 * FACTEUR_LUMIERE)
   scene.add(ciel)
 
-  const soleil = new THREE.DirectionalLight(0xfff1d8, 0.94 * FACTEUR_LUMIERE)
+  const soleil = new THREE.DirectionalLight(0xfff7ec, 0.72 * FACTEUR_LUMIERE)
   soleil.position.set(26, 42, 22)
   soleil.castShadow = true
   soleil.shadow.mapSize.set(2048, 2048)
@@ -215,19 +257,117 @@ function creerScene(canvas, { mouvementReduit }) {
    * modelé — c'est le rôle du réflecteur qu'on pose au sol en prise de vue.
    * Elle ne porte pas d'ombre : une lumière de rebond n'en porte pas.
    */
-  const retour = new THREE.DirectionalLight(0xdfe8f2, 0.2 * FACTEUR_LUMIERE)
+  const retour = new THREE.DirectionalLight(0xeef0f4, 0.17 * FACTEUR_LUMIERE)
   retour.position.set(-30, 9, -20)
   scene.add(retour)
 
+  /**
+   * LE SOL DU VIDE. Un disque blanc, et rien d'autre : ni pré, ni chaussée.
+   *
+   * Il est POSÉ PLUS BAS QUE LE BIEN, d'une demi-unité et quelques — c'est ce
+   * décalage qui creuse le vide autour de l'îlot (voir plus bas). Le bâtiment,
+   * lui, continue de se construire à l'altitude zéro : rien de ce qui le
+   * compose n'a bougé, c'est le sol qui est descendu.
+   */
   const sol = new THREE.Mesh(
     new THREE.CircleGeometry(120, 56),
-    // La teinte du sol est proche de celle de la pelouse du jardin : celle-ci
-    // est un disque posé dessus, et un écart marqué en dessinerait le bord.
-    new THREE.MeshStandardMaterial({ map: M.textureSolPre(), color: 0x9ab87e, roughness: 0.97 }),
+    new THREE.MeshStandardMaterial({ map: M.textureSolBlanc(), color: 0xffffff, roughness: 0.96 }),
   )
   sol.rotation.x = -Math.PI / 2
+  sol.position.y = -CREUX
   sol.receiveShadow = true
   scene.add(sol)
+
+  /* -------------------------------- l'îlot ---------------------------------- */
+
+  /**
+   * TROIS PIÈCES, ET CHACUNE DIT UNE CHOSE.
+   *
+   *   `plateau`  le dessus, à l'altitude zéro : c'est le terrain du bien, et
+   *              tout ce que l'ouvrage pose au sol se pose dessus.
+   *   `flanc`    la tranche, un peu plus sourde que le dessus — c'est elle
+   *              qu'on voit quand le drone descend, et c'est son épaisseur qui
+   *              fait la différence entre un disque peint et un socle.
+   *   `liseré`   le trait noir du bord. Le seul noir franc de tout le décor, et
+   *              la seule ligne : c'est lui qui découpe l'îlot sur le blanc.
+   *
+   * L'ombre de contact, elle, n'est pas ici : elle est peinte sur le sol, en
+   * dessous (voir `creux`).
+   */
+  const ilot = new THREE.Group()
+  scene.add(ilot)
+
+  const plateau = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 96),
+    new THREE.MeshStandardMaterial({ map: M.textureSocle(), color: 0xffffff, roughness: 0.94 }),
+  )
+  plateau.rotation.x = -Math.PI / 2
+  plateau.receiveShadow = true
+  ilot.add(plateau)
+
+  const flanc = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, EPAISSEUR_SOCLE, 96, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xe9e7e3, roughness: 0.9, side: THREE.DoubleSide }),
+  )
+  flanc.position.y = -EPAISSEUR_SOCLE / 2
+  flanc.castShadow = true
+  ilot.add(flanc)
+
+  const lisere = new THREE.Mesh(
+    new THREE.RingGeometry(1 - LISERE, 1, 96),
+    new THREE.MeshBasicMaterial({ color: 0x14161b, side: THREE.DoubleSide }),
+  )
+  lisere.rotation.x = -Math.PI / 2
+  // Posé à un millimètre au-dessus du plateau : au même niveau, les deux
+  // surfaces se disputeraient le même pixel et le trait clignoterait.
+  lisere.position.y = 0.004
+  ilot.add(lisere)
+
+  /**
+   * L'OMBRE DE CONTACT, peinte sur le sol du dessous.
+   *
+   * Le soleil n'éclaire l'îlot que d'un côté : de l'autre, socle et sol se
+   * touchent à l'écran sans que rien ne dise qu'il y a un vide entre eux. Cet
+   * anneau sombre ceinture l'îlot et s'éteint en quelques mètres — c'est lui
+   * qui creuse le trou, et c'est de l'occultation ambiante peinte, non une
+   * ombre calculée (voir `textureCreux`).
+   */
+  const creux = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 96),
+    new THREE.MeshBasicMaterial({
+      map: M.textureCreux(),
+      transparent: true,
+      // Il ne s'écrit pas dans le tampon de profondeur : c'est une ombre posée
+      // sur le sol, elle ne doit rien cacher de ce qui passe au-dessus.
+      depthWrite: false,
+    }),
+  )
+  creux.rotation.x = -Math.PI / 2
+  creux.position.y = -CREUX + 0.012
+  scene.add(creux)
+
+  /** Rayon courant de l'îlot — lissé, sauf au montage d'un nouvel ouvrage. */
+  let rayonIlot = RAYON_SOL_DEFAUT
+
+  /**
+   * Règle l'îlot sur l'emprise au sol demandée.
+   *
+   * `aussitot` pose la valeur d'un bloc, sans transition : c'est ce qu'il faut
+   * au montage d'une architecture, où l'îlot doit être à sa taille avant la
+   * première image. Le reste du temps, il rejoint sa cible en glissant — la
+   * surface de terrain se règle au curseur, et un socle qui sauterait d'un
+   * rayon à l'autre s'y verrait plus que la pelouse qu'il porte.
+   */
+  function poserSocle(rayon, aussitot = false) {
+    rayonIlot = aussitot ? rayon : rayonIlot + (rayon - rayonIlot) * 0.06
+    ilot.scale.set(rayonIlot, 1, rayonIlot)
+    // Le disque de l'ombre est peint transparent jusqu'à 54 % de son rayon et
+    // s'assombrit au-delà : à ce facteur, l'anneau tombe pile au bord de l'îlot.
+    const etendue = rayonIlot / 0.56
+    creux.scale.set(etendue, etendue, 1)
+  }
+
+  poserSocle(RAYON_SOL_DEFAUT, true)
 
   /**
    * L'ENVIRONNEMENT. Le ciel, replié en carte d'éclairage, sert de reflet à
@@ -243,10 +383,10 @@ function creerScene(canvas, { mouvementReduit }) {
    */
   const fabriqueEnv = new THREE.PMREMGenerator(renderer)
   const scenette = new THREE.Scene()
-  scenette.background = M.textureCiel()
+  scenette.background = M.textureFondBlanc()
   const environnement = fabriqueEnv.fromScene(scenette, 0.04).texture
   scene.environment = environnement
-  scene.environmentIntensity = 0.34
+  scene.environmentIntensity = 0.3
   fabriqueEnv.dispose()
 
   /* ------------------------------ les oiseaux -------------------------------- */
@@ -300,10 +440,7 @@ function creerScene(canvas, { mouvementReduit }) {
     surface: 100,
     etage: null,
     options: {},
-    zone: 'centre',
   }
-
-  const taille = { largeur: 1, hauteur: 1 }
 
   const val = {
     montage: 0,
@@ -388,12 +525,11 @@ function creerScene(canvas, { mouvementReduit }) {
     batiment.add(ouvrage.groupe)
     familleMontee = famille
     palierMonte = palier
-
-    // Pré pour une maison, enrobé pour un immeuble — la matière change avec
-    // l'adresse, pas seulement la teinte.
-    sol.material.map = famille === 'immeuble' ? M.textureSolVille() : M.textureSolPre()
-    sol.material.color.setHex(famille === 'immeuble' ? 0x97998f : 0x9ab87e)
-    sol.material.needsUpdate = true
+    // L'îlot se règle sur ce qui vient d'être monté, sans attendre la première
+    // image : une maison de trois cents mètres carrés et une ossature n'ont pas
+    // la même emprise, et un socle qui rejoindrait la sienne en glissant se
+    // verrait grandir au changement d'architecture.
+    poserSocle(ouvrage?.rayonSol ?? RAYON_SOL_DEFAUT, true)
   }
 
   /** Engage — ou réoriente — la mue vers le palier demandé. */
@@ -455,85 +591,59 @@ function creerScene(canvas, { mouvementReduit }) {
 
   /* ------------------------------- caméra ----------------------------------- */
 
-  const drone = { rayon: 30, hauteur: 12, angle: 0.6 }
+  const drone = { rayon: 30, hauteur: 12, angle: FACE }
   const droneCible = { rayon: 30, hauteur: 12 }
   /**
-   * LE PIVOT SE REJOINT, IL NE SE SAUTE PAS.
-   *
-   * Les plans ne tournent pas tous autour du même point : le centre du bien
-   * pour les uns, la porte ou le toit pour les autres (voir `pivotDuPlan`).
-   * Recopier le nouveau pivot d'une image à l'autre TÉLÉPORTAIT la caméra
-   * d'autant — près de quatre unités entre le plan de l'entrée et le suivant,
-   * soit la moitié d'une maison franchie en une image. Le drone s'y rend
-   * désormais, comme il se rend partout ailleurs.
+   * LE PIVOT. Le centre du bien, toujours — sauf quand le balcon ou la terrasse
+   * d'affinage appellent la caméra à eux (voir `cadrer`). Il se REJOINT plutôt
+   * qu'il ne se saute : posé d'une image à l'autre, ce serait la caméra qui se
+   * téléporterait.
    */
   const pivot = new THREE.Vector3()
   const pivotVise = new THREE.Vector3()
   const vise = new THREE.Vector3()
   const cibleLissee = new THREE.Vector3(0, 2, 0)
-  /**
-   * LE DÉCENTREMENT SE REJOINT AUSSI. Chaque plan pousse le bien d'un côté ou
-   * de l'autre du panneau (voir `cadre`), et d'un plan au suivant l'écart peut
-   * valoir un tiers de la largeur de l'écran : posé d'un coup, c'est le bien
-   * entier qui saute latéralement au changement d'étape.
-   */
-  let cadreCourant = 0
-  let derive = 0
 
   const plan = () => PLANS[borne(etat.stade, 0, DERNIER_PLAN)]
 
   /**
-   * L'ARCHITECTURE SE MONTRE-T-ELLE DU SEUL CÔTÉ DE SA PORTE ?
+   * LE BALANCEMENT — le seul mouvement latéral qui reste, et il est minuscule.
    *
-   * Oui pour une MAISON — et pour l'ossature, qui en est une en chantier : on
-   * l'aborde par sa façade, c'est la seule vue où elle se reconnaisse, et son
-   * jardin comme son allée sont de ce côté-là. Non pour un immeuble, qu'on longe
-   * depuis la rue et dont on peut faire le tour.
-   */
-  const verrouFacade = () => familleMontee === 'villa' || familleMontee === 'ossature'
-
-  /**
-   * L'azimut visé maintenant, dérive comprise.
+   * La caméra allait et venait dans toute la fenêtre de la façade, d'un
+   * trois-quarts à l'autre : un quart de radian d'amplitude, sur une période de
+   * trente secondes. C'était le geste d'un appareil qui cherche son cadre, et
+   * c'était encore un geste d'appareil.
    *
-   * Verrouillé sur la façade, le drone ne tourne plus : il VA ET VIENT dans la
-   * fenêtre de la façade, d'un trois-quarts vers l'autre. C'est le mouvement
-   * qu'on attend d'un appareil qui cherche son cadre, et il ne passe jamais
-   * derrière — l'amplitude est calculée pour que le balancement tienne dans ce
-   * qui reste de fenêtre au plan en cours, quel que soit son écart.
+   * Il en reste UN CENTIÈME DE TOUR — deux degrés d'un bord à l'autre, sur une
+   * minute et demie. À cette amplitude, on ne voit pas la caméra bouger ; on
+   * voit seulement que l'image n'est pas une photographie.
    */
-  function azimutVise() {
-    const p = plan()
-    if (!verrouFacade()) return p.azimut + derive
-
-    const ecart = p.face ?? 0
-    const marge = Math.max(0, ECART_FACE_MAX - Math.abs(ecart))
-    const balance = Math.sin(secondes * 0.19 + (p.face ?? 0)) * Math.min(0.26, marge)
-    return FACE + borneEcart(ecart + balance)
-  }
+  const AMPLITUDE_BALANCEMENT = 0.018
+  const azimutVise = () =>
+    azimutDuPlan(plan()) + (mouvementReduit ? 0 : Math.sin(secondes * 0.068) * AMPLITUDE_BALANCEMENT)
 
   function cadrer() {
     const p = plan()
     const envergure = ouvrage?.envergure ?? { largeur: 6, hauteur: 4 }
-    const bande = etat.zone === 'haut' ? BANDE_HAUTE : 1
 
     const ouvertureV = (camera.fov * Math.PI) / 180
     const ouvertureH = 2 * Math.atan(Math.tan(ouvertureV / 2) * camera.aspect)
-    const ouvertureUtile = 2 * Math.atan(Math.tan(ouvertureV / 2) * bande)
 
     // Le bâtiment doit tenir dans les deux sens : on retient la distance la
     // plus contraignante. La demi-largeur est ajoutée au résultat — ce calcul
     // cadre un objet plat, or celui-ci a de l'épaisseur, et c'est sa face la
     // plus proche qui remplit le cadre.
+    //
+    // Le cadre est celui du canevas tout entier, d'un bord à l'autre : la scène
+    // a sa zone, le panneau n'y entre pas, et il n'y a plus ni bande réservée ni
+    // décentrement à compenser.
     const surLargeur = envergure.largeur / 2 / Math.tan(ouvertureH / 2)
-    const surHauteur = envergure.hauteur / 2 / Math.tan(ouvertureUtile / 2)
-    const marge = etat.zone === 'haut' ? MARGE_CADRAGE_BANDE : MARGE_CADRAGE
-    const calculee =
-      envergure.largeur / 2 +
-      (p.cadrage === 'largeur' ? surLargeur : Math.max(surLargeur, surHauteur)) * marge
+    const surHauteur = envergure.hauteur / 2 / Math.tan(ouvertureV / 2)
 
-    let distance = (p.distance ?? calculee) * p.recul
-    let ancrePivot = pivotDuPlan(p, ouvrage?.ancrages)
-    let ancreCible = cibleDuPlan(p, ouvrage?.ancrages, ouvrage?.ancrages?.hauteur ?? envergure.hauteur)
+    let distance =
+      (envergure.largeur / 2 + Math.max(surLargeur, surHauteur) * MARGE_CADRAGE) * p.recul
+    let ancrePivot = new THREE.Vector3(0, 0, 0)
+    let ancreCible = cibleDuPlan(p, ouvrage?.ancrages?.hauteur ?? envergure.hauteur)
 
     /**
      * LE BALCON SE FILME DE PRÈS.
@@ -541,9 +651,13 @@ function creerScene(canvas, { mouvementReduit }) {
      * C'est le seul ouvrage de l'affinage qui se construise à mi-hauteur d'une
      * façade, et le plan d'ensemble de l'affinage — composé pour tenir une
      * maison, son jardin et sa piscine — le réduisait à une saillie de quelques
-     * pixels. Quand il est déclaré, le drone quitte donc le plan large : il
+     * pixels. Quand il est déclaré, la caméra quitte donc le plan large : elle
      * descend à sa hauteur, se rapproche, et c'est le balcon — et non plus le
-     * centre du bâtiment — qui devient le point autour duquel il tourne.
+     * centre du bâtiment — qu'elle vise.
+     *
+     * C'est le seul déplacement de caméra qui reste dans tout le parcours, et
+     * il se justifie par l'inverse d'un mouvement de drone : sans lui, le
+     * vendeur coche une case et ne voit rien changer.
      *
      * La terrasse d'une maison a droit au même traitement, pour la même
      * raison — c'est le même bouton, et c'est le même ouvrage vu d'une autre
@@ -551,8 +665,8 @@ function creerScene(canvas, { mouvementReduit }) {
      *
      * Un peu moins de six dixièmes de la distance : c'est le rapprochement le
      * plus franc qu'on puisse se permettre. En deçà, le bâtiment déborde du
-     * cadre et revient derrière le panneau — on aurait gagné sur le balcon ce
-     * qu'on aurait perdu sur tout le reste.
+     * cadre — on aurait gagné sur le balcon ce qu'on aurait perdu sur tout le
+     * reste.
      */
     const ancreExterieur =
       etat.stade >= DERNIER_PLAN && (etat.options?.balcon || etat.options?.terrasse)
@@ -571,42 +685,7 @@ function creerScene(canvas, { mouvementReduit }) {
     pivotVise.copy(ancrePivot)
     vise.copy(ancreCible)
 
-    if (mouvementReduit) {
-      pivot.copy(pivotVise)
-      cadreCourant = cadreVise()
-    }
-    decentrer()
-  }
-
-  /** Décentrement voulu par l'étape en cours. */
-  function cadreVise() {
-    // Panneau rangé en bas (téléphone) : le bien est cadré dans la bande du
-    // haut, et un décentrement latéral n'aurait plus rien à dégager.
-    if (etat.zone === 'haut') return 0
-    return -plan().cadre
-  }
-
-  /**
-   * Décentre l'objectif pour poser le bâtiment dans la bande libre.
-   * `setViewOffset` revient à rendre une fenêtre décalée d'une image plus
-   * grande : c'est la translation d'un objectif à décentrement, et non une
-   * caméra qu'on incline — les verticales restent d'aplomb.
-   */
-  function decentrer() {
-    const { largeur, hauteur } = taille
-    if (largeur <= 0 || hauteur <= 0) return
-
-    const enHaut = etat.zone === 'haut'
-    const decalageX = cadreCourant * largeur
-    const decalageY = enHaut ? (hauteur * (1 - BANDE_HAUTE)) / 2 : 0
-
-    // Un décalage d'un demi-pixel ne se voit pas, et le remettre à chaque image
-    // recalculerait la matrice de projection pour rien.
-    if (Math.abs(decalageX) < 0.5 && decalageY === 0) {
-      camera.clearViewOffset()
-      return
-    }
-    camera.setViewOffset(largeur, hauteur, decalageX, decalageY, largeur, hauteur)
+    if (mouvementReduit) pivot.copy(pivotVise)
   }
 
   /* -------------------------- le drone, et lui seul ------------------------- */
@@ -750,12 +829,22 @@ function creerScene(canvas, { mouvementReduit }) {
 
     ouvrage?.poser?.({ ...val, surface: etat.surface })
 
+    // L'ÎLOT SUIT LA PROPRIÉTÉ. Chaque ouvrage déclare l'emprise que ses abords
+    // occupent au sol (`rayonSol`), et la maison la recalcule à chaque image :
+    // la pelouse s'étend avec la surface de terrain déclarée, et le socle doit
+    // s'étendre avec elle, sinon le jardin finirait dans le vide.
+    poserSocle(ouvrage?.rayonSol ?? RAYON_SOL_DEFAUT)
+
     /**
-     * LES OISEAUX passent toutes les cinq secondes environ, et leur espèce suit
-     * l'architecture : pigeons au-dessus de l'immeuble, colombes au-dessus de
-     * la maison. Ils traversent une sphère un peu plus large que le cadrage du
-     * drone — assez pour entrer et sortir du champ, jamais pour disparaître
-     * derrière le brouillard.
+     * LES OISEAUX passent toutes les sept secondes, jamais deux fois de suite
+     * dans la même direction ni à la même hauteur (voir `oiseaux.js`), et leur
+     * espèce suit l'architecture : pigeons au-dessus de l'immeuble, colombes
+     * au-dessus de la maison. Ils traversent une sphère un peu plus large que
+     * le cadrage — assez pour entrer et sortir du champ, jamais pour
+     * disparaître derrière le brouillard.
+     *
+     * Ils comptent double depuis que la caméra ne bouge plus : c'est à peu près
+     * tout ce qui, dans une image posée, dit qu'elle n'est pas une photographie.
      */
     voliere.poser(dt, {
       espece: familleMontee === 'immeuble' ? 'pigeon' : 'colombe',
@@ -765,72 +854,44 @@ function creerScene(canvas, { mouvementReduit }) {
 
     /* --- caméra --- */
 
-    // LE CADRE REJOINT SA CIBLE, image après image. Le pivot et le
-    // décentrement suivent la même cadence que le drone lui-même : d'un stade
-    // au suivant, tout le cadrage glisse au lieu de sauter.
-    if (!mouvementReduit) {
-      const pasCadre = Math.min(1, dt * 0.62)
-      pivot.lerp(pivotVise, pasCadre)
-      cadreCourant += (cadreVise() - cadreCourant) * pasCadre
-      decentrer()
-    }
+    // LE PIVOT REJOINT SA CIBLE, image après image, à la cadence du drone
+    // lui-même : d'un stade au suivant, le cadrage glisse au lieu de sauter.
+    if (!mouvementReduit) pivot.lerp(pivotVise, Math.min(1, dt * 0.62))
 
     if (mouvementReduit) {
-      // MOUVEMENTS RÉDUITS — le drone ne vole plus, mais il se pose AU BON
-      // ENDROIT. Il se calait jusqu'ici sur l'axe +X, c'est-à-dire sur le côté
-      // du bien, quel que soit le plan : une maison s'y montrait de profil, et
-      // au dernier stade de dos. Le point de vue est désormais celui que le
-      // plan demande — façade comprise —, simplement immobile.
-      const angle = azimutDuPlan(plan(), verrouFacade())
+      // MOUVEMENTS RÉDUITS — la caméra se pose et n'en bouge plus du tout : ni
+      // rapprochement d'un stade au suivant, ni balancement, ni respiration.
       camera.position.set(
-        pivot.x + Math.cos(angle) * droneCible.rayon,
+        pivot.x + Math.cos(drone.angle) * droneCible.rayon,
         pivot.y + droneCible.hauteur,
-        pivot.z + Math.sin(angle) * droneCible.rayon,
+        pivot.z + Math.sin(drone.angle) * droneCible.rayon,
       )
       camera.lookAt(vise)
     } else {
-      // LE DRONE REJOINT SON PLAN EN DEUX SECONDES ENVIRON, et pas en une.
+      // LA CAMÉRA REJOINT SON PLAN EN DEUX SECONDES ENVIRON.
       //
-      // C'est le plus lent qu'on puisse se permettre : les trois temps de
-      // l'analyse durent trois secondes chacun, et il faut que le drone soit
-      // arrivé avant la fin de sa station, sinon on ne voit rien s'y construire.
-      // Relevé de 0,58 à 0,74 avec le raccourcissement de l'analyse — le
-      // mouvement se lit toujours comme une dérive, mais il se pose à temps.
+      // Ce qui la sépare d'un stade au suivant se compte maintenant en mètres,
+      // pas en quarts de tour (voir `PLANS`) : ce glissement-là ne se lit plus
+      // comme un déplacement, mais comme une mise au point qui s'ajuste. La
+      // cadence n'a pas changé — il faut toujours qu'elle soit arrivée avant la
+      // fin de l'étape, sinon on ne voit rien s'y construire.
       const pasDrone = Math.min(1, dt * 0.74)
       drone.rayon += (droneCible.rayon - drone.rayon) * pasDrone
       drone.hauteur += (droneCible.hauteur - drone.hauteur) * pasDrone
+      drone.angle += (azimutVise() - drone.angle) * Math.min(1, dt * 0.5)
 
-      // LE VOYAGE. L'azimut du plan est la destination ; le drone s'y rend en
-      // glissant, d'autant plus vite qu'il en est loin — un mouvement qui
-      // démarre franc et se pose en douceur, comme un appareil qui rejoint sa
-      // position.
-      // La dérive fait respirer un plan ; plafonnée, elle ne le remplace pas.
-      // Sans ce plafond, une étape où l'on s'attarde — l'affinage, par
-      // exemple — finit par emmener le drone un quart de tour plus loin que le
-      // plan composé pour elle. Verrouillé sur la façade, le drone n'en a pas
-      // besoin : son balancement remplit le même office sans jamais l'emmener
-      // derrière le bien (voir `azimutVise`).
-      if (!verrouFacade()) derive = Math.min(derive + dt * plan().derive, 0.45)
-      let azimut = azimutVise()
-      if (verrouFacade()) {
-        // On vise le tour le plus proche de l'angle courant : sans cela, le
-        // passage d'un immeuble à une maison ferait faire au drone les tours
-        // qu'il avait accumulés en orbite.
-        azimut += Math.round((drone.angle - azimut) / TOUR) * TOUR
-      }
-      drone.angle += (azimut - drone.angle) * Math.min(1, dt * 0.5)
-
-      // Respiration : le flottement d'un appareil en vol stationnaire. Sans
-      // elle, un plan posé devient une photographie.
-      const respiration = Math.sin(secondes * 0.23) * 0.45
+      // RESPIRATION. Elle valait presque un demi-mètre d'avant en arrière et
+      // trois dixièmes de haut en bas — de quoi voir le cadre bouger. Réduite
+      // au dixième, elle ne se voit plus : elle empêche seulement l'image
+      // d'être une photographie, ce qui est tout ce qu'on lui demande.
+      const respiration = Math.sin(secondes * 0.19) * 0.06
       camera.position.set(
         pivot.x + Math.cos(drone.angle) * (drone.rayon + respiration),
-        Math.max(0.7, pivot.y + drone.hauteur + Math.sin(secondes * 0.31) * 0.28),
+        Math.max(0.7, pivot.y + drone.hauteur + Math.sin(secondes * 0.25) * 0.04),
         pivot.z + Math.sin(drone.angle) * (drone.rayon + respiration),
       )
       // Le regard suit encore plus lentement que l'appareil : c'est ce décalage
-      // entre l'un et l'autre qui donne au mouvement sa douceur — un drone qui
-      // regarderait instantanément sa cible aurait l'œil d'une machine.
+      // entre l'un et l'autre qui donne au mouvement sa douceur.
       cibleLissee.lerp(vise, Math.min(1, dt * 1.0))
       camera.lookAt(cibleLissee)
     }
@@ -857,16 +918,12 @@ function creerScene(canvas, { mouvementReduit }) {
 
   return {
     appliquer(suivant) {
-      const stadeChange = suivant.stade !== undefined && suivant.stade !== etat.stade
-      if (stadeChange) derive = 0
       Object.assign(etat, suivant)
       appliquerEtat()
     },
 
     dimensionner(largeur, hauteur) {
       if (largeur <= 0 || hauteur <= 0) return
-      taille.largeur = largeur
-      taille.hauteur = hauteur
       camera.aspect = largeur / hauteur
       camera.updateProjectionMatrix()
       renderer.setSize(largeur, hauteur, false)
@@ -899,7 +956,6 @@ export function DroneScene({
   surface = 100,
   etage = null,
   options = null,
-  zone = 'centre',
 }) {
   const canvasRef = useRef(null)
   const sceneRef = useRef(null)
@@ -947,9 +1003,8 @@ export function DroneScene({
       surface,
       etage,
       options: JSON.parse(signatureOptions),
-      zone,
     })
-  }, [stade, type, surface, etage, signatureOptions, zone])
+  }, [stade, type, surface, etage, signatureOptions])
 
   return <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full" />
 }

@@ -348,81 +348,127 @@ export const textureToile = (index) =>
   })
 
 /**
- * CIEL — dégradé du zénith à l'horizon, et ses voiles.
+ * LE FOND DE SCÈNE — un blanc qui n'est pas un aplat.
  *
- * Le dégradé seul se lit comme un fond de studio : un vrai ciel a des couches.
- * Trois bandes très douces s'y ajoutent donc, à peine plus claires que le fond,
- * posées dans le tiers bas — là où s'empilent les brumes d'horizon. Elles sont
- * HORIZONTALES à dessein : le fond de scène ne tourne pas avec la caméra, et
- * tout ce qui aurait une position lisible s'y verrait comme collé à l'objectif.
- * Une stratification, elle, reste juste sous tous les angles.
+ * Le décor se tenait sous un ciel bleu, sur une pelouse ou sur de l'enrobé.
+ * Il se tient désormais dans un VIDE BLANC, et la seule chose qui y porte une
+ * couleur est le bien lui-même — c'est tout le parti du parcours : un objet
+ * posé dans un espace sans lieu, comme une maquette d'architecte sur sa table.
+ *
+ * Un blanc uniforme ne tiendrait pas une seconde : sans matière, le fond n'a
+ * plus de profondeur, le brouillard n'a rien à estomper et la scène se lit
+ * comme un calque vide. Trois choses, toutes au ras du perceptible, lui donnent
+ * sa matière :
+ *
+ *   — un dégradé d'un blanc à peine bleuté en haut vers un blanc à peine chaud
+ *     en bas. C'est ce qui donne un HAUT et un BAS à un fond qui n'a pas
+ *     d'horizon ;
+ *   — deux ou trois voiles très larges, à peine plus sourds que le fond, qui
+ *     empêchent le dégradé de se lire comme une rampe de couleur ;
+ *   — un grain fin, celui d'un papier épais.
+ *
+ * Le fond de scène ne tourne pas avec la caméra : tout ce qui y aurait une
+ * position lisible se verrait comme collé à l'objectif. D'où des voiles
+ * horizontaux et rien d'autre.
  */
-export const textureCiel = () =>
-  texture('ciel', 16, 512, (ctx, l, h) => {
+export const textureFondBlanc = () =>
+  texture('fond-blanc', 512, 512, (ctx, l, h) => {
     const degrade = ctx.createLinearGradient(0, 0, 0, h)
-    degrade.addColorStop(0, '#5f9bdd')
-    degrade.addColorStop(0.38, '#a3c9e8')
-    degrade.addColorStop(0.72, '#dfeaee')
-    degrade.addColorStop(0.93, '#f3eee2')
-    degrade.addColorStop(1, '#efe6d4')
+    degrade.addColorStop(0, '#f4f5f7')
+    degrade.addColorStop(0.46, '#fcfcfc')
+    degrade.addColorStop(0.78, '#ffffff')
+    degrade.addColorStop(1, '#f6f4f0')
     ctx.fillStyle = degrade
     ctx.fillRect(0, 0, l, h)
 
     ;[
-      [0.62, 0.05, 0.1],
-      [0.74, 0.035, 0.14],
-      [0.85, 0.028, 0.1],
+      [0.34, 0.16, 0.022],
+      [0.66, 0.12, 0.018],
     ].forEach(([position, epaisseur, alpha]) => {
       const voile = ctx.createLinearGradient(0, (position - epaisseur) * h, 0, (position + epaisseur) * h)
-      voile.addColorStop(0, 'rgba(255,255,255,0)')
-      voile.addColorStop(0.5, `rgba(255,255,255,${alpha})`)
-      voile.addColorStop(1, 'rgba(255,255,255,0)')
+      voile.addColorStop(0, 'rgba(206,208,214,0)')
+      voile.addColorStop(0.5, `rgba(206,208,214,${alpha})`)
+      voile.addColorStop(1, 'rgba(206,208,214,0)')
       ctx.fillStyle = voile
       ctx.fillRect(0, (position - epaisseur) * h, l, epaisseur * 2 * h)
     })
+
+    grain(ctx, l, h, 9000, 0.035)
   })
 
 /**
- * LE SOL DE LA SCÈNE — pelouse rase pour une maison, enrobé pour un immeuble.
+ * LE SOL DU VIDE — le plan blanc sur lequel l'îlot est posé.
  *
- * Le disque de sol était un aplat de couleur. À la distance où le drone
- * travaille, un aplat se voit : c'est ce qui donnait à la scène son air de
- * maquette posée sur un carton. Deux textures très douces, sans motif lisible
- * de près, suffisent à le faire tenir — ce qu'on doit y voir, ce n'est pas le
- * sol, c'est qu'il n'est pas peint.
+ * Il n'a plus de nature : ce n'est ni un pré ni une chaussée, c'est le fond de
+ * l'espace où le bien se construit, et il doit se confondre avec le fond de
+ * scène à mesure qu'il s'en éloigne (c'est le brouillard qui s'en charge, voir
+ * `DroneScene`). Ce qu'on lui demande, c'est uniquement de N'ÊTRE PAS UN APLAT :
+ * de larges plages à peine sourdes, et le même grain que le fond.
+ *
+ * Sa teinte est neutre et très légèrement plus sourde que le fond : posé au
+ * même blanc, il disparaîtrait entièrement et l'îlot flotterait dans rien.
  */
-export const textureSolPre = () =>
-  texture('sol-pre', 256, 256, (ctx, l, h) => {
-    ctx.fillStyle = '#8ba36c'
+export const textureSolBlanc = () =>
+  texture('sol-blanc', 256, 256, (ctx, l, h) => {
+    ctx.fillStyle = '#f2f2f1'
     ctx.fillRect(0, 0, l, h)
-    // Larges plages inégales : le pré n'est pas tondu de la même main partout.
-    // Très peu contrastées — il ne s'agit pas de dessiner des taches, mais
-    // d'empêcher l'aplat.
-    for (let i = 0; i < 90; i += 1) {
-      const r = 18 + Math.random() * 54
-      const v = 150 + Math.floor(Math.random() * 26)
-      ctx.fillStyle = `rgba(${Math.round(v * 0.68)},${v},${Math.round(v * 0.58)},0.11)`
+    for (let i = 0; i < 80; i += 1) {
+      const r = 20 + Math.random() * 58
+      const v = 226 + Math.floor(Math.random() * 22)
+      ctx.fillStyle = `rgba(${v},${v},${v + 2},0.2)`
       ctx.beginPath()
-      ctx.ellipse(Math.random() * l, Math.random() * h, r, r * 0.7, Math.random() * Math.PI, 0, Math.PI * 2)
+      ctx.ellipse(Math.random() * l, Math.random() * h, r, r * 0.74, Math.random() * Math.PI, 0, Math.PI * 2)
       ctx.fill()
     }
-    grain(ctx, l, h, 3600, 0.07)
-  }, { repeter: [9, 9] })
+    grain(ctx, l, h, 4200, 0.04)
+  }, { repeter: [24, 24] })
 
-export const textureSolVille = () =>
-  texture('sol-ville', 256, 256, (ctx, l, h) => {
-    ctx.fillStyle = '#787a73'
+/**
+ * LE DESSUS DE L'ÎLOT. La même matière que le sol, mais peinte plus serré : le
+ * socle est ce qu'on voit de plus près de tout le décor, et le grain du sol,
+ * étalé sur un disque de dix mètres, s'y lirait comme des taches.
+ */
+export const textureSocle = () =>
+  texture('socle', 256, 256, (ctx, l, h) => {
+    ctx.fillStyle = '#fbfaf8'
     ctx.fillRect(0, 0, l, h)
-    for (let i = 0; i < 70; i += 1) {
-      const r = 14 + Math.random() * 46
-      const v = 108 + Math.floor(Math.random() * 30)
-      ctx.fillStyle = `rgba(${v},${v + 2},${v - 4},0.2)`
+    for (let i = 0; i < 46; i += 1) {
+      const r = 14 + Math.random() * 40
+      ctx.fillStyle = `rgba(232,231,228,${0.18 + Math.random() * 0.14})`
       ctx.beginPath()
       ctx.ellipse(Math.random() * l, Math.random() * h, r, r * 0.8, Math.random() * Math.PI, 0, Math.PI * 2)
       ctx.fill()
     }
-    grain(ctx, l, h, 5200, 0.16)
-  }, { repeter: [11, 11] })
+    grain(ctx, l, h, 5200, 0.055)
+  }, { repeter: [6, 6] })
+
+/**
+ * L'OMBRE DE L'ÎLOT — ce qui creuse le vide autour du socle.
+ *
+ * Un disque surélevé posé sur un sol blanc, éclairé par un seul soleil, n'a
+ * d'ombre que d'un côté : de l'autre, le socle et le sol se touchent sans que
+ * rien ne dise qu'il y a un vide entre eux. Cette texture est l'ombre de
+ * contact qui manque — un anneau sombre, très court, qui ceinture le socle et
+ * s'éteint en quelques mètres. Peinte, et non calculée : c'est de
+ * l'occultation ambiante, et aucune carte d'ombre ne la rendrait à ce prix.
+ *
+ * Le centre est TRANSPARENT jusqu'à la hauteur du socle : l'anneau ne commence
+ * qu'au bord de l'îlot, là où le sol redevient visible. Elle se pose en fondu
+ * ordinaire et non en multiplication : le sol qu'elle assombrit est blanc et
+ * uni, et les deux rendent là exactement la même chose.
+ */
+export const textureCreux = () =>
+  texture('creux', 256, 256, (ctx, l, h) => {
+    const degrade = ctx.createRadialGradient(l / 2, h / 2, 0, l / 2, h / 2, l / 2)
+    degrade.addColorStop(0, 'rgba(24,26,32,0)')
+    degrade.addColorStop(0.53, 'rgba(24,26,32,0)')
+    degrade.addColorStop(0.565, 'rgba(24,26,32,0.5)')
+    degrade.addColorStop(0.63, 'rgba(24,26,32,0.2)')
+    degrade.addColorStop(0.8, 'rgba(24,26,32,0.05)')
+    degrade.addColorStop(1, 'rgba(24,26,32,0)')
+    ctx.fillStyle = degrade
+    ctx.fillRect(0, 0, l, h)
+  })
 
 /** Halo doré de l'étape finale : un disque dégradé tourné vers la caméra. */
 export const textureHalo = () =>

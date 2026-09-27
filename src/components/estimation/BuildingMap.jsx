@@ -421,7 +421,14 @@ export function BuildingMap({ lat, lon, addressLabel, selection, onSelect, monac
         ref={containerRef}
         role="application"
         aria-label={`Vue satellite de ${addressLabel}. Sélectionnez le bâtiment concerné.`}
-        className="relative z-0 h-[65vh] max-h-[588px] min-h-[357px] w-full sm:h-[552px]"
+        /* LA CARTE A ÉTÉ RÉDUITE D'UN GROS CINQUIÈME — de 65 % à 52 % de la
+           hauteur de fenêtre sur téléphone, de 552 à 424 px sur ordinateur.
+           Elle prenait l'écran entier : on ne voyait plus ni le titre qui dit
+           quoi faire, ni le rappel d'adresse, ni ce qui se construit à côté, et
+           il fallait faire défiler pour retrouver le reste du panneau. À cette
+           taille, un bâtiment de lotissement reste largement cliquable au
+           doigt, et l'étape tient dans un écran. */
+        className="relative z-0 h-[52vh] max-h-[452px] min-h-[288px] w-full sm:h-[424px]"
       />
 
       {/* Chargement du fond : voile plein plutôt qu'un damier gris en formation. */}
