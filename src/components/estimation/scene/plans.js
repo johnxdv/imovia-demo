@@ -22,7 +22,13 @@ import * as THREE from 'three'
  *               le drone tourne toujours dans le même sens et ne revient
  *               jamais sur ses pas. La façade est au sud (+Z), soit un azimut
  *               de π/2 ; les valeurs au-delà de 2π sont les mêmes positions,
- *               un tour plus loin.
+ *               un tour plus loin. Ne vaut que pour les architectures qui
+ *               s'orbitent — voir `face` pour celles qui ne s'orbitent pas.
+ *   `face`      la même position, mais ÉCRITE PAR RAPPORT À LA FAÇADE, en
+ *               radians d'écart : 0 est l'aplomb de la porte d'entrée, positif
+ *               le trois-quarts côté porte, négatif le trois-quarts opposé.
+ *               C'est celle-là qu'emploie une MAISON, qui ne se montre jamais
+ *               de dos (voir `ECART_FACE_MAX`).
  *   `regard`    hauteur visée, en part de la hauteur du bien (pivot `centre`)
  *               ou en mètres au-dessus du repère (pivots `porte` et `toit`).
  *   `derive`    dérive lente pendant le stade, pour que le plan respire.
@@ -32,15 +38,36 @@ import * as THREE from 'three'
 
 const TOUR = Math.PI * 2
 /** Azimut de la façade : le drone qui la regarde de face est à π/2. */
-const FACE = Math.PI / 2
+export const FACE = Math.PI / 2
+
+/**
+ * ÉCART MAXIMAL À LA FAÇADE — la limite que le drone ne franchit pas quand il
+ * filme une MAISON.
+ *
+ * Une maison se montre du côté de sa porte d'entrée, toujours : c'est par là
+ * qu'on l'aborde, c'est la façade qu'on a dessinée, et c'est la seule vue où
+ * l'on reconnaisse un logement plutôt qu'un volume. Passer derrière montrerait
+ * un pignon aveugle et un jardin vu à l'envers.
+ *
+ * À 0,95 radian — cinquante-quatre degrés —, le drone va jusqu'au
+ * trois-quarts franc, celui d'où l'on voit à la fois la façade et le retour du
+ * volume. Au-delà, la façade se réduit et l'on commence à filmer le côté.
+ *
+ * C'est un PLAFOND, dérive comprise : tout ce qui décale le drone pendant un
+ * stade est ramené dans cette fenêtre (voir `DroneScene`).
+ */
+export const ECART_FACE_MAX = 0.95
 
 export const PLANS = [
   // 0 — le chantier vu de haut : on repère le lieu avant de bâtir.
-  { pivot: 'centre', recul: 1.5, elevation: 0.78, azimut: 0.6, regard: 0.45, derive: 0.032, cadre: 0.15 },
+  { pivot: 'centre', recul: 1.5, elevation: 0.78, azimut: 0.6, face: 0.62, regard: 0.45, derive: 0.032, cadre: 0.15 },
   // 1 — le drone plonge au ras de la dalle pendant que les murs montent.
-  { pivot: 'centre', recul: 1.24, elevation: 0.3, azimut: FACE + 0.55, regard: 0.7, derive: 0.05, cadre: -0.17 },
-  // 2 — trois-quarts arrière : la surface se règle, le bien prend son volume.
-  { pivot: 'centre', recul: 1.16, elevation: 0.52, azimut: 3.3, regard: 0.55, derive: 0.048, cadre: 0.18 },
+  { pivot: 'centre', recul: 1.24, elevation: 0.3, azimut: FACE + 0.55, face: -0.5, regard: 0.7, derive: 0.05, cadre: -0.17 },
+  // 2 — la surface se règle, le bien prend son volume. Trois-quarts arrière
+  //     pour un immeuble, trois-quarts côté porte pour une maison : c'est ici
+  //     que le vendeur voit sa maison se démonter et se rebâtir d'un palier au
+  //     suivant, et un démontage vu de dos ne montre rien.
+  { pivot: 'centre', recul: 1.16, elevation: 0.52, azimut: 3.3, face: 0.74, regard: 0.55, derive: 0.048, cadre: 0.18 },
 
   // 3 — ANALYSE 1/3, en bas, devant la porte. Une entrée se regarde d'en bas,
   //     jamais d'en haut : le drone se pose à hauteur d'homme et lève le nez.
@@ -53,6 +80,8 @@ export const PLANS = [
     recul: 1,
     elevation: 0.2,
     azimut: TOUR + FACE,
+    // Presque l'aplomb de la porte : c'est l'entrée qu'on regarde.
+    face: 0.18,
     regard: 0.35,
     derive: 0.03,
     cadre: 0.2,
@@ -64,6 +93,7 @@ export const PLANS = [
     recul: 1.0,
     elevation: 0.44,
     azimut: TOUR + 2.42,
+    face: 0.86,
     regard: 0.52,
     derive: 0.042,
     cadre: -0.18,
@@ -83,15 +113,18 @@ export const PLANS = [
     // lit comme un plan, pas comme un bâtiment.
     elevation: 0.62,
     azimut: TOUR + 3.6,
+    // Le seul plan qui passe de l'autre côté de la porte : une couverture se
+    // lit mieux depuis le trois-quarts opposé à celui d'où l'on vient.
+    face: -0.72,
     regard: -0.3,
     derive: 0.028,
     cadre: 0.16,
   },
 
   // 6 — le soir : léger pas de côté, les vitrages s'allument.
-  { pivot: 'centre', recul: 1.24, elevation: 0.52, azimut: TOUR + 5.2, regard: 0.5, derive: 0.038, cadre: -0.15 },
-  // 7 — grand écart arrière, en surplomb : le bien achevé et son halo.
-  { pivot: 'centre', recul: 1.4, elevation: 0.7, azimut: TOUR + 6.8, regard: 0.5, derive: 0.03, cadre: 0 },
+  { pivot: 'centre', recul: 1.24, elevation: 0.52, azimut: TOUR + 5.2, face: 0.46, regard: 0.5, derive: 0.038, cadre: -0.15 },
+  // 7 — grand écart, en surplomb : le bien achevé et son halo.
+  { pivot: 'centre', recul: 1.4, elevation: 0.7, azimut: TOUR + 6.8, face: -0.32, regard: 0.5, derive: 0.03, cadre: 0 },
   // 8 — AFFINAGE : la vue globale. On recule pour tout tenir dans le cadre —
   //     la maison, son jardin, sa piscine —, et le panneau ne prend plus que
   //     le coin de l'écran.
@@ -100,6 +133,7 @@ export const PLANS = [
     recul: 1.18,
     elevation: 0.42,
     azimut: TOUR * 2 + 2.1,
+    face: 0.52,
     regard: 0.42,
     derive: 0.055,
     cadre: -0.08,
@@ -149,4 +183,23 @@ export function cibleDuPlan(plan, ancrages, hauteurBien) {
   const pivot = pivotDuPlan(plan, ancrages)
   if (plan.pivot === 'centre') return new THREE.Vector3(0, hauteurBien * plan.regard, 0)
   return pivot.add(new THREE.Vector3(0, plan.regard, 0))
+}
+
+/**
+ * Azimut visé par le plan donné.
+ *
+ * `verrouFacade` dit si l'architecture filmée se montre du côté de sa porte et
+ * de ce côté seulement — c'est le cas d'une MAISON, jamais celui d'un immeuble,
+ * qu'on aborde par la rue et qu'on peut longer. Le drone verrouillé ne tourne
+ * plus autour du bien : il va et vient dans la fenêtre de la façade, d'un
+ * trois-quarts à l'autre.
+ */
+export function azimutDuPlan(plan, verrouFacade) {
+  if (!verrouFacade) return plan.azimut
+  return FACE + borneEcart(plan.face ?? 0)
+}
+
+/** Ramène un écart à la façade dans la fenêtre autorisée. */
+export function borneEcart(ecart) {
+  return Math.max(-ECART_FACE_MAX, Math.min(ECART_FACE_MAX, ecart))
 }

@@ -13,9 +13,13 @@ import {
 } from './scene/immeuble'
 import { creerInterieur, ECHELLE_VISITE, Z_FACADE_LOCAL } from './scene/interieur'
 import {
+  azimutDuPlan,
   BANDE_HAUTE,
+  borneEcart,
   cibleDuPlan,
   DERNIER_PLAN,
+  ECART_FACE_MAX,
+  FACE,
   MARGE_CADRAGE,
   PLANS,
   pivotDuPlan,
@@ -106,6 +110,15 @@ const CHANTIER = {
     //                  0     1     2     3     4     5   6  7  8
     montage: [0.22, 0.52, 0.8, 0.89, 0.96, 1, 1, 1, 1],
     abords: [0, 0, 0.12, 0.5, 0.8, 1, 1, 1, 1],
+    // LES ARBRES SORTENT DE TERRE PENDANT L'ANALYSE, et là seulement : c'est le
+    // seul moment du parcours où l'écran ne demande rien et où l'on attend. Un
+    // arbre qui pousse est ce qu'on remarque du coin de l'œil en lisant une
+    // barre de progression — trois sujets, échelonnés (voir `villa.js`).
+    //
+    // La pousse démarre à peine au premier temps de l'analyse et se joue
+    // surtout aux deux suivants : le plan de l'entrée est serré sur la porte,
+    // et un arbre qui grandirait là se jouerait hors du cadre.
+    pousse: [0, 0, 0, 0.14, 0.58, 1, 1, 1, 1],
   },
   immeuble: {
     montage: [0.22, 0.58, 1, 1, 1, 1, 1, 1, 1],
@@ -273,6 +286,7 @@ function creerScene(canvas, { mouvementReduit }) {
     couronnement: 0,
     lumiere: 0,
     halo: 0,
+    pousse: 0,
     piscine: 0,
     terrain: 0,
     panneaux: 0,
@@ -294,6 +308,30 @@ function creerScene(canvas, { mouvementReduit }) {
   let ouvrage = null
   let familleMontee = null
   let palierMonte = -1
+
+  /**
+   * LA MUE — la maison se démonte, et une autre se rebâtit à sa place.
+   *
+   * Franchir un palier de surface, c'est changer de maison (voir `villa.js`) : un
+   * étage apparaît, une aile se greffe. Échanger les deux d'une image à l'autre
+   * ne montrerait rien — le vendeur verrait un saut, pas une transformation. La
+   * maison se DÉMONTE donc planche par planche, et la suivante se rassemble à sa
+   * place (voir `disloquant` dans `kit.js`).
+   *
+   *   `phase`      'demontage' pendant que l'ancienne s'en va, 'remontage'
+   *                pendant que la neuve se rassemble, nul le reste du temps.
+   *   `vise`       le palier vers lequel on va. Il se met à jour en cours de
+   *                route : le curseur peut franchir deux paliers pendant qu'une
+   *                mue se joue, et c'est le dernier demandé qui se bâtira.
+   *   `ecart`      où en est la dislocation, de 0 (assemblé) à 1 (dispersé).
+   *                Conservé pour qu'un changement d'avis en pleine
+   *                reconstruction reparte de l'état visible, et non de zéro.
+   */
+  const mue = { phase: null, t: 0, vise: -1, ecart: 0 }
+
+  /** Le temps que met une maison à se défaire, puis à se refaire. */
+  const DUREE_DEMONTAGE = 0.95
+  const DUREE_REMONTAGE = 1.5
 
   let interieur = null
   let niveauMonte = null
@@ -317,6 +355,55 @@ function creerScene(canvas, { mouvementReduit }) {
     palierMonte = palier
 
     sol.material.color.setHex(famille === 'immeuble' ? 0x76786f : 0x85a468)
+  }
+
+  /** Engage — ou réoriente — la mue vers le palier demandé. */
+  function engagerMue(palier) {
+    mue.vise = palier
+    // Déjà en train de se démonter : le palier visé vient d'être remis à jour,
+    // et c'est celui-là qui se rebâtira. Rien à relancer.
+    if (mue.phase === 'demontage') return
+    // En pleine reconstruction, on repart de ce qui est à l'écran : la maison
+    // neuve est à demi assemblée, elle se défait de là plutôt que de sauter
+    // d'abord à son état fini.
+    mue.phase = 'demontage'
+    mue.t = mue.ecart * DUREE_DEMONTAGE
+  }
+
+  /** Avance la mue d'une image. */
+  function avancerMue(dt) {
+    mue.t += dt
+
+    if (mue.phase === 'demontage') {
+      const t = borne(mue.t / DUREE_DEMONTAGE, 0, 1)
+      mue.ecart = t
+      ouvrage?.disloquer?.(t)
+      if (t < 1) return
+
+      monterOuvrage('villa', mue.vise)
+      // La maison neuve arrive DISPERSÉE : c'est de cet état-là qu'elle se
+      // rassemble, et c'est ce qui fait qu'on voit un montage et non un fondu.
+      ouvrage?.disloquer?.(1)
+      // ET ELLE REPART DU SOL. Le plan de coupe redescend à zéro : les murs
+      // montent pendant que les pièces se rassemblent, et les deux gestes disent
+      // la même chose. Sans cela, la maison neuve paraîtrait d'un coup à sa
+      // hauteur du moment et seules les planches bougeraient.
+      val.montage = 0
+      mue.phase = 'remontage'
+      mue.t = 0
+      // L'envergure a changé avec le palier : le cadre doit suivre, sinon la
+      // propriété déborde du champ où tenait le plain-pied.
+      cadrer()
+      return
+    }
+
+    const t = borne(mue.t / DUREE_REMONTAGE, 0, 1)
+    mue.ecart = 1 - t
+    ouvrage?.disloquer?.(mue.ecart)
+    if (t >= 1) {
+      mue.phase = null
+      mue.ecart = 0
+    }
   }
 
   /**
@@ -353,12 +440,59 @@ function creerScene(canvas, { mouvementReduit }) {
 
   const drone = { rayon: 30, hauteur: 12, angle: 0.6 }
   const droneCible = { rayon: 30, hauteur: 12 }
+  /**
+   * LE PIVOT SE REJOINT, IL NE SE SAUTE PAS.
+   *
+   * Les plans ne tournent pas tous autour du même point : le centre du bien
+   * pour les uns, la porte ou le toit pour les autres (voir `pivotDuPlan`).
+   * Recopier le nouveau pivot d'une image à l'autre TÉLÉPORTAIT la caméra
+   * d'autant — près de quatre unités entre le plan de l'entrée et le suivant,
+   * soit la moitié d'une maison franchie en une image. Le drone s'y rend
+   * désormais, comme il se rend partout ailleurs.
+   */
   const pivot = new THREE.Vector3()
+  const pivotVise = new THREE.Vector3()
   const vise = new THREE.Vector3()
   const cibleLissee = new THREE.Vector3(0, 2, 0)
+  /**
+   * LE DÉCENTREMENT SE REJOINT AUSSI. Chaque plan pousse le bien d'un côté ou
+   * de l'autre du panneau (voir `cadre`), et d'un plan au suivant l'écart peut
+   * valoir un tiers de la largeur de l'écran : posé d'un coup, c'est le bien
+   * entier qui saute latéralement au changement d'étape.
+   */
+  let cadreCourant = 0
   let derive = 0
 
   const plan = () => PLANS[borne(etat.stade, 0, DERNIER_PLAN)]
+
+  /**
+   * L'ARCHITECTURE SE MONTRE-T-ELLE DU SEUL CÔTÉ DE SA PORTE ?
+   *
+   * Oui pour une MAISON — et pour l'ossature, qui en est une en chantier : on
+   * l'aborde par sa façade, c'est la seule vue où elle se reconnaisse, et son
+   * jardin comme son allée sont de ce côté-là. Non pour un immeuble, qu'on longe
+   * depuis la rue et dont on peut faire le tour.
+   */
+  const verrouFacade = () => familleMontee === 'villa' || familleMontee === 'ossature'
+
+  /**
+   * L'azimut visé maintenant, dérive comprise.
+   *
+   * Verrouillé sur la façade, le drone ne tourne plus : il VA ET VIENT dans la
+   * fenêtre de la façade, d'un trois-quarts vers l'autre. C'est le mouvement
+   * qu'on attend d'un appareil qui cherche son cadre, et il ne passe jamais
+   * derrière — l'amplitude est calculée pour que le balancement tienne dans ce
+   * qui reste de fenêtre au plan en cours, quel que soit son écart.
+   */
+  function azimutVise() {
+    const p = plan()
+    if (!verrouFacade()) return p.azimut + derive
+
+    const ecart = p.face ?? 0
+    const marge = Math.max(0, ECART_FACE_MAX - Math.abs(ecart))
+    const balance = Math.sin(secondes * 0.19 + (p.face ?? 0)) * Math.min(0.26, marge)
+    return FACE + borneEcart(ecart + balance)
+  }
 
   function cadrer() {
     const p = plan()
@@ -383,10 +517,29 @@ function creerScene(canvas, { mouvementReduit }) {
     droneCible.rayon = distance
     droneCible.hauteur = Math.max(0.9, distance * p.elevation)
 
-    pivot.copy(pivotDuPlan(p, ouvrage?.ancrages))
+    pivotVise.copy(pivotDuPlan(p, ouvrage?.ancrages))
     vise.copy(cibleDuPlan(p, ouvrage?.ancrages, ouvrage?.ancrages?.hauteur ?? envergure.hauteur))
 
+    if (mouvementReduit) {
+      pivot.copy(pivotVise)
+      cadreCourant = cadreVise()
+    }
     decentrer()
+  }
+
+  /**
+   * Décentrement voulu par l'étape en cours.
+   *
+   * Une fonction, et pas une valeur rangée : elle dépend de `dedans`, qui
+   * bascule au milieu d'une trajectoire de visite et non à un changement de
+   * stade. Rangée, elle serait périmée pendant tout le temps qu'on passe
+   * dedans.
+   */
+  function cadreVise() {
+    // Pendant la visite, la caméra est pilotée au point près : tout
+    // décentrement y décollerait le regard de ce qu'on est venu voir.
+    if (dedans || etat.zone === 'haut') return 0
+    return -plan().cadre
   }
 
   /**
@@ -399,14 +552,13 @@ function creerScene(canvas, { mouvementReduit }) {
     const { largeur, hauteur } = taille
     if (largeur <= 0 || hauteur <= 0) return
 
-    // Pendant la visite, la caméra est pilotée au point près : tout
-    // décentrement y décollerait le regard de ce qu'on est venu voir.
     const enHaut = etat.zone === 'haut'
-    const p = plan()
-    const decalageX = dedans || enHaut ? 0 : -p.cadre * largeur
+    const decalageX = cadreCourant * largeur
     const decalageY = enHaut && !dedans ? (hauteur * (1 - BANDE_HAUTE)) / 2 : 0
 
-    if (decalageX === 0 && decalageY === 0) {
+    // Un décalage d'un demi-pixel ne se voit pas, et le remettre à chaque image
+    // recalculerait la matrice de projection pour rien.
+    if (Math.abs(decalageX) < 0.5 && decalageY === 0) {
       camera.clearViewOffset()
       return
     }
@@ -425,9 +577,6 @@ function creerScene(canvas, { mouvementReduit }) {
    * caméra autour de l'axe du puits, un tour par étage.
    */
   const trajet = { segments: [], index: 0, t: 0, actif: false, nom: null }
-
-  /** Instant où le drone s'est posé dans le séjour — origine du travelling. */
-  let debutSejour = 0
 
   function lancerTrajet(nom, segments) {
     trajet.nom = nom
@@ -459,7 +608,7 @@ function creerScene(canvas, { mouvementReduit }) {
 
   /** Niveau de la visite, tel que l'étage déclaré le commande. */
   const niveauDemande = () =>
-    Math.max(0.5, Math.min(8, Number.isFinite(etat.etage) ? etat.etage : 2))
+    Math.max(0.5, Math.min(12, Number.isFinite(etat.etage) ? etat.etage : 2))
 
   /** Point du puits, à l'angle et à la hauteur donnés. */
   const surPuits = (h, psi, y, dr = 0) =>
@@ -469,7 +618,33 @@ function creerScene(canvas, { mouvementReduit }) {
       h.axe.z - Math.sin(psi) * (h.rayon + dr),
     )
 
-  /** L'entrée : porte cochère, hall, puits d'escalier, palier, séjour. */
+  /**
+   * LE TEMPS DE LA MONTÉE, pour le nombre d'étages déclaré.
+   *
+   * On monte à pied, et lentement : une seconde et demie pour le premier, puis
+   * un peu moins d'une seconde par étage supplémentaire. La progression
+   * ralentit — douze étages ne peuvent pas coûter douze fois le temps d'un
+   * seul, on y passerait la minute — mais elle ne disparaît jamais : entre le
+   * deuxième et le troisième, il y a une volée de plus, et elle se voit.
+   *
+   * Plafonné à sept secondes : c'est déjà long, et c'est le prix d'un douzième
+   * étage — le vendeur qui l'a déclaré doit sentir qu'il habite haut.
+   */
+  const dureeMontee = (niveau) => Math.min(7, 1.4 + 0.86 * niveau ** 0.75)
+
+  /**
+   * L'ENTRÉE — porte cochère, hall, escalier, palier, séjour.
+   *
+   * TOUT EST À HAUTEUR D'ŒIL, ET ON MONTE LES MARCHES. Ce n'est pas un drone qui
+   * visite un appartement : c'est quelqu'un qui pousse une porte cochère,
+   * traverse un hall et gravit un escalier. Un appartement, contrairement à une
+   * maison, ne se regarde pas — il se parcourt, et le seul point de vue qui le
+   * dise est celui d'une personne debout (voir `volee` dans `interieur.js`).
+   *
+   * LES DURÉES SONT LE DOUBLE DE CE QU'ELLES ÉTAIENT. La séquence était juste
+   * mais expédiée : on n'avait pas le temps de comprendre qu'on venait d'entrer
+   * quelque part avant d'être déjà dans le séjour.
+   */
   function trajetEntree() {
     const visite = assurerInterieur()
     const niveau = niveauDemande()
@@ -477,25 +652,24 @@ function creerScene(canvas, { mouvementReduit }) {
     niveauMonte = niveau
 
     const r = visite.reperes()
-    const h = visite.helice(niveau)
+    const v = visite.volee(niveau)
+    const pied = surPuits(v, v.psiDepart, v.yDepart)
 
-    // Un tour par étage, et d'autant plus vite qu'il y en a : quatre étages ne
-    // doivent pas coûter quatre fois le temps d'un seul.
-    const montee = Math.min(3.1, 0.7 + 0.46 * niveau)
+    const devantPorte = r.entree.clone().add(new THREE.Vector3(0.35, 0.5, 6.2))
 
-    const devantPorte = r.entree.clone().add(new THREE.Vector3(0.35, 0.6, 6.2))
-
-    return [
+    const segments = [
+      // On s'approche de la porte cochère, qui s'ouvre à mesure.
       {
-        duree: 1.0,
+        duree: 2.0,
         p0: positionCourante(),
         c0: regardCourant(),
         p1: devantPorte,
         c1: r.entree.clone(),
         porteImmeuble: [0.35, 1],
       },
+      // On franchit le seuil, et le hall se découvre.
       {
-        duree: 0.85,
+        duree: 1.8,
         p0: devantPorte,
         c0: r.entree.clone(),
         p1: r.hall.clone(),
@@ -504,41 +678,49 @@ function creerScene(canvas, { mouvementReduit }) {
         voile: [0.3, 0.82],
         basculeDedans: 0.45,
       },
+      // On traverse le hall jusqu'au pied de l'escalier, le regard déjà posé sur
+      // les premières marches. Viser le haut de la volée, comme on le faisait,
+      // ne montrait que le dessous des marches — un plafond de bois qui remplit
+      // le cadre juste avant qu'on ne s'engage.
       {
-        duree: 0.75,
+        duree: 1.5,
         p0: r.hall.clone(),
         c0: r.piedEscalier.clone(),
-        p1: surPuits(h, h.psiDepart, h.yDepart),
-        c1: surPuits(h, h.psiDepart - 1.5, h.yDepart - 0.5, 0.62),
+        p1: pied,
+        c1: surPuits(v, v.psiDepart + 1.25, v.yDepart - 0.3),
       },
+    ]
+
+    // L'ESCALIER, un tour par étage — et rien du tout au rez-de-chaussée, où
+    // l'on entre de plain-pied dans le logement.
+    if (v.marches > 0.5) {
+      segments.push({ duree: dureeMontee(niveau), volee: v })
+    }
+
+    const arrivee = surPuits(v, v.psiArrivee, v.yArrivee)
+
+    segments.push(
+      // On se retourne vers la porte du logement, qui s'ouvre.
       {
-        duree: montee,
-        helice: {
-          axe: h.axe,
-          rayon: h.rayon,
-          psi0: h.psiDepart,
-          psi1: h.psiArrivee,
-          y0: h.yDepart,
-          y1: h.yArrivee,
-        },
-      },
-      {
-        duree: 0.62,
-        p0: surPuits(h, h.psiArrivee, h.yArrivee),
+        duree: 1.35,
+        p0: arrivee,
         c0: r.palier.clone(),
         p1: r.palier.clone(),
         c1: r.seuil.clone(),
         portePalier: [0.2, 1],
       },
+      // Et l'on entre.
       {
-        duree: 1.15,
+        duree: 2.1,
         p0: r.palier.clone(),
         c0: r.seuil.clone(),
         p1: r.sejour.clone(),
         c1: r.foyer.clone(),
         portePalier: [1, 1],
       },
-    ]
+    )
+
+    return segments
   }
 
   /**
@@ -553,50 +735,49 @@ function creerScene(canvas, { mouvementReduit }) {
   function trajetEtage(precedent) {
     const visite = assurerInterieur()
     const niveau = niveauDemande()
-    // L'hélice du niveau qu'on quitte se lit AVANT de déplacer le logement :
-    // c'est de là que le drone part.
-    const depart = visite.helice(precedent)
+    // La volée du niveau qu'on quitte se lit AVANT de déplacer le logement :
+    // c'est de là que l'on repart.
+    const depart = visite.volee(precedent)
     visite.placerEtage(niveau)
     niveauMonte = niveau
 
     const r = visite.reperes()
-    const h = visite.helice(niveau)
+    const v = visite.volee(niveau)
     const ecart = Math.abs(niveau - precedent)
-    const montee = Math.min(2.6, 0.45 + 0.42 * ecart)
 
     return [
       {
-        duree: 0.5,
+        duree: 1.1,
         p0: positionCourante(),
         c0: regardCourant(),
         p1: surPuits(depart, depart.psiArrivee, depart.yArrivee),
-        c1: surPuits(depart, depart.psiArrivee - 1.5, depart.yArrivee - 0.9, 0.62),
+        c1: surPuits(depart, depart.psiArrivee + 1.1, depart.yArrivee + 0.4),
         // Le logement change de hauteur sous nos pieds : une pénombre brève
         // couvre le saut, comme au franchissement d'un seuil.
         voile: [0, 0.7],
         portePalier: [1, 0],
       },
       {
-        duree: montee,
-        helice: {
-          axe: h.axe,
-          rayon: h.rayon,
-          psi0: depart.psiArrivee,
-          psi1: h.psiArrivee,
-          y0: depart.yArrivee,
-          y1: h.yArrivee,
+        // On reprend l'escalier — d'autant de volées qu'on franchit d'étages,
+        // dans un sens comme dans l'autre.
+        duree: Math.min(5, 0.9 + 0.8 * ecart ** 0.75),
+        volee: {
+          ...v,
+          psiDepart: depart.psiArrivee,
+          yDepart: depart.yArrivee,
+          marches: Math.abs(v.marches - depart.marches),
         },
       },
       {
-        duree: 0.55,
-        p0: surPuits(h, h.psiArrivee, h.yArrivee),
+        duree: 1.2,
+        p0: surPuits(v, v.psiArrivee, v.yArrivee),
         c0: r.palier.clone(),
         p1: r.palier.clone(),
         c1: r.seuil.clone(),
         portePalier: [0.2, 1],
       },
       {
-        duree: 0.95,
+        duree: 1.8,
         p0: r.palier.clone(),
         c0: r.seuil.clone(),
         p1: r.sejour.clone(),
@@ -606,57 +787,132 @@ function creerScene(canvas, { mouvementReduit }) {
     ]
   }
 
-  /** La sortie : on traverse la fenêtre qui s'ouvre, et on retrouve le ciel. */
+  /**
+   * LA SORTIE — la fenêtre s'ouvre, on la franchit, et l'immeuble se découvre
+   * depuis la rue.
+   *
+   * C'est le geste qui referme la visite, et il doit être posé : on ne se jette
+   * pas par une fenêtre, on s'en approche, on l'ouvre, on passe. Trois temps
+   * plutôt que deux, et trois fois le temps qu'il y avait — l'ancienne sortie
+   * durait une seconde et demie, on n'avait pas vu la fenêtre s'ouvrir qu'on
+   * était déjà dehors.
+   *
+   * LE PREMIER TEMPS S'ALLONGE AVEC LA DISTANCE. On peut être au fond de la
+   * chambre quand l'estimation part (voir `trajetPieces`) : traverser
+   * l'enfilade entière dans le temps qu'il faut pour traverser le séjour
+   * donnerait une course, et c'est précisément ce qu'on veut éviter.
+   */
   function trajetSortie() {
     if (!interieur) return []
     const r = interieur.reperes()
-    const devant = r.fenetre.clone().add(new THREE.Vector3(0, 0, -1.1))
+    const devant = r.fenetre.clone().add(new THREE.Vector3(0, 0, -1.3))
+    const depart = positionCourante()
+    const approche = borne(1.5 + depart.distanceTo(devant) * 0.42, 1.5, 4.2)
 
     return [
+      // On revient vers la fenêtre, qui s'ouvre à mesure qu'on s'en approche.
       {
-        duree: 0.65,
-        p0: positionCourante(),
+        duree: approche,
+        p0: depart,
         c0: regardCourant(),
         p1: devant,
-        c1: r.dehors.clone(),
-        fenetre: [0.15, 1],
+        c1: r.fenetre.clone(),
+        fenetre: [0.25, 1],
       },
+      // On se penche au balcon : le regard passe de la croisée à la rue.
       {
-        duree: 0.85,
+        duree: 1.6,
         p0: devant,
+        c0: r.fenetre.clone(),
+        p1: r.fenetre.clone().add(new THREE.Vector3(0, 0.1, 0.5)),
+        c1: r.dehors.clone(),
+        fenetre: [1, 1],
+      },
+      // Et l'on prend du champ, jusqu'à voir l'immeuble entier.
+      {
+        duree: 2.6,
+        p0: r.fenetre.clone().add(new THREE.Vector3(0, 0.1, 0.5)),
         c0: r.dehors.clone(),
         p1: r.dehors.clone().add(new THREE.Vector3(0, 2.4, 7)),
         c1: r.dehors.clone().add(new THREE.Vector3(0, -1.5, -8)),
         fenetre: [1, 1],
-        voile: [0.18, 0.55],
-        basculeDedans: 0.32,
+        voile: [0.28, 0.5],
+        basculeDedans: 0.42,
       },
     ]
   }
 
   /**
-   * Le séjour, une fois entré : un lent travelling latéral, et le regard qui
-   * passe de la cheminée aux fenêtres. Ce n'est plus un trajet — il n'a pas de
-   * fin —, c'est la respiration de la pièce pendant que le curseur la meuble.
+   * LA PROMENADE — on traverse les trois pièces, l'une après l'autre.
+   *
+   * Un appartement ne se juge pas depuis le seuil du séjour. Une fois entré, on
+   * le PARCOURT : le séjour et sa cheminée, la salle à manger et sa table, la
+   * chambre au bout de l'enfilade — puis l'on revient sur ses pas. Trois pièces,
+   * dans l'ordre où elles se suivent le long de la façade (voir `enfilade` dans
+   * `interieur.js`).
+   *
+   * TROIS TEMPS PAR PIÈCE, et ils sont toujours les mêmes :
+   *   on franchit la porte en regardant où l'on entre ;
+   *   on avance jusqu'au milieu, le regard sur ce qui fait la pièce ;
+   *   on s'attarde, et le regard glisse vers la fenêtre.
+   *
+   * C'est long — près d'une demi-minute pour la boucle entière — et c'est voulu :
+   * la fenêtre de surface reste ouverte le temps qu'on veut, et rien ne presse.
+   * Une visite qui courrait d'une pièce à l'autre donnerait l'agitation d'un
+   * diaporama là où l'on cherche le calme d'une visite.
+   *
+   * La boucle se rejoue indéfiniment (voir `jouerTrajet`) : on repasse dans les
+   * pièces pendant que le curseur les meuble, et l'on finit toujours par revenir
+   * au séjour — d'où l'on ressortira par la fenêtre.
    */
-  function poserCameraSejour(t) {
+  function trajetPieces() {
+    if (!interieur) return []
+    const salles = interieur.enfilade()
+    if (salles.length === 0) return []
+
+    const segments = []
+    let depuis = positionCourante()
+    let versQuoi = regardCourant()
+
+    const aller = (p1, c1, duree) => {
+      segments.push({ duree, p0: depuis.clone(), c0: versQuoi.clone(), p1: p1.clone(), c1: c1.clone() })
+      depuis = p1.clone()
+      versQuoi = c1.clone()
+    }
+
+    salles.forEach((salle) => {
+      // ON FRANCHIT LA PORTE LE REGARD DÉJÀ POSÉ SUR LA PIÈCE — sur sa cheminée,
+      // sa table, son lit. Viser le point où l'on va se tenir, comme on le
+      // faisait, revenait à regarder un point en l'air à deux mètres : on
+      // traversait trois pièces en ne voyant que des murs.
+      if (salle.seuil) aller(salle.seuil, salle.mire, 2.7)
+      // On gagne l'angle d'où la pièce se lit, sans quitter ce qu'on regarde.
+      aller(salle.poste, salle.mire, 2.3)
+      // Et l'on s'attarde, le regard qui glisse vers la fenêtre.
+      aller(salle.poste.clone().lerp(salle.croisee, 0.22), salle.croisee, 3.0)
+    })
+
+    // LE RETOUR. On repasse les portes en sens inverse jusqu'au séjour : c'est
+    // de là qu'on ressort au moment de l'estimation, et une visite qui
+    // s'achèverait au fond de la chambre obligerait à la traverser en hâte.
+    const retour = salles.slice(0, -1).reverse()
+    retour.forEach((salle, index) => {
+      const porte = salles[salles.length - 1 - index].seuil
+      if (porte) aller(porte, salle.mire, 2.5)
+      aller(salle.poste, salle.mire, 2.2)
+    })
+
+    return segments
+  }
+
+  /** Point de vue fixe dans le séjour — le repli des mouvements réduits. */
+  function poserCameraSejour() {
     if (!interieur) return
-    const r = interieur.reperes()
-    // Le compte repart de zéro à l'arrivée dans le séjour : les trois termes
-    // ci-dessous s'annulent alors tous, et la caméra prend son travelling
-    // exactement là où la trajectoire l'a posée — sans le saut qu'un temps
-    // absolu ferait faire. Et en mouvements réduits, il ne repart pas du tout :
-    // la caméra se pose dans le séjour et n'en bouge plus.
-    const tau = mouvementReduit ? 0 : (t - debutSejour) * 0.2
-    camera.position.set(
-      r.sejour.x + Math.sin(tau) * 0.75,
-      r.sejour.y + Math.sin(tau * 0.73) * 0.08,
-      r.sejour.z + (Math.cos(tau * 0.86) - 1) * 0.42,
-    )
-    // Le regard va et vient entre le foyer et la façade : c'est le parcours du
-    // regard de quelqu'un qui entre dans une pièce, pas une orbite.
-    const bascule = (1 - Math.cos(tau * 0.62)) / 2
-    cibleLissee.lerpVectors(r.foyer, r.fenetre, bascule)
+    const salles = interieur.enfilade()
+    const salle = salles[0]
+    if (!salle) return
+    camera.position.copy(salle.poste)
+    cibleLissee.copy(salle.mire)
     camera.lookAt(cibleLissee)
   }
 
@@ -676,34 +932,56 @@ function creerScene(canvas, { mouvementReduit }) {
     // segments suivants, qui n'y touchent pas.
     opaciteVoile *= Math.max(0, 1 - dt * 5)
 
-    if (segment.helice) {
-      const { axe, rayon, psi0, psi1, y0, y1 } = segment.helice
-      const psi = lisser(psi0, psi1, e)
-      const y = lisser(y0, y1, e)
+    if (segment.volee) {
+      /**
+       * ON MONTE L'ESCALIER, MARCHE PAR MARCHE.
+       *
+       * Le regard se tient au milieu du giron, à hauteur d'œil au-dessus du nez
+       * de marche, et il avance sur la spirale. Trois choses le distinguent d'un
+       * survol du puits, et ce sont elles qui font qu'on y monte :
+       *
+       *   • LE REGARD PORTE EN AVANT SUR LA VOLÉE — un demi-quart de tour plus
+       *     loin, à peine au-dessus de l'horizontale. C'est ce qu'on regarde en
+       *     montant un escalier : les marches à venir, pas le vide.
+       *   • LA TÊTE MONTE ET DESCEND AU RYTHME DU PAS, d'un tiers de marche. Sans
+       *     ce balancement, la montée est celle d'un ascenseur.
+       *   • ELLE S'INCLINE LÉGÈREMENT DANS LE VIRAGE, du côté du jour : on
+       *     s'appuie sur la rampe en tournant.
+       */
+      const { axe, rayon, psiDepart, psiArrivee, yDepart, yArrivee, marches, pas } = segment.volee
+      const psi = lisser(psiDepart, psiArrivee, e)
+      const monte = lisser(yDepart, yArrivee, e)
+
+      // Le pas : une oscillation par marche franchie, amortie au départ et à
+      // l'arrivée pour qu'on ne se mette pas à tanguer à l'arrêt.
+      const enMarche = Math.sin(brut * Math.PI)
+      const cadence = Math.sin(e * (marches ?? 0) * Math.PI) * (pas ?? 0.02) * 0.34 * enMarche
+
       camera.position.set(
         axe.x + Math.cos(psi) * rayon,
-        y,
+        monte + cadence,
         axe.z - Math.sin(psi) * rayon,
       )
-      // LE REGARD PORTE EN AVANT SUR LA VOLÉE, un quart de spire plus loin et
-      // à peine plus haut. Viser franchement le ciel du puits ne montrerait que
-      // le dessous des marches ; viser la volée montre ce qu'on est venu
-      // voir — les marches, le tapis, la rampe qui s'enroule.
-      // LE DRONE MONTE EN REGARDANT LE PUITS, deux tiers de radian en arrière
-      // et une volée plus bas — soit une plongée d'une soixantaine de degrés.
+
+      // LE REGARD PORTE SUR LES MARCHES À VENIR, un quart de tour plus loin et
+      // nettement plus bas que l'œil.
       //
-      // C'est le seul cadre d'où une spirale se lit comme une spirale : on y
-      // voit les marches par-dessus, donc leur tapis, leurs barres de laiton,
-      // et la rampe qui s'enroule sur plusieurs tours. Regarder vers le haut ne
-      // montrerait que le dessous des marches, et regarder droit devant, le mur
-      // de la cage.
-      const arriere = psi - 1.5
+      // C'est une affaire de géométrie autant que de vérité : dans une cage
+      // d'escalier, les marches qu'on s'apprête à gravir restent un bon mètre
+      // sous le regard, et l'horizontale ne rencontre que le mur d'en face — un
+      // aplat clair à deux mètres quatre-vingts, qui remplissait le cadre et ne
+      // disait rien. Vingt-cinq degrés de plongée, et l'on retrouve ce qu'on
+      // regarde vraiment en montant : le tapis, les barres de laiton, la rampe
+      // qui s'enroule et le vide du puits qui tourne à côté de soi.
+      const sens = Math.sign(psiArrivee - psiDepart) || 1
+      const avant = psi + sens * 1.25
       cibleLissee.set(
-        axe.x + Math.cos(arriere) * (rayon + 0.62),
-        y - 1.4,
-        axe.z - Math.sin(arriere) * (rayon + 0.62),
+        axe.x + Math.cos(avant) * rayon,
+        monte - 0.3,
+        axe.z - Math.sin(avant) * rayon,
       )
       camera.lookAt(cibleLissee)
+      camera.rotateZ(-sens * 0.045 * enMarche)
     } else {
       camera.position.lerpVectors(segment.p0, segment.p1, e)
       cibleLissee.lerpVectors(segment.c0, segment.c1, e)
@@ -729,11 +1007,10 @@ function creerScene(canvas, { mouvementReduit }) {
       opaciteVoile = Math.max(opaciteVoile, Math.sin(x * Math.PI) * sommet)
     }
     if (segment.basculeDedans !== undefined && brut >= segment.basculeDedans) {
-      const dehors = trajet.nom !== 'entree' && trajet.nom !== 'etage'
-      if (dedans === dehors) {
-        dedans = !dehors
-        decentrer()
-      }
+      const dehors = trajet.nom !== 'entree' && trajet.nom !== 'etage' && trajet.nom !== 'pieces'
+      // Le décentrement suit de lui-même : il est recalculé à chaque image à
+      // partir de `dedans` (voir `cadreVise`).
+      if (dedans === dehors) dedans = !dehors
     }
 
     if (brut >= 1) {
@@ -743,7 +1020,11 @@ function creerScene(canvas, { mouvementReduit }) {
         const nom = trajet.nom
         arreterTrajet()
         if (nom === 'sortie') reprendreOrbite()
-        else debutSejour = secondes
+        // Arrivé dans le séjour, on visite ; la visite finie, on la reprend. La
+        // fenêtre de surface reste ouverte aussi longtemps que le vendeur le
+        // veut, et il n'y a rien d'autre à faire pendant ce temps que d'habiter
+        // l'appartement qu'il décrit.
+        else lancerTrajet('pieces', trajetPieces())
         return false
       }
     }
@@ -756,11 +1037,17 @@ function creerScene(canvas, { mouvementReduit }) {
    */
   function reprendreOrbite() {
     cadrer()
+    // Ici, et ici seulement, le pivot se pose d'un coup : la continuité du
+    // mouvement est reprise juste après sur la position réelle de la caméra,
+    // dont on déduit rayon, hauteur et angle. Un pivot en cours de route
+    // fausserait ce calcul.
+    pivot.copy(pivotVise)
+    cadreCourant = cadreVise()
     const relatif = camera.position.clone().sub(pivot)
     drone.rayon = Math.max(1, Math.hypot(relatif.x, relatif.z))
     drone.hauteur = relatif.y
     let angle = Math.atan2(relatif.z, relatif.x)
-    const azimut = plan().azimut
+    const azimut = azimutDuPlan(plan(), verrouFacade())
     // On ramène l'angle courant au tour le plus proche de l'azimut visé : le
     // drone rejoint son plan par le chemin court, sans faire de tour sur lui.
     angle += Math.round((azimut - angle) / TOUR) * TOUR
@@ -775,8 +1062,19 @@ function creerScene(canvas, { mouvementReduit }) {
     const famille = familleArchitecture(etat.type)
     const palier = famille === 'villa' ? palierVilla(etat.surface) : -1
 
-    if (famille !== familleMontee || (famille === 'villa' && palier !== palierMonte)) {
+    if (famille !== familleMontee) {
+      // CHANGEMENT D'ARCHITECTURE — franc, et à dessein. On ne démonte pas une
+      // ossature pour en faire un immeuble : ce n'est pas le même bien qu'on
+      // regarde, c'est le bien qu'on vient de repérer sur la carte. La mue ne
+      // vaut qu'entre deux paliers de la MÊME maison.
       monterOuvrage(famille, palier)
+      mue.phase = null
+      mue.ecart = 0
+      mue.vise = palier
+    } else if (famille === 'villa' && palier !== palierMonte) {
+      // CHANGEMENT DE PALIER — la maison se démonte et se rebâtit.
+      if (mouvementReduit) monterOuvrage(famille, palier)
+      else engagerMue(palier)
     }
 
     const table = CHANTIER[famille] ?? CHANTIER.ossature
@@ -813,10 +1111,17 @@ function creerScene(canvas, { mouvementReduit }) {
     const niveau = niveauDemande()
 
     if (veutVisite) {
-      if (trajet.nom === 'sortie' || (!dedans && trajet.nom !== 'entree')) {
-        // Dehors, ou en train d'en sortir : on (re)part de la porte cochère.
+      // ENCORE DEHORS — on (re)part de la porte cochère. Le second cas est celui
+      // d'un étage changé pendant l'approche : le vendeur règle volontiers son
+      // étage dans la seconde qui suit l'ouverture de la fenêtre, et la séquence
+      // se recompose alors sur le bon étage. Elle repart de la position courante
+      // (voir `positionCourante`), donc sans saut.
+      if (
+        trajet.nom === 'sortie' ||
+        (!dedans && (trajet.nom !== 'entree' || niveau !== niveauMonte))
+      ) {
         lancerTrajet('entree', trajetEntree())
-      } else if (dedans && trajet.nom !== 'entree' && niveau !== niveauMonte) {
+      } else if (dedans && niveau !== niveauMonte) {
         // Déjà dedans, l'étage a changé : on reprend l'escalier sans ressortir.
         lancerTrajet('etage', trajetEtage(niveauMonte ?? niveau))
       }
@@ -845,7 +1150,7 @@ function creerScene(canvas, { mouvementReduit }) {
     image = requestAnimationFrame(animer)
 
     const maintenant = performance.now()
-    const dt = Math.min((maintenant - instantPrecedent) / 1000, 0.05)
+    const dt = Math.min((maintenant - instantPrecedent) / 1000, 0.05) * (window.__vitesse || 1)
     instantPrecedent = maintenant
     secondes += dt
 
@@ -862,8 +1167,15 @@ function creerScene(canvas, { mouvementReduit }) {
 
     // Le plan de coupe. Une fois le bâtiment achevé, on le renvoie à l'infini :
     // un plan de coupe qui reste actif trie les transparences pour rien.
+    //
+    // Il s'efface aussi le temps d'un DÉMONTAGE : les planches qui s'écartent
+    // passent au-dessus de lui, et un plan de coupe actif les trancherait en
+    // plein vol — on les verrait disparaître à mi-hauteur au lieu de s'en aller.
     const hauteurCoupe = ouvrage?.hauteurCoupe ?? 6
-    coupe.constant = val.montage > 0.995 ? 1e6 : val.montage * hauteurCoupe
+    coupe.constant =
+      val.montage > 0.995 || mue.phase === 'demontage' ? 1e6 : val.montage * hauteurCoupe
+
+    if (mue.phase) avancerMue(dt)
 
     ouvrage?.poser?.({ ...val, surface: etat.surface })
     if (interieur) {
@@ -885,19 +1197,42 @@ function creerScene(canvas, { mouvementReduit }) {
 
     /* --- caméra --- */
 
+    // LE CADRE REJOINT SA CIBLE, image après image. Le pivot et le
+    // décentrement suivent la même cadence que le drone lui-même : d'un stade
+    // au suivant, tout le cadrage glisse au lieu de sauter.
+    if (!mouvementReduit) {
+      const pasCadre = Math.min(1, dt * 0.62)
+      pivot.lerp(pivotVise, pasCadre)
+      cadreCourant += (cadreVise() - cadreCourant) * pasCadre
+      decentrer()
+    }
+
     if (trajet.actif) {
       jouerTrajet(dt)
     } else if (dedans) {
-      poserCameraSejour(secondes)
+      poserCameraSejour()
     } else if (mouvementReduit) {
-      camera.position.set(pivot.x + drone.rayon, pivot.y + droneCible.hauteur, pivot.z)
+      // MOUVEMENTS RÉDUITS — le drone ne vole plus, mais il se pose AU BON
+      // ENDROIT. Il se calait jusqu'ici sur l'axe +X, c'est-à-dire sur le côté
+      // du bien, quel que soit le plan : une maison s'y montrait de profil, et
+      // au dernier stade de dos. Le point de vue est désormais celui que le
+      // plan demande — façade comprise —, simplement immobile.
+      const angle = azimutDuPlan(plan(), verrouFacade())
+      camera.position.set(
+        pivot.x + Math.cos(angle) * droneCible.rayon,
+        pivot.y + droneCible.hauteur,
+        pivot.z + Math.sin(angle) * droneCible.rayon,
+      )
       camera.lookAt(vise)
     } else {
-      // Le drone rejoint son plan en une seconde environ. C'est la cadence des
-      // trois temps de l'analyse : quatre secondes par station, dont une de
-      // voyage — au-delà, il passerait son temps à courir après son cadre, et
-      // on ne verrait jamais rien s'y construire.
-      const pasDrone = Math.min(1, dt * 0.95)
+      // LE DRONE REJOINT SON PLAN EN DEUX SECONDES ENVIRON, et pas en une.
+      //
+      // C'est le plus lent qu'on puisse se permettre : les trois temps de
+      // l'analyse durent quatre secondes chacun, et il faut que le drone soit
+      // arrivé avant la fin de sa station, sinon on ne voit rien s'y construire.
+      // En deçà de cette valeur, le mouvement se voyait comme un déplacement ;
+      // à celle-ci, il se voit comme une dérive.
+      const pasDrone = Math.min(1, dt * 0.58)
       drone.rayon += (droneCible.rayon - drone.rayon) * pasDrone
       drone.hauteur += (droneCible.hauteur - drone.hauteur) * pasDrone
 
@@ -908,10 +1243,18 @@ function creerScene(canvas, { mouvementReduit }) {
       // La dérive fait respirer un plan ; plafonnée, elle ne le remplace pas.
       // Sans ce plafond, une étape où l'on s'attarde — l'affinage, par
       // exemple — finit par emmener le drone un quart de tour plus loin que le
-      // plan composé pour elle.
-      derive = Math.min(derive + dt * plan().derive, 0.45)
-      const azimut = plan().azimut + derive
-      drone.angle += (azimut - drone.angle) * Math.min(1, dt * 0.9)
+      // plan composé pour elle. Verrouillé sur la façade, le drone n'en a pas
+      // besoin : son balancement remplit le même office sans jamais l'emmener
+      // derrière le bien (voir `azimutVise`).
+      if (!verrouFacade()) derive = Math.min(derive + dt * plan().derive, 0.45)
+      let azimut = azimutVise()
+      if (verrouFacade()) {
+        // On vise le tour le plus proche de l'angle courant : sans cela, le
+        // passage d'un immeuble à une maison ferait faire au drone les tours
+        // qu'il avait accumulés en orbite.
+        azimut += Math.round((drone.angle - azimut) / TOUR) * TOUR
+      }
+      drone.angle += (azimut - drone.angle) * Math.min(1, dt * 0.5)
 
       // Respiration : le flottement d'un appareil en vol stationnaire. Sans
       // elle, un plan posé devient une photographie.
@@ -921,7 +1264,10 @@ function creerScene(canvas, { mouvementReduit }) {
         Math.max(0.7, pivot.y + drone.hauteur + Math.sin(secondes * 0.31) * 0.28),
         pivot.z + Math.sin(drone.angle) * (drone.rayon + respiration),
       )
-      cibleLissee.lerp(vise, Math.min(1, dt * 1.6))
+      // Le regard suit encore plus lentement que l'appareil : c'est ce décalage
+      // entre l'un et l'autre qui donne au mouvement sa douceur — un drone qui
+      // regarderait instantanément sa cible aurait l'œil d'une machine.
+      cibleLissee.lerp(vise, Math.min(1, dt * 1.0))
       camera.lookAt(cibleLissee)
     }
 

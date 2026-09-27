@@ -5,6 +5,7 @@ import {
   baieVitree,
   boite,
   buisson,
+  disloquant,
   fut,
   gardeCorpsVerre,
   graminee,
@@ -235,9 +236,23 @@ export function creerVilla(indexPalier) {
   const palier = PALIERS_VILLA[Math.max(0, Math.min(PALIERS_VILLA.length - 1, indexPalier))]
   const groupe = new THREE.Group()
 
+  /**
+   * LE BÂTI — tout ce qui se démonte quand la maison change de palier.
+   *
+   * La maçonnerie, la couverture, les menuiseries, la terrasse et son seuil :
+   * l'ouvrage bâti, celui qui n'est plus le même d'un palier au suivant. Le
+   * jardin et les options d'affinage restent dehors, et pour une raison
+   * précise — ils se pilotent en OPACITÉ (voir `revelable`), et une planche qui
+   * s'envole se pilote elle aussi en opacité. Les deux écriraient la même
+   * valeur à chaque image, et la dernière écrite gagnerait : le jardin
+   * clignoterait à chaque changement de palier.
+   */
+  const bati = new THREE.Group()
+  groupe.add(bati)
+
   /** Ce que le plan de coupe tranche pendant que la maison se construit. */
   const montant = new THREE.Group()
-  groupe.add(montant)
+  bati.add(montant)
 
   const { corps, retour, etage, aile } = palier
   const socleH = palier.socle ? 0.24 : 0.12
@@ -248,7 +263,7 @@ export function creerVilla(indexPalier) {
   const terrasseL = corps.largeur + palier.terrasse.marge * 2 + (aile ? aile.largeur : 0)
   const terrasseP = corps.profondeur + palier.terrasse.avance
   const terrasse = poser(
-    groupe,
+    bati,
     boite(terrasseL, socleH, terrasseP, palier.socle ? M.pierreMoulure() : M.dallage()),
     { ombre: false },
   )
@@ -414,7 +429,7 @@ export function creerVilla(indexPalier) {
   const poignee = poser(montant, boite(0.05, hauteurPorte * 0.62, 0.05, M.laiton()), { ombre: false })
   poignee.position.set(xPorte + 0.36, y0 + hauteurPorte / 2, zFacade + 0.09)
 
-  const seuil = poser(groupe, boite(1.9, 0.07, 1.0, M.pierreMoulure()), { ombre: false })
+  const seuil = poser(bati, boite(1.9, 0.07, 1.0, M.pierreMoulure()), { ombre: false })
   seuil.position.set(xPorte, socleH + 0.035, corps.profondeur / 2 + 0.5)
 
   if (palier.auvent) {
@@ -510,14 +525,50 @@ export function creerVilla(indexPalier) {
   ;[
     [-terrasseL * 0.72, -corps.profondeur * 1.5, 3.2],
     [terrasseL * 0.78, -corps.profondeur * 1.3, 2.7],
-    [-terrasseL * 0.95, corps.profondeur * 0.85, 2.4],
-    [terrasseL * 0.92, corps.profondeur * 1.1, 3.0],
   ].forEach(([x, z, h]) => {
     const sujet = arbre(h)
     sujet.position.set(x, 0, z)
     bosquet.add(sujet)
   })
   abords.add(bosquet)
+
+  /**
+   * LES TROIS SUJETS QUI SORTENT DE TERRE — et où il faut les planter.
+   *
+   * Pendant l'analyse, le jardin ne se contente pas de paraître : trois arbres
+   * POUSSENT, sortis de terre l'un après l'autre (voir `pousse` plus bas).
+   * Trois, et pas la haie entière — c'est un détail qu'on doit remarquer du
+   * coin de l'œil en lisant une barre de progression, pas un verger qui
+   * jaillit.
+   *
+   * LEUR PLACE EST COMMANDÉE PAR LA CAMÉRA, et pas par le plan du jardin. Les
+   * trois temps de l'analyse se jouent tous du côté de la façade, et les deux
+   * premiers assez serrés (voir `PLANS`) : un sujet de fond de parcelle
+   * pousserait hors du cadre, et l'on n'aurait rien ajouté du tout. Ceux-ci
+   * bordent la terrasse et l'allée — assez près pour être vus, assez à l'écart
+   * pour ne masquer ni l'entrée ni la baie.
+   *
+   * Ils vivent dans leur propre groupe : le bosquet de fond de parcelle
+   * s'agrandit avec le terrain déclaré (voir `poser`), et une échelle de groupe
+   * qui se multiplierait à celle de la pousse ferait grandir les arbres deux
+   * fois.
+   */
+  const jeunesPousses = new THREE.Group()
+  const pousses = []
+  ;[
+    // À gauche de l'entrée, en avant du pignon.
+    [xPorte - 3.5, corps.profondeur / 2 + 1.3, 2.5],
+    // Au bout de la terrasse, côté séjour.
+    [terrasseL / 2 + 1.5, corps.profondeur / 2 + 0.9, 2.9],
+    // Plus bas dans l'allée : celui-là arrive en dernier, et de plus loin.
+    [xPorte - 2.8, corps.profondeur / 2 + 7.4, 3.2],
+  ].forEach(([x, z, h]) => {
+    const sujet = arbre(h)
+    sujet.position.set(x, 0, z)
+    jeunesPousses.add(sujet)
+    pousses.push(sujet)
+  })
+  abords.add(jeunesPousses)
 
   /* --- Options d'affinage -------------------------------------------------- */
 
@@ -632,6 +683,13 @@ export function creerVilla(indexPalier) {
 
   /* --- Révélations et pilotage --------------------------------------------- */
 
+  /**
+   * LE DÉMONTAGE. Monté ici, et pas à l'usage : `disloquant` relève la position
+   * de chaque pièce pour en déduire où elle s'en va, et il doit donc la relever
+   * SUR LA MAISON ASSEMBLÉE — une fois posée, jamais pendant qu'elle se monte.
+   */
+  const disloquer = disloquant(bati, { hauteur: hauteurToit })
+
   const revelerAbords = revelable(abords)
   const revelerPiscine = revelable(piscine)
   const revelerPanneaux = revelable(panneaux)
@@ -655,6 +713,7 @@ export function creerVilla(indexPalier) {
     groupe,
     montant,
     palier,
+    disloquer,
     hauteurCoupe: hauteurToit + 0.6,
     envergure,
     /** Points visés par les plans de caméra. */
@@ -666,6 +725,22 @@ export function creerVilla(indexPalier) {
 
     poser(v) {
       revelerAbords(v.abords)
+
+      // LES ARBRES SORTENT DE TERRE, l'un après l'autre. Chacun part d'un tiers
+      // de sa largeur et de rien du tout en hauteur : un arbre qui grandirait
+      // dans les trois dimensions à la fois se lirait comme un arbre qui
+      // s'approche, pas comme un arbre qui pousse.
+      pousses.forEach((sujet, i) => {
+        const retard = i * 0.26
+        const t = Math.max(0, Math.min(1, ((v.pousse ?? 0) - retard) / (1 - retard)))
+        // Un léger dépassement en fin de course : la détente d'une jeune pousse
+        // qui trouve sa hauteur. Rien de plus — 4 % suffisent à ce que ça vive.
+        const e = t < 1 ? 1 - (1 - t) ** 3 : 1
+        const galbe = 1 + Math.sin(t * Math.PI) * 0.04
+        sujet.scale.set(0.34 + 0.66 * e, e * galbe, 0.34 + 0.66 * e)
+        sujet.visible = e > 0.015
+      })
+
       // La pelouse s'étend avec la surface de terrain déclarée : c'est le seul
       // ouvrage dont la TAILLE change, et non la seule présence.
       const rayon = 9 + v.terrain * 12

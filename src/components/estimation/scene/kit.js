@@ -356,3 +356,106 @@ export function revelable(groupe) {
     })
   }
 }
+
+/**
+ * LA DISLOCATION — un ouvrage qui se démonte, pièce par pièce.
+ *
+ * Retourne la fonction qui écarte tout un sous-arbre de son assemblage : à 0
+ * chaque pièce est à sa place, à 1 elles ont toutes pris le large, tourné sur
+ * elles-mêmes et disparu. C'est le pendant de [`revelable`](#revelable) — l'une
+ * fait paraître un ouvrage entier, l'autre le défait planche par planche.
+ *
+ * TROIS CHOSES FONT QU'ON Y VOIT UN DÉMONTAGE et non une explosion :
+ *
+ *   • CHAQUE PIÈCE PART DE SON PROPRE CÔTÉ, écartée de l'axe du bâtiment —
+ *     une planche de bardage s'en va vers l'extérieur, pas vers le ciel. La
+ *     direction est tirée une fois pour toutes à la création, jamais à chaque
+ *     image : une pièce qui changerait de trajectoire en cours de route ne se
+ *     lirait plus comme un morceau du même ouvrage.
+ *   • LE HAUT PART LE PREMIER. Le retard de chaque pièce suit sa hauteur : la
+ *     couverture et les murs hauts s'écartent d'abord, la dalle en dernier.
+ *     C'est l'ordre d'un démontage réel, et pris à l'envers c'est celui d'un
+ *     montage — la même fonction sert donc aux deux sens.
+ *   • ELLES TOURNENT PEU. Un quart de tour au plus : au-delà, une planche
+ *     cesse d'être une planche pour devenir un débris.
+ *
+ * `hauteur` est la hauteur de référence du décalage — celle de l'ouvrage. En
+ * son absence, elle est relevée sur la boîte englobante du groupe.
+ */
+export function disloquant(groupe, { hauteur = null, envol = 1 } = {}) {
+  const enveloppe = new THREE.Box3().setFromObject(groupe)
+  const haut = hauteur ?? Math.max(0.5, enveloppe.max.y - enveloppe.min.y)
+
+  const pieces = []
+  groupe.traverse((objet) => {
+    if (!objet.isMesh) return
+
+    // L'écart se prend sur la position LOCALE de la pièce, complétée d'un tirage
+    // stable : une pièce centrée sur l'axe — un faîtage, une porte — n'aurait
+    // sans cela aucune direction où aller et resterait seule en place.
+    const direction = new THREE.Vector3(
+      objet.position.x + (Math.random() - 0.5) * 1.4,
+      0,
+      objet.position.z + (Math.random() - 0.5) * 1.4,
+    )
+    if (direction.lengthSq() < 1e-4) direction.set(1, 0, 0)
+    direction.normalize()
+
+    const liste = Array.isArray(objet.material) ? objet.material : [objet.material]
+    liste.forEach((matiere) => {
+      if (matiere) matiere.transparent = true
+    })
+
+    pieces.push({
+      objet,
+      origine: objet.position.clone(),
+      rotation: objet.rotation.clone(),
+      // L'écart lui-même : franc sur les côtés, plus discret vers le ciel.
+      ecart: direction.multiplyScalar((1.6 + Math.random() * 2.2) * envol),
+      levee: (0.5 + Math.random() * 1.5) * envol,
+      spin: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.9,
+        (Math.random() - 0.5) * 1.3,
+        (Math.random() - 0.5) * 0.9,
+      ),
+      // Le retard, de 0 en haut à 0.45 en bas.
+      retard: 0.45 * (1 - Math.min(1, Math.max(0, objet.position.y / haut))),
+      matieres: liste.filter(Boolean).map((matiere) => ({ matiere, pleine: matiere.opacity })),
+    })
+  })
+
+  return (valeur) => {
+    const v = Math.max(0, Math.min(1, valeur))
+
+    pieces.forEach((piece) => {
+      // La part du mouvement déjà faite par CETTE pièce, une fois son retard
+      // consommé. Les pièces ne partent donc pas ensemble, mais elles arrivent
+      // toutes au même moment — sans quoi la dalle resterait suspendue.
+      const t = Math.max(0, Math.min(1, (v - piece.retard) / (1 - piece.retard)))
+      // Départ lent, fin rapide : une pièce se descelle avant de s'en aller.
+      const e = t * t * (3 - 2 * t)
+
+      piece.objet.position.set(
+        piece.origine.x + piece.ecart.x * e,
+        piece.origine.y + piece.levee * e,
+        piece.origine.z + piece.ecart.z * e,
+      )
+      piece.objet.rotation.set(
+        piece.rotation.x + piece.spin.x * e,
+        piece.rotation.y + piece.spin.y * e,
+        piece.rotation.z + piece.spin.z * e,
+      )
+
+      // L'effacement n'arrive qu'au bout du geste : une pièce doit avoir
+      // visiblement quitté sa place avant de disparaître, sinon on ne voit
+      // qu'un fondu.
+      const reste = Math.max(0, Math.min(1, (1 - e) / 0.45))
+      piece.matieres.forEach(({ matiere, pleine }) => {
+        matiere.opacity = pleine * reste
+        matiere.transparent = pleine < 1 || reste < 0.999
+      })
+    })
+
+    groupe.visible = v < 0.999
+  }
+}
