@@ -262,17 +262,52 @@ export const TERRAIN = {
  *
  * PÉRIMÈTRE. `parConfiance` ne concerne que les zones couvertes par DVF, seul
  * chemin qui produit un niveau de confiance à partir de ventes. Monaco et les
- * prix de référence hors DVF gardent leur fourchette symétrique inchangée, et
- * c'est elle — et elle seule — que `demiLargeurMin/MaxPct` encadrent encore :
- * un plancher de 5 %, un plafond de 20 % au-delà duquel une fourchette
- * n'informe plus personne (« entre 250 000 et 750 000 € » revient à ne rien
- * annoncer). Ces deux bornes ne s'appliquent plus au chemin DVF, sans quoi le
- * plafond mordrait sur le ±25 % de la confiance faible.
+ * prix de référence hors DVF gardent leur fourchette symétrique, et c'est elle
+ * — et elle seule — que `demiLargeurMin/MaxPct` encadrent encore : un plancher
+ * de 5 %, un plafond de 20 % au-delà duquel une fourchette n'informe plus
+ * personne (« entre 250 000 et 750 000 € » revient à ne rien annoncer). Ces
+ * deux bornes ne s'appliquent plus au chemin DVF, sans quoi le plafond mordrait
+ * sur le ±25 % de la confiance faible.
+ *
+ * `demiLargeurHorsDvfPct` est la demi-largeur du chemin hors DVF. Elle a sa
+ * propre constante depuis septembre 2026, et c'est le sujet de la note
+ * ci-dessous.
  */
 export const FOURCHETTE = {
   parConfiance: { normale: 0.15, moyenne: 0.2, faible: 0.25 },
   demiLargeurMinPct: 0.05,
   demiLargeurMaxPct: 0.2,
+
+  /**
+   * Demi-largeur de la fourchette hors couverture DVF (57, 67, 68, 976).
+   *
+   * CE QU'ELLE REMPLACE. Ce chemin passait `demiLargeurMinPct` à
+   * `fourchetteSymetrique`, soit **±5 %** — non par choix, mais parce que le
+   * plancher était la seule constante à portée de main. Personne n'avait
+   * décidé que la fourchette mosellane devait être la plus serrée du produit ;
+   * elle l'était par défaut, et c'était le contraire de ce qu'il fallait : ce
+   * chemin est le moins bien renseigné des trois.
+   *
+   * CE QUE LE BANC A MESURÉ (`scripts/backtest-horsdvf.mjs`, 799 ventes réelles
+   * de 2025 en 54/55/88, départements limitrophes de la Moselle qui, eux, ont
+   * du DVF) : l'erreur médiane de la méthode hors DVF est de **20,9 %**, et le
+   * ±5 % ne contenait le vrai prix que dans **12,6 % des cas**. La fourchette
+   * annonçait donc une précision quatre fois supérieure à celle qu'elle a.
+   *
+   * POURQUOI 13 % ET NON 32 %. Le banc chiffre à ±32 % la demi-largeur qu'il
+   * faudrait pour contenir 700 biens sur 1 000. C'est la vérité statistique, et
+   * c'est commercialement inutilisable — « entre 131 000 et 255 000 € » sur une
+   * maison à 193 000 € ne renseigne plus un vendeur. 13 % est un **compromis
+   * assumé, demandé par l'agence** : il couvre nettement moins de biens que
+   * 32 %, et nettement plus que 5 %. Ce n'est pas une mesure, c'est un
+   * arbitrage entre justesse et lisibilité, et il doit être relu comme tel.
+   *
+   * Le prix central n'est pas touché : cette constante ne déplace que les
+   * bornes. La majoration commerciale de +10 % (`MAJORATION_HORS_DVF`, dans
+   * `reference.js`) reste en place et continue de porter le biais médian du
+   * chemin à +8,7 %, mesuré sur le même banc.
+   */
+  demiLargeurHorsDvfPct: 0.13,
 }
 
 /**

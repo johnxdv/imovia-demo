@@ -290,7 +290,11 @@ export default async function handler(req, res) {
       const price = montantAffichable(
         reference.pricePerM2 * surfaceM2 * coefficientEtageApplique,
       )
-      const { low, high } = fourchetteSymetrique(price, FOURCHETTE.demiLargeurMinPct)
+      // Demi-largeur propre à ce chemin, et non le plancher `demiLargeurMinPct`
+      // qui traînait ici faute d'autre constante — le banc a montré que ce ±5 %
+      // ne contenait le vrai prix que dans 12,6 % des cas. Voir
+      // `FOURCHETTE.demiLargeurHorsDvfPct`, qui porte la mesure et l'arbitrage.
+      const { low, high } = fourchetteSymetrique(price, FOURCHETTE.demiLargeurHorsDvfPct)
 
       const meta = {
         type,
