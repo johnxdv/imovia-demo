@@ -59,6 +59,12 @@ export function EstimationResultStep({
   address,
   estimation,
   type = null,
+  // Surface habitable et étage déclarés dans la fenêtre de surface. Ils ne
+  // servaient qu'au moteur ; l'affinage en a besoin à son tour — les extérieurs
+  // d'un appartement se valorisent au prix du mètre carré habitable, et
+  // l'ascenseur ne vaut rien au rez-de-chaussée (voir `src/lib/affinage.js`).
+  surface = null,
+  etage = null,
   contenance = null,
   onBack,
   onDone,
@@ -89,9 +95,18 @@ export function EstimationResultStep({
     terrainM2: Number.isFinite(contenance) ? Math.round(contenance) : 0,
   }))
 
+  // Ce que le barème doit savoir du bien au-delà des cases cochées. La
+  // contenance cadastrale y tient un rôle à part : elle est le POINT NEUTRE du
+  // curseur de terrain, celui où l'ajustement vaut exactement zéro parce que le
+  // moteur a déjà valorisé ce terrain-là.
+  const contexteAffinage = useMemo(
+    () => ({ type, surfaceM2: surface, etage, terrainCadastreM2: contenance }),
+    [type, surface, etage, contenance],
+  )
+
   const estimationAffinee = useMemo(
-    () => (affine ? affinerEstimation(estimation, options, type) : estimation),
-    [affine, estimation, options, type],
+    () => (affine ? affinerEstimation(estimation, options, contexteAffinage) : estimation),
+    [affine, estimation, options, contexteAffinage],
   )
   const price = estimationAffinee?.price ?? null
   const formatted = formatEuros(price)
@@ -107,9 +122,10 @@ export function EstimationResultStep({
   // n'a plus de quoi la recalculer, et c'est voulu : elle dépend de données qui
   // ne descendent pas jusqu'ici.
   //
-  // L'affinage, lui, a le droit d'y toucher — mais il applique son coefficient
-  // au prix **et** aux deux bornes (voir `affinerEstimation`), si bien que la
-  // largeur relative de la bande ne bouge pas d'un point.
+  // L'affinage, lui, a le droit d'y toucher — mais il relève la demi-largeur
+  // relative de la bande reçue et la réapplique au nouveau prix central (voir
+  // `affinerEstimation`), si bien que la fourchette reste celle du serveur en
+  // pourcentage, et ne bouge qu'avec le montant qu'elle encadre.
   const range = finished && estimationAffinee?.low && estimationAffinee?.high
     ? { low: estimationAffinee.low, high: estimationAffinee.high }
     : null
@@ -158,20 +174,22 @@ export function EstimationResultStep({
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
-  // Les compléments proposés dépendent du bien : une maison a une piscine et
-  // du terrain, un appartement un balcon. Le libellé doit le dire, sinon il
-  // promet à l'un ce qui n'est offert qu'à l'autre.
-  const complements =
-    type === 'appartement'
-      ? 'Balcon, panneaux, standing\u00a0: ce que les bases publiques ignorent.'
-      : 'Piscine, terrain, terrasse, standing\u00a0: ce que les bases publiques ignorent.'
-
   // L'ÉCRAN D'AFFINAGE. Le montant se retire dans le coin et le panneau se
   // range à gauche : tout le reste de l'écran revient au bien, qui est ce
   // qu'on est venu regarder.
   if (affinage) {
     return (
       <div className="w-full max-w-6xl">
+        {/* LE RETOUR DE CET ÉCRAN-CI RESTE SUR CET ÉCRAN-CI. L'affinage n'est
+            pas une étape du parcours : c'est un dépliant de l'écran résultat,
+            et son retour referme le dépliant au lieu de remonter le parcours
+            d'un cran. Le bouton du bas fait la même chose en le disant
+            autrement — l'un valide, l'autre renonce, les deux ramènent au même
+            endroit, et ce qui a été déclaré reste déclaré. */}
+        <StepBackLink onClick={() => ouvrirAffinage(false)}>
+          Retour à mon estimation
+        </StepBackLink>
+
         <div className="flex justify-end">
           <motion.div
             layout
@@ -236,11 +254,12 @@ export function EstimationResultStep({
                   curiosité plutôt que de simplement l'informer. Le premier
                   chiffre est net dès cet écran ; le reste se déflégera très
                   progressivement au fil de la conversation qui suit. */}
-              <div className="mt-5 flex items-center justify-center">
+              <div className="montant-cadre mt-5 flex items-center justify-center">
                 <PriceReveal
                   formatted={formatted ?? '— €'}
                   revealStage={0}
-                  className="titre-etape whitespace-nowrap text-[clamp(2.75rem,15vw,4.25rem)] leading-none text-laiton-texte sm:text-[6.5rem]"
+                  tailleMax="6.5rem"
+                  className="montant titre-etape whitespace-nowrap leading-none text-laiton-texte"
                 />
               </div>
 
@@ -300,11 +319,12 @@ export function EstimationResultStep({
                 Estimation de votre bien
               </p>
 
-              <div className="mt-4 flex items-center justify-center">
+              <div className="montant-cadre mt-4 flex items-center justify-center">
                 <PriceReveal
                   formatted={formatted ?? '— €'}
                   revealStage={finished ? 5 : revealStage}
-                  className="titre-etape whitespace-nowrap text-[clamp(2.5rem,13vw,3.5rem)] leading-none text-laiton-texte md:text-[3.25rem]"
+                  tailleMax="3.5rem"
+                  className="montant titre-etape whitespace-nowrap leading-none text-laiton-texte"
                 />
               </div>
 
@@ -385,9 +405,12 @@ export function EstimationResultStep({
                   Affiner mon estimation
                 </span>
               </button>
-              <p className="mt-2.5 text-center text-[0.75rem] leading-relaxed text-ink/60">
-                {complements}
-              </p>
+              {/* Rien sous ce bouton. La phrase qui y énumérait les compléments
+                  — balcon, panneaux, standing, « ce que les bases publiques
+                  ignorent » — les annonçait à un vendeur qui n'a pas encore
+                  choisi d'affiner, et qui les découvre de toute façon à l'écran
+                  suivant. Un bouton qui dit ce qu'il fait n'a pas besoin d'être
+                  glosé. */}
             </motion.div>
           ) : null}
         </div>

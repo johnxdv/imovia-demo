@@ -36,6 +36,27 @@ function blurFor(digitIndex, totalDigits, revealStage) {
 }
 
 /**
+ * LARGEUR DU MONTANT, en cadratins, d'après son seul nombre de chiffres.
+ *
+ * C'est ce que la carte a besoin de savoir pour choisir une taille de texte qui
+ * tienne (voir `.montant-cadre` dans `src/index.css`) : la largeur d'un texte ne
+ * se lit pas en CSS, il faut la lui dire. Relevé sur la Fraunces des titres, en
+ * chiffres tabulaires : un chiffre vaut 0,589 cadratin, l'espace fine et le
+ * symbole € qui ferment le montant en valent 0,935 à eux deux. Les séparateurs
+ * de milliers sont négligés — ils pèsent cinq centièmes chacun, et les ignorer
+ * laisse la marge de sécurité du bon côté.
+ *
+ * Arrondi vers le haut plutôt que juste : une estimation trop large fait un
+ * montant un peu plus petit que nécessaire, une estimation trop courte le fait
+ * déborder. Les deux erreurs ne se valent pas.
+ */
+const PAR_CHIFFRE = 0.6
+const FERMETURE = 1
+
+export const largeurEnCadratins = (formatted) =>
+  PAR_CHIFFRE * [...formatted].filter((char) => /\d/.test(char)).length + FERMETURE
+
+/**
  * Prix affiché chiffre par chiffre, chacun flouté indépendamment et de façon
  * responsive : deux intensités (mobile/desktop) coexistent par caractère via
  * des variables CSS, commutées par la classe `sm:` — pas de doublon de
@@ -49,14 +70,26 @@ function blurFor(digitIndex, totalDigits, revealStage) {
  *
  * `revealStage` peut être omis (état de l'écran résultat avant toute
  * conversation) : équivaut à 0, seul le premier chiffre est net.
+ *
+ * `tailleMax` est le plafond de taille du montant — sa taille d'origine, celle
+ * qu'il prend quand la carte est assez large pour la porter. En dessous, la
+ * taille est celle qui tient : c'est la carte qui la calcule, à partir de la
+ * largeur que ce composant lui déclare (voir `largeurEnCadratins`).
  */
-export function PriceReveal({ formatted, revealStage = 0, className = '' }) {
+export function PriceReveal({ formatted, revealStage = 0, className = '', tailleMax = '4rem' }) {
   const chars = [...formatted]
   const totalDigits = chars.filter((char) => /\d/.test(char)).length
   let digitIndex = -1
 
   return (
-    <span aria-hidden="true" className={className}>
+    <span
+      aria-hidden="true"
+      className={className}
+      style={{
+        '--montant-largeur': largeurEnCadratins(formatted),
+        '--montant-max': tailleMax,
+      }}
+    >
       {chars.map((char, i) => {
         if (!/\d/.test(char)) {
           return (

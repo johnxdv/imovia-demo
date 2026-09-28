@@ -2,40 +2,42 @@ import { useEffect } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Check, Minus, Plus } from 'lucide-react'
 import { useChantier } from './chantier'
-import {
-  OPTIONS_DEFAUT,
-  ROOFTOP_SAISIE_MAX,
-  STANDINGS,
-  TERRAIN_SAISIE_MAX,
-  optionsDecor,
-} from '../../lib/affinage'
+import { CURSEURS, OPTIONS_DEFAUT, STANDINGS, optionsDecor } from '../../lib/affinage'
 import { EASE } from '../../lib/motion'
 
 /**
  * AFFINAGE — ce que le vendeur déclare lui-même, et que personne ne sait.
  *
  * L'estimation est rendue ; elle repose sur ce que les bases publiques savent
- * du bien. Ce qu'elles ne savent pas — une piscine, un terrain, des panneaux,
- * une terrasse, l'état intérieur — se demande ici, et se VOIT : chaque case
- * cochée dessine quelque chose sur le bien du décor. La piscine se creuse, le
- * jardin s'étend, les panneaux se posent sur le toit, le balcon sort de la
- * façade. C'est tout l'objet de cet écran : que le vendeur voie sa maison se
- * construire à mesure qu'il la décrit.
+ * du bien. Ce qu'elles ne savent pas — une piscine, un terrain, un balcon, un
+ * ascenseur, l'état intérieur — se demande ici, et se VOIT : chaque case cochée
+ * dessine quelque chose sur le bien du décor. La piscine se creuse, le jardin
+ * s'étend, les panneaux se posent sur le toit, le balcon sort de la façade.
+ * C'est tout l'objet de cet écran : que le vendeur voie son bien se construire
+ * à mesure qu'il le décrit.
  *
  * LE PANNEAU EST VOLONTAIREMENT ÉTROIT et rangé à gauche. Ici, le décor n'est
  * plus un fond : c'est le sujet. Un panneau centré couvrirait exactement ce
  * qu'on vient demander au vendeur de regarder.
  *
- * Ce qui est proposé dépend du bien. Une maison se voit offrir sa piscine, son
- * terrain et sa terrasse ; un appartement, son balcon, son REZ-DE-JARDIN et son
- * ROOFTOP — et ni piscine ni terrain, qu'il n'a pas. Le barème, lui, est commun
- * et écrit une seule fois (voir `src/lib/affinage.js`).
+ * CE QUI EST PROPOSÉ DÉPEND DU BIEN, et les deux listes n'ont aucun élément en
+ * commun hormis le standing :
  *
- * DEUX DÉCLARATIONS NE SONT PAS DES OUI OU DES NON, et ce sont les deux
- * surfaces : le terrain d'une maison, jusqu'à 5 000 m², et le rooftop d'un
- * appartement, jusqu'à 120. Toutes deux se règlent au curseur, et toutes deux
- * se voient grandir sur le bien à mesure qu'on le pousse — le terrain s'étend
- * et se plante d'arbres, le rooftop gagne la toiture.
+ *   • une MAISON déclare sa piscine, sa terrasse, ses panneaux solaires et la
+ *     surface de son terrain ;
+ *   • un APPARTEMENT déclare son balcon, son rez-de-jardin, son ascenseur et
+ *     son rooftop — et rien d'autre. Pas de panneaux solaires : la toiture d'un
+ *     immeuble n'appartient pas au logement, et l'option n'a donc jamais rien à
+ *     faire sur cet écran-là.
+ *
+ * QUATRE DÉCLARATIONS NE SONT PAS DES OUI OU DES NON, et ce sont les quatre
+ * surfaces : le terrain d'une maison, le balcon, le rez-de-jardin et le rooftop
+ * d'un appartement. Toutes se règlent au curseur, et zéro y veut dire
+ * « je n'en ai pas » — pas « j'en ai un de zéro mètre carré ».
+ *
+ * Le barème, lui, est commun et écrit une seule fois : `src/lib/affinage.js`
+ * pour le calcul, `src/lib/affinageConfig.js` pour les nombres. Rien n'est
+ * chiffré ici.
  */
 export function EstimationAffinagePanel({ type, options, onChange, onTermine }) {
   const reduce = useReducedMotion()
@@ -48,16 +50,21 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
     chantier.declarerOptions(optionsDecor(options, type))
   }, [chantier, options, type])
 
-  const modifier = (champ, valeur) => onChange({ ...OPTIONS_DEFAUT, ...options, [champ]: valeur })
-  const bascule = (champ) => modifier(champ, !options[champ])
+  /**
+   * Une déclaration, posée sur les PRÉCÉDENTES et non sur celles du rendu en
+   * cours. La nuance compte depuis que les boutons + et − avancent d'un mètre
+   * carré : trois clics de suite sur « + » partent tous du même rendu, et deux
+   * d'entre eux se perdaient — on cliquait trois fois pour avancer d'un. La
+   * valeur se calcule donc à partir de l'état au moment où la mise à jour
+   * s'applique, ce que seule la forme fonctionnelle permet.
+   */
+  const modifier = (champ, valeur) =>
+    onChange((precedentes) => {
+      const base = { ...OPTIONS_DEFAUT, ...precedentes }
+      return { ...base, [champ]: typeof valeur === 'function' ? valeur(base[champ]) : valeur }
+    })
 
-  const terrain = Math.round(Number(options.terrainM2) || 0)
-  const ajusterTerrain = (delta) =>
-    modifier('terrainM2', Math.min(Math.max(terrain + delta, 0), TERRAIN_SAISIE_MAX))
-
-  const rooftop = Math.round(Number(options.rooftopM2) || 0)
-  const ajusterRooftop = (delta) =>
-    modifier('rooftopM2', Math.min(Math.max(rooftop + delta, 0), ROOFTOP_SAISIE_MAX))
+  const bascule = (champ) => modifier(champ, (actuel) => !actuel)
 
   return (
     <motion.div
@@ -73,22 +80,26 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
         Ce que les bases publiques ne savent pas de votre bien&nbsp;— et qui compte.
       </p>
 
-      {/* Standing : le complément qui pèse le plus, donc celui qu'on demande
-          en premier. Cinq niveaux, ceux qu'emploient les transactions. */}
+      {/* Standing : le complément qui pèse le plus, donc celui qu'on demande en
+          premier. Trois niveaux, et un sous-texte pour chacun — ce qui se
+          déclare sans hésiter, c'est l'existence de travaux à prévoir, leur
+          absence, ou une rénovation récente. « Standard » est le point neutre
+          du secteur : il laisse l'estimation où le moteur l'a mise. */}
       <fieldset className="mt-6">
         <legend className="font-mono text-[0.62rem] uppercase tracking-micro text-ink/55">
           Standing du bien
         </legend>
-        <div className="mt-2.5 grid grid-cols-2 gap-2">
-          {STANDINGS.map(({ id, label }) => (
+        <div className="mt-2.5 grid grid-cols-1 gap-2">
+          {STANDINGS.map(({ id, label, detail }) => (
             <button
               key={id}
               type="button"
               aria-pressed={options.standing === id}
               onClick={() => modifier('standing', id)}
-              className="option-tunnel px-3 py-2.5 text-center text-[0.85rem]"
+              className="option-tunnel px-4 py-2.5 text-left"
             >
-              {label}
+              <span className="block text-[0.92rem] leading-snug">{label}</span>
+              <span className="block text-[0.78rem] leading-snug opacity-60">{detail}</span>
             </button>
           ))}
         </div>
@@ -101,125 +112,83 @@ export function EstimationAffinagePanel({ type, options, onChange, onTermine }) 
         </legend>
         <div className="mt-2.5 space-y-2">
           {maison ? (
+            <>
+              <Atout
+                actif={options.piscine}
+                onClick={() => bascule('piscine')}
+                titre="Piscine"
+                detail="Bassin enterré et sa plage"
+              />
+              <Atout
+                actif={options.terrasse}
+                onClick={() => bascule('terrasse')}
+                titre="Terrasse aménagée"
+                detail="Deck et salon d’extérieur"
+              />
+              <Atout
+                actif={options.panneaux}
+                onClick={() => bascule('panneaux')}
+                titre="Panneaux solaires"
+                detail="Photovoltaïque en toiture"
+              />
+            </>
+          ) : (
+            // Ascenseur : la seule option dont la valeur dépend entièrement de
+            // l'étage déclaré trois écrans plus tôt — nulle au rez-de-chaussée,
+            // maximale au cinquième (voir `ASCENSEUR_PAR_ETAGE`).
             <Atout
-              actif={options.piscine}
-              onClick={() => bascule('piscine')}
-              titre="Piscine"
-              detail="Bassin enterré et sa plage"
-            />
-          ) : null}
-
-          <Atout
-            actif={options.exterieur}
-            onClick={() => bascule('exterieur')}
-            titre={maison ? 'Terrasse aménagée' : 'Balcon'}
-            detail={maison ? 'Deck et salon d’extérieur' : 'À votre étage, sur la façade'}
-          />
-
-          {/* Rez-de-jardin : la seule façon dont un appartement a un extérieur
-              au sol. Une maison en a un par définition, on ne le lui demande
-              donc pas. */}
-          {maison ? null : (
-            <Atout
-              actif={options.rezDeJardin}
-              onClick={() => bascule('rezDeJardin')}
-              titre="Rez-de-jardin"
-              detail="Jardin privatif de plain-pied"
+              actif={options.ascenseur}
+              onClick={() => bascule('ascenseur')}
+              titre="Ascenseur"
+              detail="Dans l’immeuble, desservant votre étage"
             />
           )}
-
-          <Atout
-            actif={options.panneaux}
-            onClick={() => bascule('panneaux')}
-            titre="Panneaux solaires"
-            detail="Photovoltaïque en toiture"
-          />
         </div>
       </fieldset>
 
-      {/* Terrain : la seule déclaration qui ne soit pas un oui ou un non. Elle
-          part de la contenance cadastrale relevée sur la parcelle, que le
-          vendeur corrige s'il la sait meilleure. */}
+      {/* Les surfaces. Celle du terrain part de la contenance cadastrale
+          relevée sur la parcelle, que le vendeur corrige s'il la sait meilleure
+          — c'est la seule qui ne s'ouvre pas à zéro, et la seule qui ne déplace
+          rien tant qu'on n'y touche pas. */}
       {maison ? (
-        <div className="mt-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-[0.9rem] text-ink/70">Surface de terrain</p>
-            <p className="text-[1.05rem] text-laiton-texte tabular-nums">
-              {terrain >= TERRAIN_SAISIE_MAX ? `${TERRAIN_SAISIE_MAX}+` : terrain} m²
-            </p>
-          </div>
-
-          <div className="mt-1 flex items-center gap-2 sm:gap-3">
-            <PetitBouton
-              icon={Minus}
-              label="Retirer cent mètres carrés de terrain"
-              disabled={terrain <= 0}
-              onClick={() => ajusterTerrain(-100)}
-            />
-            <div className="min-w-0 flex-1">
-              <input
-                type="range"
-                min={0}
-                max={TERRAIN_SAISIE_MAX}
-                // Cent mètres carrés par cran : l'échelle est deux fois et demie
-                // plus longue qu'avant, et un pas de cinquante y ferait cent
-                // crans de piste que personne ne distingue sous le doigt.
-                step={100}
-                value={Math.min(terrain, TERRAIN_SAISIE_MAX)}
-                onChange={(event) => modifier('terrainM2', Number(event.target.value))}
-                aria-label="Surface de terrain, en mètres carrés"
-                className="surface-slider"
-              />
-            </div>
-            <PetitBouton
-              icon={Plus}
-              label="Ajouter cent mètres carrés de terrain"
-              disabled={terrain >= TERRAIN_SAISIE_MAX}
-              onClick={() => ajusterTerrain(100)}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {/* Rooftop — appartements seulement. Même grammaire que le terrain : une
-          surface au curseur, et le toit de l'immeuble qui s'aménage d'autant.
-          À zéro, il n'y en a pas : le comble mansardé reste en place. */}
-      {maison ? null : (
-        <div className="mt-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-[0.9rem] text-ink/70">Rooftop</p>
-            <p className="text-[1.05rem] text-laiton-texte tabular-nums">
-              {rooftop === 0 ? 'Aucun' : `${rooftop} m²`}
-            </p>
-          </div>
-
-          <div className="mt-1 flex items-center gap-2 sm:gap-3">
-            <PetitBouton
-              icon={Minus}
-              label="Retirer dix mètres carrés de rooftop"
-              disabled={rooftop <= 0}
-              onClick={() => ajusterRooftop(-10)}
-            />
-            <div className="min-w-0 flex-1">
-              <input
-                type="range"
-                min={0}
-                max={ROOFTOP_SAISIE_MAX}
-                step={10}
-                value={Math.min(rooftop, ROOFTOP_SAISIE_MAX)}
-                onChange={(event) => modifier('rooftopM2', Number(event.target.value))}
-                aria-label="Surface de rooftop, en mètres carrés"
-                className="surface-slider"
-              />
-            </div>
-            <PetitBouton
-              icon={Plus}
-              label="Ajouter dix mètres carrés de rooftop"
-              disabled={rooftop >= ROOFTOP_SAISIE_MAX}
-              onClick={() => ajusterRooftop(10)}
-            />
-          </div>
-        </div>
+        <Curseur
+          titre="Surface de terrain"
+          reglage={CURSEURS.terrain}
+          valeur={options.terrainM2}
+          onChange={(m2) => modifier('terrainM2', m2)}
+          nom="de terrain"
+          // Le curseur s'arrête à cinq mille mètres carrés ; le terrain, non.
+          // Le « + » dit que la valeur déclarée est au moins celle-là.
+          marqueMax
+        />
+      ) : (
+        <>
+          <Curseur
+            titre="Balcon"
+            reglage={CURSEURS.balcon}
+            valeur={options.balconM2}
+            onChange={(m2) => modifier('balconM2', m2)}
+            nom="de balcon"
+          />
+          <Curseur
+            titre="Rez-de-jardin"
+            reglage={CURSEURS.rezDeJardin}
+            valeur={options.rezDeJardinM2}
+            onChange={(m2) => modifier('rezDeJardinM2', m2)}
+            nom="de jardin privatif"
+          />
+          {/* Rooftop — proposé à TOUS les appartements, quel que soit l'étage
+              déclaré : une terrasse en toiture s'attache au logement, pas au
+              niveau où il se trouve, et un deuxième étage peut parfaitement en
+              avoir l'usage exclusif. */}
+          <Curseur
+            titre="Rooftop"
+            reglage={CURSEURS.rooftop}
+            valeur={options.rooftopM2}
+            onChange={(m2) => modifier('rooftopM2', m2)}
+            nom="de rooftop"
+          />
+        </>
       )}
 
       <button
@@ -257,6 +226,85 @@ function Atout({ actif, onClick, titre, detail }) {
         <span className="block text-[0.78rem] leading-snug text-ink/55">{detail}</span>
       </span>
     </button>
+  )
+}
+
+const borne = (v, min, max) => Math.min(Math.max(v, min), max)
+
+/**
+ * Une surface déclarée au curseur — terrain, balcon, rez-de-jardin, rooftop.
+ *
+ * DEUX PAS, ET C'EST VOULU. Le curseur avance par crans larges (`pas`) : sur
+ * une piste de cinq mille mètres carrés, un cran d'un mètre carré ferait cinq
+ * mille positions que personne ne distingue sous le doigt. Les boutons + et −,
+ * eux, avancent d'un mètre carré (`pasBouton`) : c'est par eux qu'on atteint
+ * 137 m² sur une piste graduée de cinquante en cinquante.
+ *
+ * L'attribut `step` de l'`input` ne peut pas porter le cran du curseur : pour
+ * un `type="range"`, le navigateur ARRONDIT au pas toute valeur qui n'en est
+ * pas un multiple — y compris celles venues des boutons, dont les 137 m²
+ * redeviendraient 150 aussitôt posés. Le `step` reste donc à 1, et c'est
+ * `glisser` qui pose les crans.
+ */
+function Curseur({ titre, reglage, valeur, onChange, nom, marqueMax = false }) {
+  const m2 = borne(Math.round(Number(valeur) || 0), 0, reglage.max)
+
+  /**
+   * Un cran de curseur. L'arrondi au pas suffit pour la souris et le doigt,
+   * qui parcourent la piste ; il ne suffit pas pour le clavier, dont la flèche
+   * ne déplace la valeur brute que d'un mètre carré — arrondie, elle
+   * retomberait sur le cran d'où elle vient et la touche ne ferait rien. D'où
+   * la relance d'un cran entier dans le sens du geste.
+   */
+  const glisser = (brut) => {
+    let cible = Math.round(brut / reglage.pas) * reglage.pas
+    if (cible === m2 && brut !== m2) cible = m2 + (brut > m2 ? reglage.pas : -reglage.pas)
+    onChange(borne(cible, 0, reglage.max))
+  }
+
+  // Les boutons passent une FONCTION plutôt qu'une valeur : c'est ce qui rend
+  // trois clics rapides égaux à trois mètres carrés (voir `modifier`).
+  const ajuster = (sens) =>
+    onChange((actuel) =>
+      borne(Math.round(Number(actuel) || 0) + sens * reglage.pasBouton, 0, reglage.max),
+    )
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="text-[0.9rem] text-ink/70">{titre}</p>
+        <p className="text-[1.05rem] text-laiton-texte tabular-nums">
+          {m2 === 0 ? 'Aucun' : `${m2}${marqueMax && m2 >= reglage.max ? '+' : ''} m²`}
+        </p>
+      </div>
+
+      <div className="mt-1 flex items-center gap-2 sm:gap-3">
+        <PetitBouton
+          icon={Minus}
+          label={`Retirer un mètre carré ${nom}`}
+          disabled={m2 <= 0}
+          onClick={() => ajuster(-1)}
+        />
+        <div className="min-w-0 flex-1">
+          <input
+            type="range"
+            min={0}
+            max={reglage.max}
+            step={1}
+            value={m2}
+            onChange={(event) => glisser(Number(event.target.value))}
+            aria-label={`Surface ${nom}, en mètres carrés`}
+            className="surface-slider"
+          />
+        </div>
+        <PetitBouton
+          icon={Plus}
+          label={`Ajouter un mètre carré ${nom}`}
+          disabled={m2 >= reglage.max}
+          onClick={() => ajuster(1)}
+        />
+      </div>
+    </div>
   )
 }
 

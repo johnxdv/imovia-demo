@@ -50,6 +50,17 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  * derrière, et elle continuera de monter pendant qu'on tape. « Où se situe
  * votre bien ? » arrive donc immédiatement, sans temps mort.
  *
+ * LE RETOUR EN ARRIÈRE NON PLUS, et c'est un correctif. Cette pause suppose
+ * qu'il y a quelque chose à regarder pendant qu'elle dure ; en arrière, il n'y
+ * a rien — le bien se DÉFAIT, on ne revient pas voir un chantier se démonter.
+ * Ce qu'on y gagnait, c'était un écran blanc : le panneau sortant s'efface en
+ * 0,22 s, le suivant attend encore 0,35 s avant de commencer à revenir, et le
+ * parcours n'affiche plus rien pendant plus d'une demi-seconde. Sur l'écran
+ * résultat, qui rend la main à la carte — laquelle doit se remonter, recharger
+ * ses dalles et ses emprises — cette demi-seconde de vide se lisait comme une
+ * navigation cassée : on cliquait sur « Modifier ma sélection » et la carte
+ * disparaissait. Elle revient désormais sans attendre, et par la gauche.
+ *
  * Deux gestes de construction ne se jouent pas au changement d'étape mais à
  * l'intérieur d'un écran : les fenêtres qui apparaissent au milieu de l'analyse,
  * et le halo doré à la confirmation finale. Ils n'ont délibérément pas de
@@ -59,8 +70,11 @@ const STAGES = ['intro', 'adresse', 'batiment', 'analyse', 'resultat']
  */
 const PAUSE_CHANTIER_S = 0.35
 
-/** Pause avant l'arrivée d'un écran donné. Nulle à l'entrée du parcours. */
-const pauseChantier = (step) => (step === 'adresse' ? 0 : PAUSE_CHANTIER_S)
+/**
+ * Pause avant l'arrivée d'un écran donné. Nulle à l'entrée du parcours, et
+ * nulle sur tout retour en arrière.
+ */
+const pauseChantier = (step, retour) => (retour || step === 'adresse' ? 0 : PAUSE_CHANTIER_S)
 
 /**
  * Stade du décor pour l'étape en cours — et rien d'autre : cette fonction ne
@@ -212,11 +226,25 @@ export default function Estimer() {
   // en cours.
   const [stageProgress, setStageProgress] = useState(0)
 
+  /**
+   * Sens du dernier déplacement — il ne commande que l'animation du panneau,
+   * jamais ce qui s'affiche dedans.
+   *
+   * Le sens se DÉDUIT de la position des deux étapes dans `STAGES` : aucun
+   * appelant n'a à le déclarer, et aucun ne peut donc se tromper. `etapeRef`
+   * double `step` parce que `goToStep` doit rester d'identité stable — les
+   * étapes l'appellent depuis un effet — et ne peut donc pas lire l'état.
+   */
+  const etapeRef = useRef('intro')
+  const [retour, setRetour] = useState(false)
+
   // Centralise les transitions d'étape : la progression locale est remise à
   // zéro par la même occasion, plutôt que via un effet séparé sur `step` —
   // un tel effet retomberait après coup sur la valeur volontairement fixée à
   // 1 lors du passage à l'étape finale (voir `finishChat`).
   const goToStep = useCallback((nextStep, localProgress = 0) => {
+    setRetour(STAGES.indexOf(nextStep) < STAGES.indexOf(etapeRef.current))
+    etapeRef.current = nextStep
     setStageProgress(localProgress)
     setStep(nextStep)
     // Quitter l'écran de résultat referme l'affinage : sans cela, le décor
@@ -315,15 +343,26 @@ export default function Estimer() {
   //
   // En mode « moins d'animations », pas de pause : l'écran suivant s'affiche
   // tout de suite, et la scène s'est déjà calée d'un bloc sur son nouvel état.
+  //
+  // LE RETOUR NE TOUCHE QUE L'ENTRÉE, et c'est suffisant. Le panneau qui sort
+  // garde les props qu'il avait au moment où on l'a retiré : sa variante de
+  // sortie est déjà figée, et la faire dépendre du sens demanderait de la faire
+  // voyager par le `custom` d'`AnimatePresence`. Or ce qu'on cherche à
+  // supprimer, ce n'est pas la sortie — elle dure 0,22 s dans les deux sens —
+  // c'est la PAUSE qui la suit. Elle, elle appartient à l'écran qui arrive, et
+  // celui-ci est rendu avec la valeur du jour.
+  //
+  // Le glissement d'entrée s'inverse en revanche : on avance vers la droite, on
+  // revient par la gauche.
   const variants = {
-    enter: { opacity: 0, x: reduce ? 0 : 24 },
+    enter: { opacity: 0, x: reduce ? 0 : retour ? -24 : 24 },
     center: {
       opacity: 1,
       x: 0,
       transition: {
         duration: reduce ? 0.14 : 0.3,
         ease: EASE,
-        delay: reduce ? 0 : pauseChantier(step),
+        delay: reduce ? 0 : pauseChantier(step, retour),
       },
     },
     exit: {
@@ -484,6 +523,12 @@ export default function Estimer() {
                   address={address}
                   estimation={estimation}
                   type={typeScene}
+                  // Ce que le vendeur a déclaré dans la fenêtre de surface. Le
+                  // moteur s'en est déjà servi ; l'affinage en a besoin à son
+                  // tour pour valoriser un balcon au prix du mètre carré
+                  // habitable et un ascenseur à la hauteur où il monte.
+                  surface={selection?.surfaceM2 ?? null}
+                  etage={selection?.etage ?? null}
                   contenance={contenanceParcelle(selection)}
                   onBack={() => goToStep('batiment')}
                   onDone={finishChat}

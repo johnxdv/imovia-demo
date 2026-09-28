@@ -838,7 +838,7 @@ export function creerVilla(indexPalier) {
        * LE TERRAIN S'ÉTEND, ET IL SE PLANTE.
        *
        * Le curseur monte désormais à 5 000 m² au lieu de 2 000 (voir
-       * `TERRAIN_SAISIE_MAX` dans `src/lib/affinage.js`), et le terrain va avec :
+       * `CURSEURS.terrain` dans `src/lib/affinageConfig.js`), et le terrain va avec :
        * la pelouse passe de neuf à trente-deux unités de rayon là où elle
        * s'arrêtait à vingt et une, l'allée s'allonge d'autant, et le bosquet de
        * fond de parcelle recule.

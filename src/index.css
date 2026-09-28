@@ -201,6 +201,48 @@
     text-shadow: none;
   }
 
+  /* LE MONTANT DE L'ESTIMATION — et le seul texte du site dont la taille se
+     règle sur son contenant plutôt que sur la fenêtre.
+
+     CE QUI NE MARCHAIT PAS. Le montant était posé à une taille fixe
+     (6,5 rem sur ordinateur), choisie à l'œil sur un prix à six chiffres. Elle
+     ne tenait dans la carte pour aucun d'entre eux : « 390 000 € » y mesurait
+     461 px de large pour 374 px de place, si bien que le premier chiffre
+     débordait à gauche, le symbole € se faisait couper à droite, et le flou —
+     qui déborde du glyphe de plusieurs dizaines de pixels — était rogné net par
+     l'`overflow-hidden` de la carte. Sur téléphone, le même calcul donnait
+     301 px pour 231 px de place.
+
+     CE QUI LE REMPLACE. La carte devient un CONTENEUR DE REQUÊTE
+     (`container-type: inline-size`), et la taille du montant se déduit de sa
+     largeur : `100cqw` divisé par la largeur du texte exprimée en cadratins.
+     Cette largeur-là, seul l'appelant la connaît — elle dépend du nombre de
+     chiffres — et il la passe en `--montant-largeur` (voir `PriceReveal`).
+     `--montant-max` garde la taille d'origine comme plafond : sur un écran
+     assez large, rien n'a changé ; partout ailleurs, le montant se pose à la
+     taille qui tient.
+
+     LE RETRAIT LATÉRAL EST LA PLACE DU FLOU, pas une marge d'esthétique. Sans
+     lui, le montant tiendrait tout juste et son flou repartirait déborder. */
+  .montant-cadre {
+    container-type: inline-size;
+    padding-inline: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .montant-cadre {
+      padding-inline: 1.25rem;
+    }
+  }
+
+  .montant {
+    font-size: clamp(
+      1.75rem,
+      calc(100cqw / var(--montant-largeur, 5)),
+      var(--montant-max, 4rem)
+    );
+  }
+
   /* Variante sans flou, pour les blocs posés À L'INTÉRIEUR d'un panneau (carte
      de fourchette, encart d'attente) : deux flous empilés se voient, et le
      second n'a de toute façon rien à flouter. */
