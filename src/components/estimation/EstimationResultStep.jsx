@@ -71,6 +71,7 @@ export function EstimationResultStep({
   onProgress,
   onAffinage,
   onPleineLargeur,
+  onConversation,
   onClose,
 }) {
   const reduce = useReducedMotion()
@@ -158,6 +159,20 @@ export function EstimationResultStep({
     onPleineLargeur?.(started && !affinage)
   }, [started, affinage, onPleineLargeur])
 
+  /**
+   * LA CONVERSATION, ET RIEN QU'ELLE — ni le prix au repos qui la précède, ni
+   * la confirmation qui la suit.
+   *
+   * C'est le seul moment du parcours où le panneau recouvre le MILIEU de
+   * l'écran. Le décor s'en sert pour ranger le bien en bas à gauche, dans ce
+   * qui reste de vide, et pour prendre le recul qu'il faut (voir le plan 7 dans
+   * `scene/plans.js`). La confirmation, elle, reprend le centre : c'est le
+   * moment du halo, et un bien salué dans un coin serait un bien salué de loin.
+   */
+  useEffect(() => {
+    onConversation?.(started && !finished && !affinage)
+  }, [started, finished, affinage, onConversation])
+
   const handleChatDone = (collected) => {
     setContact(collected)
     onDone?.(collected)
@@ -179,7 +194,35 @@ export function EstimationResultStep({
   // qu'on est venu regarder.
   if (affinage) {
     return (
-      <div className="w-full max-w-6xl">
+      /**
+       * L'AFFINAGE SE RANGE CONTRE LA SCÈNE, EN UNE SEULE COLONNE.
+       *
+       * Trois choses ont été corrigées ici, et les trois tiennent au même
+       * défaut : le montant et le panneau ne formaient pas un bloc.
+       *
+       *   LE MONTANT EST AU-DESSUS DU PANNEAU, dans son axe. Il était rangé au
+       *   bord opposé d'un conteneur bien plus large que lui : on le lisait en
+       *   diagonale du titre qu'il concerne, et rien ne disait que les deux
+       *   parlaient du même bien. Ils partagent désormais la même colonne, et
+       *   l'ordre de lecture est celui de la phrase — le prix, puis « affinez
+       *   votre estimation ».
+       *
+       *   LA COLONNE EST POUSSÉE À DROITE (`ml-auto`), au bord intérieur de la
+       *   zone du panneau, et non plus contre le bord gauche de l'écran. C'est
+       *   le seul écran du parcours où le décor est le SUJET : le panneau doit
+       *   venir à lui, pas se réfugier à l'autre bout.
+       *
+       *   ET ELLE S'EST ÉLARGIE d'un cran — `max-w-md` au lieu de `max-w-sm`.
+       *   Le panneau porte trois niveaux de standing, des atouts et jusqu'à
+       *   trois curseurs : à 24 rem, chaque ligne se coupait.
+       *
+       * La marge de droite n'est pas une respiration : c'est la place du rail
+       * d'étapes, qui se tient sur la couture entre les deux zones (voir
+       * `Estimer.jsx`). Sans elle, le panneau passerait dessus. Elle ne vaut
+       * qu'à partir du gabarit ordinateur : en dessous, la scène est la bande
+       * du HAUT et non la moitié droite, et le panneau se centre.
+       */
+      <div className="mx-auto w-full max-w-md lg:ml-auto lg:mr-4 xl:mr-6">
         {/* LE RETOUR DE CET ÉCRAN-CI RESTE SUR CET ÉCRAN-CI. L'affinage n'est
             pas une étape du parcours : c'est un dépliant de l'écran résultat,
             et son retour referme le dépliant au lieu de remonter le parcours
@@ -190,31 +233,27 @@ export function EstimationResultStep({
           Retour à mon estimation
         </StepBackLink>
 
-        <div className="flex justify-end">
-          <motion.div
-            layout
-            initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: reduce ? 0.2 : 0.45, ease: EASE }}
-            className="panneau-verre flex items-baseline gap-3 px-5 py-3"
-          >
-            <span className="font-mono text-[0.56rem] uppercase tracking-micro text-ink/55">
-              Estimation
-            </span>
-            <span className="titre-etape whitespace-nowrap text-[1.35rem] leading-none text-laiton-texte tabular-nums">
-              {formatted ?? '— €'}
-            </span>
-          </motion.div>
-        </div>
+        <motion.div
+          layout
+          initial={{ opacity: 0, scale: reduce ? 1 : 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: reduce ? 0.2 : 0.45, ease: EASE }}
+          className="panneau-verre mb-3 flex items-baseline justify-between gap-3 px-6 py-3.5"
+        >
+          <span className="font-mono text-[0.56rem] uppercase tracking-micro text-ink/55">
+            Estimation
+          </span>
+          <span className="titre-etape whitespace-nowrap text-[1.45rem] leading-none text-laiton-texte tabular-nums">
+            {formatted ?? '— €'}
+          </span>
+        </motion.div>
 
-        <div className="mt-5 w-full max-w-sm">
-          <EstimationAffinagePanel
-            type={type}
-            options={options}
-            onChange={setOptions}
-            onTermine={() => ouvrirAffinage(false)}
-          />
-        </div>
+        <EstimationAffinagePanel
+          type={type}
+          options={options}
+          onChange={setOptions}
+          onTermine={() => ouvrirAffinage(false)}
+        />
       </div>
     )
   }
@@ -395,16 +434,34 @@ export function EstimationResultStep({
               transition={{ duration: reduce ? 0.2 : 0.5, ease: EASE, delay: reduce ? 0 : 0.25 }}
               className="mt-4"
             >
-              <button
-                type="button"
-                onClick={() => ouvrirAffinage(true)}
-                className="bouton-tunnel flex w-full items-center justify-center gap-2.5 px-6 py-4"
-              >
-                <SlidersHorizontal className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                <span className="text-[0.82rem] font-semibold uppercase tracking-[0.07em]">
-                  Affiner mon estimation
-                </span>
-              </button>
+              {/* LA BANDE LUMINEUSE — et pourquoi ce bouton-là seulement.
+
+                  C'est la dernière action du parcours, celle qui reste à faire
+                  quand tout le reste est fait, et la seule qui change encore le
+                  montant. Posé comme les autres — anthracite plein sur fond
+                  blanc —, il se lisait comme un bouton de plus sous une carte
+                  de fourchette, et beaucoup passaient à côté.
+
+                  Une lueur tourne donc autour de lui, dans le LAITON DU PRIX :
+                  la couleur du montant qu'il va modifier, et celle du halo qui
+                  entoure le bien au même instant. Il est aussi plus épais d'un
+                  cran — un bouton qu'on veut voir se donne de la hauteur.
+
+                  Elle s'arrête d'elle-même en « moins d'animations » (voir
+                  `.bande-lumineuse` dans `src/index.css`) : une lueur qui
+                  tourne en boucle est exactement ce dont on se passe alors. */}
+              <div className="bande-lumineuse">
+                <button
+                  type="button"
+                  onClick={() => ouvrirAffinage(true)}
+                  className="bouton-tunnel flex w-full items-center justify-center gap-2.5 px-6 py-5"
+                >
+                  <SlidersHorizontal className="h-[1.05rem] w-[1.05rem]" strokeWidth={2} aria-hidden="true" />
+                  <span className="text-[0.86rem] font-semibold uppercase tracking-[0.07em]">
+                    Affiner mon estimation
+                  </span>
+                </button>
+              </div>
               {/* Rien sous ce bouton. La phrase qui y énumérait les compléments
                   — balcon, panneaux, standing, « ce que les bases publiques
                   ignorent » — les annonçait à un vendeur qui n'a pas encore

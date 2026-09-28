@@ -552,12 +552,18 @@ export function creerVilla(indexPalier) {
    */
   const haie = []
   ;[
-    [-14, 6, 3.4],
-    [13, 3, 3.9],
-    [-11, -9, 3.1],
-    [16, -6, 3.6],
-    [-6, 14, 2.8],
-    [8, 16, 3.3],
+    [-9.4, 4.6, 3.4],
+    [8.8, 2.4, 3.9],
+    [-7.6, -6.2, 3.1],
+    [10.6, -4.2, 3.6],
+    [-4.4, 9.6, 2.8],
+    [5.6, 10.8, 3.3],
+    [-12.2, -1.2, 3.5],
+    [12.4, 6.4, 3.0],
+    [1.8, -9.8, 3.7],
+    [-6.2, 12.6, 3.2],
+    [9.2, -8.6, 2.9],
+    [-11.4, 8.2, 3.6],
   ].forEach(([x, z, h]) => {
     const sujet = arbre(h)
     sujet.position.set(x, 0, z)
@@ -643,22 +649,67 @@ export function creerVilla(indexPalier) {
   )
   groupe.add(piscine)
 
-  // Panneaux photovoltaïques : posés à plat sur la toiture, en deux rangées
-  // alignées — pas un damier jeté au hasard.
+  /**
+   * PANNEAUX PHOTOVOLTAÏQUES — ILS ARRIVENT DU CIEL, ET ILS SE POSENT DEVANT.
+   *
+   * DEUX CORRECTIONS, et les deux portent sur ce qu'on voit.
+   *
+   * LE VERSANT. Ils étaient posés à l'arrière de la couverture (`z` négatif),
+   * c'est-à-dire du côté que la caméra ne regarde jamais : le point de vue ne
+   * quitte pas la façade de plus de vingt-trois degrés (voir `ECART_FACE_MAX`
+   * dans `plans.js`). Le vendeur cochait la case et ne voyait strictement
+   * rien. Ils sont désormais sur le VERSANT AVANT, plein cadre — et couchés à
+   * la pente du toit plutôt qu'inclinés au jugé : un panneau qui ne suit pas
+   * son versant se voit comme une tuile mal posée.
+   *
+   * L'ARRIVÉE. Ils ne paraissaient pas non plus : ils se révélaient en
+   * opacité, sur place, ce qui se lit comme une tache qui s'assombrit. Ils
+   * DESCENDENT maintenant du ciel et se posent sur la toiture — la hauteur de
+   * départ se consomme à la même cadence que le fondu (voir `poser`), si bien
+   * que le panneau devient opaque en même temps qu'il touche le toit.
+   */
   const panneaux = new THREE.Group()
-  const rangeeL = (etage ? etage.largeur : corps.largeur) * 0.78
+  const toitEnPente = palier.toitEtage === 'pente' && Boolean(etage)
+  const largeurToit = etage ? etage.largeur : corps.largeur
+  const profondeurToit = etage ? etage.profondeur : corps.profondeur
+  const debordToit = etage ? 0.42 : 0.55
+  const rangeeL = largeurToit * 0.78
+
   for (let rangee = 0; rangee < 2; rangee += 1) {
     for (let i = 0; i < 4; i += 1) {
-      const module = poser(panneaux, boite(rangeeL / 4.4, 0.06, 0.82, M.panneauSolaire()))
+      const module = poser(panneaux, boite(rangeeL / 4.4, 0.05, 0.78, M.panneauSolaire()))
       module.position.set(
         -rangeeL / 2 + ((i + 0.5) * rangeeL) / 4,
-        0.06,
-        -0.5 + rangee * 0.92,
+        0.05,
+        -0.46 + rangee * 0.88,
       )
-      module.rotation.x = palier.toitEtage === 'pente' && etage ? 0.2 : 0.16
     }
   }
-  panneaux.position.set(etage ? etage.decalage : 0, hauteurToit - 0.1, -(etage ? etage.profondeur : corps.profondeur) * 0.1)
+
+  if (toitEnPente) {
+    // Le versant avant, couché à sa pente : `toitPente` construit ses deux
+    // rampants sur une demi-profondeur de `demiP` et une hauteur de faîtage de
+    // `demiP × pente` — on reprend exactement ce calcul pour poser les modules
+    // dans le plan du rampant, et non au-dessus.
+    const demiP = (profondeurToit + debordToit * 2) / 2
+    const hauteurFaitage = demiP * 0.3
+    const inclinaison = Math.atan2(hauteurFaitage, demiP)
+    panneaux.rotation.x = inclinaison
+    panneaux.position.set(
+      etage ? etage.decalage : 0,
+      sommet + hauteurFaitage * 0.52,
+      (etage ? (corps.profondeur - etage.profondeur) / 2 - etage.porteAFaux : 0) + demiP * 0.46,
+    )
+  } else {
+    // Toit plat : les modules sont relevés vers le sud, face à la caméra.
+    panneaux.rotation.x = 0.2
+    panneaux.position.set(0, hauteurToit - 0.16, profondeurToit * 0.12)
+  }
+
+  /** Altitude de repos des panneaux — celle qu'ils rejoignent en descendant. */
+  const yPanneauxPose = panneaux.position.y
+  /** De quelle hauteur ils tombent. Assez pour qu'on les voie arriver. */
+  const CHUTE_PANNEAUX = 7
   groupe.add(panneaux)
 
   // Terrasse supplémentaire : un deck de bois en prolongement du dallage,
@@ -796,6 +847,24 @@ export function creerVilla(indexPalier) {
     hauteurCoupe: hauteurToit + 0.6,
     envergure,
     rayonSol: 16,
+
+    /**
+     * LES OUVRAGES DE L'AFFINAGE, par le nom sous lequel le parcours les
+     * déclare. Le décor s'en sert pour illuminer deux secondes celui que le
+     * vendeur vient de régler (voir `ACCUSES` dans `DroneScene`).
+     *
+     * `terrain` désigne les abords entiers — la pelouse, l'allée, les massifs
+     * et les sujets sortis de terre : c'est le terrain qu'on vient de déclarer,
+     * et il n'a pas d'autre corps que celui-là. `standing` désigne le bâti,
+     * puisque c'est sur ses matières que le niveau déclaré se lit.
+     */
+    ouvrages: {
+      piscine,
+      terrain: abords,
+      panneaux,
+      terrasse: terrasseBois,
+      standing: bati,
+    },
     /**
      * Repères lus par le décor : la hauteur hors tout, et le point d'appel du
      * plan rapproché de la terrasse. La porte et le faîtage étaient les pivots
@@ -835,44 +904,50 @@ export function creerVilla(indexPalier) {
       })
 
       /**
-       * LE TERRAIN S'ÉTEND, ET IL SE PLANTE.
+       * LE TERRAIN SE PLANTE D'ABORD, ET IL S'ÉTEND À PEINE.
        *
-       * Le curseur monte désormais à 5 000 m² au lieu de 2 000 (voir
-       * `CURSEURS.terrain` dans `src/lib/affinageConfig.js`), et le terrain va avec :
-       * la pelouse passe de neuf à trente-deux unités de rayon là où elle
-       * s'arrêtait à vingt et une, l'allée s'allonge d'autant, et le bosquet de
-       * fond de parcelle recule.
+       * LA PELOUSE NE GRANDIT PRESQUE PLUS. Elle passait de neuf à trente-deux
+       * unités de rayon sur la course du curseur, et c'était trois fois trop :
+       * le drone est cadré sur la maison, et un disque vert qui triple de
+       * diamètre sous elle ne se lit pas comme un terrain plus grand — il se
+       * lit comme un dézoom, la maison paraissant rétrécir à mesure. Elle va
+       * désormais de neuf à seize : de quoi voir la limite s'éloigner, jamais
+       * de quoi perdre l'échelle du bien. L'allée et le bosquet suivent le même
+       * régime.
        *
-       * ET DES ARBRES SORTENT DE TERRE À MESURE. Ce n'est pas la même chose
-       * qu'une pelouse plus large : un terrain de cinq mille mètres carrés se
-       * reconnaît à ce qu'il porte, pas à son rayon — sans sujets, on ne voit
-       * qu'un disque vert qui grandit. Les six sujets de la haie arrivent l'un
-       * après l'autre, échelonnés sur toute la course du curseur, et chacun
-       * pousse comme poussent ceux de l'analyse : d'un tiers de sa largeur et
-       * de rien du tout en hauteur.
+       * CE QUI DIT LA SURFACE, CE SONT LES ARBRES. Un terrain de cinq mille
+       * mètres carrés ne se reconnaît pas à son rayon mais à ce qu'il porte :
+       * les DOUZE sujets de la haie sortent de terre l'un après l'autre, et
+       * leur nombre suit la surface déclarée — quelques-uns pour un jardin de
+       * ville, un parc entier pour cinq mille mètres carrés. Chacun pousse
+       * comme poussent ceux de l'analyse : d'un tiers de sa largeur, et de rien
+       * du tout en hauteur.
        */
-      const rayon = 9 + v.terrain * 23
+      const rayon = 9 + v.terrain * 7
       pelouse.scale.set(rayon, rayon, 1)
-      allee.scale.z = 1 + v.terrain * 1.1
-      bosquet.scale.setScalar(1 + v.terrain * 0.42)
-      bosquet.position.z = -v.terrain * 6.5
+      allee.scale.z = 1 + v.terrain * 0.24
+      bosquet.scale.setScalar(1 + v.terrain * 0.12)
+      bosquet.position.z = -v.terrain * 2
 
       // `porteeParc` retient le plus éloigné des sujets SORTIS DE TERRE : c'est
       // la seule mesure qui compte pour le socle, un arbre qui n'a pas encore
       // poussé n'ayant rien à porter.
+      //
+      // Ils s'écartent avec la pelouse, et dans le même rapport qu'elle : leur
+      // position de plantation est celle du terrain à plein, et elle se
+      // rapproche de la maison quand il est petit.
+      const ouverture = (rayon - 1.6) / 14.4
       let porteeParc = 0
       haie.forEach((sujet, i) => {
-        const retard = (i / haie.length) * 0.82
-        const t = Math.max(0, Math.min(1, (v.terrain - retard) / Math.max(0.18, 1 - retard)))
+        const retard = (i / haie.length) * 0.86
+        const t = Math.max(0, Math.min(1, (v.terrain - retard) / Math.max(0.14, 1 - retard)))
         const e = t < 1 ? 1 - (1 - t) ** 3 : 1
         sujet.scale.set(0.34 + 0.66 * e, e, 0.34 + 0.66 * e)
         sujet.visible = e > 0.015
-        // Ils s'éloignent avec la parcelle : plantés à poste fixe, ils
-        // finiraient au milieu d'une pelouse trois fois plus large qu'eux.
         sujet.position.set(
-          sujet.userData.base.x * (1 + v.terrain * 1.5),
+          sujet.userData.base.x * ouverture,
           0,
-          sujet.userData.base.z * (1 + v.terrain * 1.5),
+          sujet.userData.base.z * ouverture,
         )
         if (sujet.visible) {
           porteeParc = Math.max(porteeParc, Math.hypot(sujet.position.x, sujet.position.z) + 2.6)
@@ -880,7 +955,24 @@ export function creerVilla(indexPalier) {
       })
 
       revelerPiscine(v.piscine)
-      revelerPanneaux(v.panneaux)
+
+      /**
+       * LES PANNEAUX DESCENDENT. La valeur d'affinage sert deux fois : elle
+       * consomme la hauteur de chute, et elle rend les modules opaques.
+       *
+       * Le fondu va DEUX FOIS PLUS VITE que la descente : les panneaux sont
+       * entièrement dessinés à mi-course, et c'est la fin de la trajectoire —
+       * celle où ils se posent — qu'on regarde. Des modules qui finiraient de
+       * paraître au moment de toucher le toit ne se seraient jamais posés
+       * nulle part.
+       */
+      const pose = Math.max(0, Math.min(1, v.panneaux))
+      // Chute décélérée : ils arrivent vite et se posent doucement, comme
+      // quelque chose qu'on dépose et non quelque chose qui tombe.
+      const atterrissage = 1 - (1 - pose) ** 2
+      panneaux.position.y = yPanneauxPose + (1 - atterrissage) * CHUTE_PANNEAUX
+      revelerPanneaux(Math.min(1, pose * 2))
+
       revelerTerrasse(v.terrasse)
       revelerStanding(v.standing)
 

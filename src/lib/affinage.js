@@ -209,10 +209,11 @@ export function affinerEstimation(estimation, options, contexte) {
  * à révéler ; cette fonction fait la traduction, et elle est le seul endroit
  * où les deux vocabulaires se rencontrent.
  *
- * Elle est aussi le seul endroit où une surface déclarée redevient un booléen :
- * un balcon de huit mètres carrés et un balcon de trente se dessinent pareil,
- * seule leur existence se voit — là où le terrain et le rooftop, eux, changent
- * de taille sous le curseur.
+ * Elle est aussi le seul endroit où une surface déclarée redevient un booléen —
+ * et il n'en reste qu'une, le BALCON : à la profondeur qu'a un balcon, huit
+ * mètres carrés et trente se dessinent pareil, seule leur existence se voit.
+ * Le terrain, le ROOFTOP et le REZ-DE-JARDIN, eux, changent de taille sous le
+ * curseur : ce sont des surfaces qu'on arpente, et dont on voit la limite.
  */
 export function optionsDecor(options, type = 'maison') {
   const o = { ...OPTIONS_DEFAUT, ...(options ?? {}) }
@@ -229,7 +230,10 @@ export function optionsDecor(options, type = 'maison') {
     panneaux: maison && Boolean(o.panneaux),
     terrasse: maison && Boolean(o.terrasse),
     balcon: !maison && nombre(o.balconM2) > 0,
-    rezDeJardin: !maison && nombre(o.rezDeJardinM2) > 0,
+    // Le jardin privatif se dessine à la surface déclarée, sur toute l'échelle
+    // du curseur : de quinze mètres carrés de terrasse à deux cents mètres
+    // carrés de vrai jardin, ce n'est pas le même bien.
+    rezDeJardin: maison ? 0 : borne(nombre(o.rezDeJardinM2) / CURSEURS.rezDeJardin.max, 0, 1),
     rooftop: maison ? 0 : borne(nombre(o.rooftopM2) / CURSEURS.rooftop.max, 0, 1),
     standing: rangStanding(o.standing),
   }

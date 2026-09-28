@@ -272,6 +272,85 @@
     pointer-events: none;
   }
 
+  /* LA BANDE LUMINEUSE — une lueur qui tourne autour d'un bouton.
+
+     Elle ne sert qu'à un seul bouton de tout le site : « Affiner mon
+     estimation ». C'est la dernière action du parcours, la seule qui change
+     encore le montant, et elle arrivait sous une carte de fourchette dans le
+     même anthracite que tous les autres boutons — beaucoup passaient à côté.
+
+     COMMENT C'EST FAIT, et pourquoi pas autrement. Le cadre est un conteneur
+     d'un pixel et demi de padding, garni d'un dégradé CONIQUE qui tourne : le
+     bouton, opaque, le recouvre entièrement sauf sur ce liseré. Il n'y a donc
+     ni ombre animée ni filtre — une seule rotation de dégradé, composée par le
+     processeur graphique, qui ne relayoute rien et ne repeint rien d'autre.
+
+     Le dégradé est à quatre arrêts et non deux : une lueur qui reste allumée
+     sur tout le tour est un simple liseré doré. C'est le fait qu'elle
+     s'ÉTEIGNE sur les trois quarts du tour qui la fait lire comme une bande
+     qui passe — et c'est aussi ce qui l'empêche de crier.
+
+     Les deux laitons sont ceux du montant : `#C9A16B` pour le corps de la
+     bande, `#8A6224` — la teinte exacte du prix sur le blanc — pour son cœur. */
+  .bande-lumineuse {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: 11px;
+    /* Trois pixels, et pas un de moins : c'est l'épaisseur à laquelle une
+       bande se VOIT. À un pixel et demi, elle existait dans la feuille de
+       style et nulle part ailleurs. */
+    padding: 3px;
+    /* Un halo court sous le bouton : ce que la bande éclaire autour d'elle.
+       Sans lui, la lueur s'arrête net sur le bord du cadre. */
+    box-shadow: 0 0 22px rgba(201, 161, 107, 0.42);
+  }
+
+  .bande-lumineuse::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    /* Un carré plus grand que le bouton dans les deux sens : un dégradé
+       conique tourne autour de SON centre, et il doit couvrir les quatre coins
+       du cadre à tout moment de sa rotation. */
+    width: 280%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    background: conic-gradient(
+      from 0turn,
+      rgba(201, 161, 107, 0.16) 0turn,
+      rgba(201, 161, 107, 1) 0.09turn,
+      rgba(255, 226, 176, 1) 0.13turn,
+      rgba(138, 98, 36, 1) 0.18turn,
+      rgba(201, 161, 107, 0.16) 0.3turn,
+      rgba(201, 161, 107, 0.16) 1turn
+    );
+    animation: bande-tourne 3.4s linear infinite;
+  }
+
+  /* Le bouton repasse devant la bande — il n'en laisse voir que le liseré. */
+  .bande-lumineuse > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @keyframes bande-tourne {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  /* MOINS D'ANIMATIONS : la bande se fige en un liseré laiton plein. Elle
+     continue de désigner le bouton — c'est tout ce qu'on lui demande — sans
+     rien mettre en mouvement. */
+  @media (prefers-reduced-motion: reduce) {
+    .bande-lumineuse::before {
+      animation: none;
+      background: theme('colors.laiton');
+    }
+  }
+
   /* Option ou créneau proposé au choix : filet discret au repos, laiton dès
      qu'il est survolé, laiton plein une fois retenu. */
   .option-tunnel {

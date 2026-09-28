@@ -16,9 +16,13 @@ import { EASE } from '../../lib/motion'
  * C'est tout l'objet de cet écran : que le vendeur voie son bien se construire
  * à mesure qu'il le décrit.
  *
- * LE PANNEAU EST VOLONTAIREMENT ÉTROIT et rangé à gauche. Ici, le décor n'est
- * plus un fond : c'est le sujet. Un panneau centré couvrirait exactement ce
- * qu'on vient demander au vendeur de regarder.
+ * LE PANNEAU EST VOLONTAIREMENT ÉTROIT, et rangé CONTRE LA SCÈNE — au bord
+ * intérieur de sa zone, le montant affiché juste au-dessus de lui (voir
+ * `EstimationResultStep`). Ici, le décor n'est plus un fond : c'est le sujet.
+ * Un panneau centré couvrirait exactement ce qu'on vient demander au vendeur de
+ * regarder ; un panneau réfugié contre le bord opposé de l'écran l'en éloigne
+ * de toute la largeur de la page, et sépare le montant de la question qui le
+ * fait bouger.
  *
  * CE QUI EST PROPOSÉ DÉPEND DU BIEN, et les deux listes n'ont aucun élément en
  * commun hormis le standing :

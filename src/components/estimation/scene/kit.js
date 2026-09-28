@@ -27,6 +27,53 @@ export function boite(largeur, hauteur, profondeur, matiere) {
   return new THREE.Mesh(new THREE.BoxGeometry(largeur, hauteur, profondeur), matiere)
 }
 
+/**
+ * CALE UNE TEXTURE SUR LE MONDE, ET NON SUR LA PIÈCE.
+ *
+ * Une `BoxGeometry` étale sa texture de 0 à 1 sur CHACUNE de ses faces, quelle
+ * que soit leur taille. Conséquence : un mur de neuf unités de large et un
+ * poteau d'un demi-mètre portent le même nombre de lames de bardage, les
+ * premières larges comme une porte, les secondes fines comme un cheveu. C'est
+ * l'erreur d'échelle la plus visible d'un décor calculé, et elle ne se corrige
+ * pas en changeant la texture — elle se corrige en changeant les coordonnées.
+ *
+ * On remet donc les UV à l'échelle du monde, face par face : `densite` est le
+ * nombre de fois où le motif se répète par unité de scène. Le bardage garde la
+ * même lame partout, le béton la même banche, le dallage la même dalle.
+ *
+ * La texture doit être en répétition (`repeter` dans `matieres.js`) : les UV
+ * sortent de l'intervalle 0–1, et un bord fixé les écraserait sur la dernière
+ * colonne de pixels.
+ */
+export function calerTexture(mesh, densite = 1) {
+  const geometrie = mesh.geometry
+  const cotes = geometrie?.parameters
+  const uv = geometrie?.attributes?.uv
+  if (!cotes || !uv || uv.count < 24) return mesh
+
+  const { width: l, height: h, depth: p } = cotes
+  // L'ordre des faces d'une `BoxGeometry` : +X, −X, +Y, −Y, +Z, −Z, quatre
+  // sommets chacune. Chaque face est étalée sur les deux cotes qui la bordent.
+  const echelles = [
+    [p, h],
+    [p, h],
+    [l, p],
+    [l, p],
+    [l, h],
+    [l, h],
+  ]
+
+  for (let face = 0; face < 6; face += 1) {
+    const [su, sv] = echelles[face]
+    for (let i = 0; i < 4; i += 1) {
+      const k = face * 4 + i
+      uv.setXY(k, uv.getX(k) * su * densite, uv.getY(k) * sv * densite)
+    }
+  }
+  uv.needsUpdate = true
+  return mesh
+}
+
 /** Cylindre vertical — poteau, colonne, souche. */
 export function fut(rayon, hauteur, matiere, faces = 16) {
   return new THREE.Mesh(new THREE.CylinderGeometry(rayon, rayon, hauteur, faces), matiere)
@@ -191,12 +238,38 @@ export function gardeCorpsFer({ largeur, hauteur = 0.55, barreaux = null }) {
   return groupe
 }
 
-/** Garde-corps de verre : une lame sur deux pinces, pour la villa. */
-export function gardeCorpsVerre({ largeur, hauteur = 0.58 }) {
+/**
+ * GARDE-CORPS DE VERRE — une lame, sa main courante, et ses pinces.
+ *
+ * C'est le garde-corps des villas contemporaines et de tous les balcons de
+ * l'immeuble. LES PINCES NE SONT PAS UN ORNEMENT : une lame de verre qui
+ * s'arrête net sur une dalle flotte, et c'est exactement ce qui trahissait le
+ * dessin. Deux sabots d'inox par panneau, et le verre est tenu.
+ *
+ * Le verre est découpé en PANNEAUX plutôt qu'en une lame continue : un
+ * garde-corps de six mètres d'un seul tenant n'existe pas, et les joints
+ * verticaux entre panneaux sont ce à quoi l'œil mesure la longueur d'un balcon.
+ */
+export function gardeCorpsVerre({ largeur, hauteur = 0.58, panneaux = null }) {
   const groupe = new THREE.Group()
-  const lame = poser(groupe, boite(largeur, hauteur, 0.02, M.verreVoile()), { ombre: false })
-  lame.position.y = hauteur / 2
-  const main = poser(groupe, boite(largeur + 0.04, 0.045, 0.06, M.aluNoir()), { ombre: false })
+  const nombre = panneaux ?? Math.max(1, Math.round(largeur / 1.15))
+  const pas = largeur / nombre
+
+  for (let i = 0; i < nombre; i += 1) {
+    const x = -largeur / 2 + (i + 0.5) * pas
+    const lame = poser(groupe, boite(pas - 0.03, hauteur, 0.022, M.verreVoile()), { ombre: false })
+    lame.position.set(x, hauteur / 2, 0)
+
+    // Les sabots : deux par panneau, au tiers de la portée. Volontairement
+    // petits et peu saillants — vus de loin et en enfilade, des pinces trop
+    // marquées se lisent comme une rangée de piquets.
+    ;[-1, 1].forEach((cote) => {
+      const sabot = poser(groupe, boite(0.09, 0.09, 0.05, M.aluNoir()), { ombre: false })
+      sabot.position.set(x + cote * (pas * 0.3), 0.05, 0)
+    })
+  }
+
+  const main = poser(groupe, boite(largeur + 0.04, 0.04, 0.055, M.aluNoir()), { ombre: false })
   main.position.y = hauteur
   return groupe
 }
@@ -272,21 +345,88 @@ export function lucarne({ largeur = 0.54, hauteur = 0.72 }) {
 /*  Végétation                                                                */
 /* -------------------------------------------------------------------------- */
 
-/** Arbre de jardin : un tronc et deux masses de feuillage décalées. */
+/**
+ * ARBRE DE JARDIN — un tronc, ses deux charpentières, et quatre masses de
+ * feuillage.
+ *
+ * IL EN AVAIT DEUX, ET C'ÉTAIT SON DÉFAUT. Deux icosaèdres empilés sur un
+ * cylindre donnent une silhouette symétrique, refermée sur elle-même, qu'on lit
+ * de loin comme une sucette — et c'était l'objet le moins crédible du décor,
+ * juste à côté du bien qu'on estime. Un arbre se reconnaît à trois choses, et
+ * aucune n'y était :
+ *
+ *   • UN HOUPPIER ASYMÉTRIQUE. Les masses sont décalées, d'inégales tailles,
+ *     et tirées au sort dans une fourchette : deux arbres plantés côte à côte
+ *     n'ont jamais la même couronne, et deux arbres identiques se voient
+ *     immédiatement.
+ *   • DES BRANCHES. Deux charpentières partant du tronc vers les masses
+ *     hautes. Sans elles, le feuillage flotte au-dessus du fût.
+ *   • DE LA LUMIÈRE QUI PASSE. Les masses claires sont posées au SUD-EST, du
+ *     côté du soleil de la scène, les sombres à l'opposé : c'est ce dégradé
+ *     dans la couronne, et non son contour, qui fait qu'un arbre a du volume.
+ *
+ * Les masses restent facettées (`flatShading`) et à faible définition : un
+ * feuillage lisse rend une boule de plastique, et un feuillage détaillé coûte
+ * des milliers de faces pour un sujet qu'on voit à trente mètres.
+ */
 export function arbre(hauteur = 2.6) {
   const groupe = new THREE.Group()
-  const bois = poser(groupe, fut(hauteur * 0.05, hauteur * 0.52, M.tronc(), 8))
-  bois.position.y = hauteur * 0.26
+  const tirage = () => Math.random() - 0.5
 
-  const basse = poser(groupe, new THREE.Mesh(new THREE.IcosahedronGeometry(hauteur * 0.3, 0), M.feuillage()))
-  basse.position.y = hauteur * 0.62
-  basse.scale.set(1, 0.85, 1)
-
-  const haute = poser(
+  // Le fût, légèrement conique et à peine penché : un tronc parfaitement
+  // vertical et parfaitement cylindrique est un poteau.
+  const fut_ = poser(
     groupe,
-    new THREE.Mesh(new THREE.IcosahedronGeometry(hauteur * 0.24, 0), M.feuillageClair()),
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(hauteur * 0.032, hauteur * 0.055, hauteur * 0.58, 7),
+      M.tronc(),
+    ),
   )
-  haute.position.set(hauteur * 0.08, hauteur * 0.86, -hauteur * 0.05)
+  fut_.position.y = hauteur * 0.29
+  fut_.rotation.z = tirage() * 0.05
+
+  // Les charpentières : deux branches obliques qui portent la couronne.
+  ;[-1, 1].forEach((cote) => {
+    const branche = poser(
+      groupe,
+      new THREE.Mesh(
+        new THREE.CylinderGeometry(hauteur * 0.012, hauteur * 0.026, hauteur * 0.3, 5),
+        M.tronc(),
+      ),
+      { ombre: false },
+    )
+    branche.position.set(cote * hauteur * 0.055, hauteur * 0.6, tirage() * hauteur * 0.06)
+    branche.rotation.z = -cote * 0.5
+  })
+
+  /**
+   * LES QUATRE MASSES. `[rayon, x, y, z, clair]`, en parts de la hauteur — la
+   * grande au cœur, deux latérales décalées, une au sommet. Chacune reçoit un
+   * écart tiré au sort : c'est ce qui fait qu'aucun sujet ne ressemble au
+   * suivant.
+   */
+  ;[
+    [0.3, 0.0, 0.7, 0.0, false],
+    [0.22, 0.2, 0.76, 0.11, true],
+    [0.2, -0.19, 0.66, -0.1, false],
+    [0.17, 0.05, 0.9, -0.04, true],
+  ].forEach(([rayon, x, y, z, clair]) => {
+    const masse = poser(
+      groupe,
+      new THREE.Mesh(
+        new THREE.IcosahedronGeometry(hauteur * rayon * (0.88 + Math.random() * 0.24), 1),
+        clair ? M.feuillageClair() : M.feuillage(),
+      ),
+    )
+    masse.position.set(
+      hauteur * (x + tirage() * 0.05),
+      hauteur * (y + tirage() * 0.03),
+      hauteur * (z + tirage() * 0.05),
+    )
+    // Un houppier est plus large que haut : c'est le poids des branches.
+    masse.scale.set(1, 0.82 + Math.random() * 0.12, 1)
+    masse.rotation.set(tirage() * 1.2, tirage() * 3, tirage() * 1.2)
+  })
 
   return groupe
 }

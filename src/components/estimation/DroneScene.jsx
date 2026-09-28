@@ -13,6 +13,7 @@ import {
   FACE,
   MARGE_CADRAGE,
   PLANS,
+  reglageDuPlan,
 } from './scene/plans'
 
 /**
@@ -39,10 +40,16 @@ import {
  *   qui apparaît, une aile qui se greffe, un porche qui s'ouvre. Jamais la
  *   même maison en plus grand (voir `scene/villa.js`).
  *
- *   Un appartement, c'est TOUJOURS LE MÊME immeuble haussmannien. Il se bâtit
- *   sous le curseur comme la maison le fait, et LES FENÊTRES DE L'ÉTAGE
- *   DÉCLARÉ s'y allument dès que le vendeur le règle — c'est tout ce qu'un
- *   immeuble peut honnêtement dire d'un logement qu'on ne voit pas de la rue.
+ *   Un appartement, c'est TOUJOURS LE MÊME IMMEUBLE CONTEMPORAIN : une
+ *   résidence de six niveaux, dalles de béton blanc en débord, bardage de bois
+ *   vertical et balcons décalés à garde-corps de verre (voir `immeuble.js`).
+ *   Il ne se bâtit PAS sous le curseur, et c'est le seul ouvrage dans ce cas :
+ *   il est entier dès l'instant où le type est connu, parce que c'est à cet
+ *   instant-là que le vendeur commence à régler sa surface — et qu'on ne règle
+ *   pas une surface devant un bâtiment qui n'a pas fini de paraître. Ce qui s'y
+ *   passe, c'est LES BAIES DE L'ÉTAGE DÉCLARÉ qui s'allument dès qu'il le
+ *   règle : c'est tout ce qu'un immeuble peut honnêtement dire d'un logement
+ *   qu'on ne voit pas de la rue.
  *
  * IL N'Y A PLUS DE VISITE INTÉRIEURE. Le drone entrait par la porte cochère,
  * montait le puits de l'escalier un tour par étage et parcourait un
@@ -50,7 +57,7 @@ import {
  * bien qu'on estime — dans un intérieur qui n'était celui de personne. La
  * séquence et son décor ont été retirés en entier.
  *
- * LA CAMÉRA, ELLE, NE VOYAGE PLUS.
+ * LA CAMÉRA, ELLE, NE VOYAGE PRESQUE PLUS.
  *
  * Elle tournait autour du bien, plongeait au ras de la dalle, venait coller à
  * la porte pour le premier temps de l'analyse et repassait au-dessus du toit
@@ -59,6 +66,14 @@ import {
  * sont désormais presque le même plan — la façade, une légère plongée — et
  * pendant l'écran d'analyse, ils sont rigoureusement identiques (voir `PLANS`).
  * Ce qui change à l'écran, c'est le bien ; jamais le point de vue.
+ *
+ * DEUX ÉCRANS Y FONT EXCEPTION, et les deux pour une raison de mise en page,
+ * jamais pour le plaisir du mouvement. Sur l'écran du PRIX, le drone redescend
+ * et dérive très lentement — deux ou trois kilomètres-heure, un vol
+ * stationnaire qui n'est pas tout à fait immobile. Sur celui de la
+ * CONVERSATION, où le panneau reprend toute la largeur et recouvre le milieu de
+ * l'image, le bien se range en bas à gauche et prend du recul : c'est le cadre
+ * qui se recompose, la caméra ne bouge pas (voir `viserDecale`).
  *
  * L'AFFINAGE, enfin : le vendeur ajoute une piscine, du terrain, des panneaux,
  * une terrasse ou un balcon, il choisit son standing — et chaque option se
@@ -123,12 +138,12 @@ const RAYON_SOL_DEFAUT = 12
  */
 const CHANTIER = {
   ossature: {
-    montage: [0.36, 0.78, 1, 1, 1, 1, 1, 1, 1],
+    montage: [0.36, 0.78, 1, 1, 1, 1, 1, 1, 1, 1],
   },
   villa: {
-    //                  0     1     2     3     4     5   6  7  8
-    montage: [0.22, 0.52, 0.8, 0.89, 0.96, 1, 1, 1, 1],
-    abords: [0, 0, 0.12, 0.5, 0.8, 1, 1, 1, 1],
+    //                  0     1     2     3     4     5   6  7  8  9
+    montage: [0.22, 0.52, 0.8, 0.89, 0.96, 1, 1, 1, 1, 1],
+    abords: [0, 0, 0.12, 0.5, 0.8, 1, 1, 1, 1, 1],
     // LES ARBRES SORTENT DE TERRE PENDANT L'ANALYSE, et là seulement : c'est le
     // seul moment du parcours où l'écran ne demande rien et où l'on attend. Un
     // arbre qui pousse est ce qu'on remarque du coin de l'œil en lisant une
@@ -137,17 +152,80 @@ const CHANTIER = {
     // La pousse démarre à peine au premier temps de l'analyse et se joue
     // surtout aux deux suivants : le plan de l'entrée est serré sur la porte,
     // et un arbre qui grandirait là se jouerait hors du cadre.
-    pousse: [0, 0, 0, 0.14, 0.58, 1, 1, 1, 1],
+    pousse: [0, 0, 0, 0.14, 0.58, 1, 1, 1, 1, 1],
   },
+  /**
+   * L'IMMEUBLE EST ACHEVÉ DÈS L'ÉCRAN DE LA SURFACE, ET IL N'Y MET PAS DE TEMPS.
+   *
+   * Il se bâtissait comme la maison : les dalles montaient, l'entrée arrivait,
+   * les baies se perçaient, le couronnement se posait — quatre gestes étalés du
+   * stade 2 au stade 5. C'était juste pour une maison qu'on regarde se
+   * construire, et faux ici, pour une raison de parcours : L'IMMEUBLE N'EST
+   * MONTÉ QU'AU MOMENT OÙ LE TYPE EST CONNU, c'est-à-dire au clic sur la carte,
+   * c'est-à-dire au stade 2 lui-même. Le vendeur ouvrait donc la fenêtre de
+   * surface sur un bâtiment à moitié bâti, et passait les premières secondes de
+   * son réglage à le regarder finir de paraître.
+   *
+   * Tout est donc à 1 dès le stade 2, et le décor pose ces valeurs D'UN BLOC
+   * quand l'architecture change (voir `aussitot` dans `appliquerEtat`) : quand
+   * l'écran de la surface arrive, l'immeuble est entier, et rien n'est en train
+   * de s'y terminer.
+   */
   immeuble: {
-    montage: [0.22, 0.58, 1, 1, 1, 1, 1, 1, 1],
-    // L'entrée arrive tôt : porte cochère, marquise et perron sont ce à quoi
-    // l'on reconnaît un immeuble avant même d'en avoir compté les étages.
-    entree: [0, 0, 1, 1, 1, 1, 1, 1, 1],
-    menuiserie: [0, 0, 0.3, 0.45, 1, 1, 1, 1, 1],
-    couronnement: [0, 0, 0.15, 0.25, 0.5, 1, 1, 1, 1],
-    abords: [0, 0, 0.1, 0.5, 0.8, 1, 1, 1, 1],
+    //             0     1  2  3  4  5  6  7  8  9
+    montage: [0.22, 0.58, 1, 1, 1, 1, 1, 1, 1, 1],
+    entree: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    menuiserie: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    couronnement: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    abords: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
   },
+}
+
+/**
+ * L'ACCUSÉ DE RÉCEPTION DE L'AFFINAGE — ce qui s'illumine, et pendant combien
+ * de temps.
+ *
+ * Le vendeur coche une case ou pousse un curseur, l'ouvrage se dessine, et
+ * c'est tout : rien ne lui dit que sa déclaration a été PRISE. Pour une piscine
+ * qui se creuse, l'ouvrage suffit ; pour un standing qui change une teinte de
+ * béton, pour un rooftop qui s'étend d'un demi-mètre, le geste est si
+ * progressif qu'on n'est plus sûr d'avoir agi.
+ *
+ * Dès que l'animation d'une option est FINIE — pas au clic : à l'arrivée —,
+ * l'ouvrage concerné s'illumine deux secondes, puis s'éteint. C'est le seul
+ * moment du décor où quelque chose s'adresse au vendeur plutôt qu'au bien.
+ *
+ *   `DUREE_ACCUSE`   les deux secondes, en entier, montée et descente comprises.
+ *   `MONTEE`         le temps que met la lumière à venir. Court : un accusé de
+ *                    réception qui met une seconde à paraître arrive après que
+ *                    le regard est reparti.
+ *   `DESCENTE`       le temps qu'elle met à s'en aller. Long, à l'inverse :
+ *                    c'est une extinction, pas une coupure.
+ *   `SEUIL_FINI`     l'écart en deçà duquel une valeur est considérée comme
+ *                    arrivée. Le lissage est exponentiel — il n'atteint jamais
+ *                    exactement sa cible —, et il faut donc un seuil.
+ *   `SEUIL_ENGAGE`   l'écart au-delà duquel on considère qu'une animation a
+ *                    VRAIMENT eu lieu. Sans lui, le moindre frémissement de
+ *                    valeur déclencherait un accusé de réception.
+ */
+const DUREE_ACCUSE = 2
+const MONTEE_ACCUSE = 0.18
+const DESCENTE_ACCUSE = 0.7
+const SEUIL_FINI = 0.012
+const SEUIL_ENGAGE = 0.05
+
+/** Les options qui méritent un accusé de réception, et leur intensité. */
+const ACCUSES = {
+  piscine: 0.75,
+  terrain: 0.55,
+  panneaux: 0.85,
+  terrasse: 0.7,
+  balcon: 0.85,
+  rezDeJardin: 0.6,
+  rooftop: 0.7,
+  // Le standing illumine le bâtiment entier : à pleine intensité, il le
+  // délaverait. Un tiers suffit à ce qu'on voie que quelque chose a été pris.
+  standing: 0.3,
 }
 
 const lire = (table, cle, stade, defaut = 0) => table[cle]?.[stade] ?? defaut
@@ -180,11 +258,36 @@ function creerScene(canvas, { mouvementReduit }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = true
-  // Ombres adoucies : le filtrage simple dessinait des bords en escalier sur
-  // les arêtes obliques — une ombre de toiture en pente s'y lisait crénelée.
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  /**
+   * LES OMBRES, ET LE RÉGLAGE QUI NE SERVAIT À RIEN.
+   *
+   * La scène demandait `PCFSoftShadowMap` pour des bords adoucis. Ce mode a
+   * été RETIRÉ de three : le moteur repliait silencieusement la demande sur le
+   * filtrage ordinaire (un avertissement dans la console, et des ombres dures)
+   * — si bien que le décor n'a jamais eu les ombres douces pour lesquelles il
+   * était écrit.
+   *
+   * Le filtrage ordinaire, lui, a changé entre-temps : il échantillonne
+   * désormais la carte d'ombre sur un DISQUE DE VOGEL de cinq points, tournés
+   * par un bruit par pixel, et l'étendue de ce disque se règle — c'est
+   * `shadow.radius`. C'est donc là que se trouve maintenant l'adoucissement, et
+   * la douceur qu'on cherchait est à un réglage près, pas à un mode près.
+   */
+  renderer.shadowMap.type = THREE.PCFShadowMap
   // Le plan de coupe du chantier a besoin du détourage local.
   renderer.localClippingEnabled = true
+
+  /**
+   * LE FILTRAGE ANISOTROPE, RELEVÉ SUR LA MACHINE ET NON DEVINÉ.
+   *
+   * C'est le réglage qui coûte le moins cher et qui se voit le plus : sans lui,
+   * une surface vue en biais — le trottoir, la chaussée, le platelage d'un
+   * rooftop, le sol qui fuit vers l'horizon — se délave en une bouillie grise
+   * dès que l'angle se ferme. La valeur retenue est bornée à huit : au-delà, le
+   * gain est invisible et l'échantillonnage devient mesurable sur les machines
+   * modestes.
+   */
+  M.reglerAnisotropie(Math.min(8, renderer.capabilities.getMaxAnisotropy()))
 
   const scene = new THREE.Scene()
   scene.background = M.textureFondBlanc()
@@ -245,6 +348,20 @@ function creerScene(canvas, { mouvementReduit }) {
   soleil.shadow.camera.far = 110
   soleil.shadow.bias = -0.0009
   soleil.shadow.normalBias = 0.022
+  /**
+   * L'ÉTENDUE DU FLOU, en texels de la carte d'ombre.
+   *
+   * Une ombre parfaitement nette n'existe pas dehors : le soleil a un demi-
+   * degré de diamètre apparent, et toute ombre portée s'élargit d'un centimètre
+   * par mètre de distance à ce qui la porte. À 1 — la valeur par défaut —, les
+   * ombres du décor étaient tranchées au rasoir, ce qui est exactement ce à
+   * quoi l'œil reconnaît une image calculée.
+   *
+   * Trois et demi, sur une carte de 2048 resserrée sur l'emprise du bien,
+   * donnent une pénombre de quelques centimètres : assez pour que le bord soit
+   * doux, jamais assez pour qu'une ombre de garde-corps se dissolve.
+   */
+  soleil.shadow.radius = 3.5
   scene.add(soleil)
 
   /**
@@ -370,24 +487,39 @@ function creerScene(canvas, { mouvementReduit }) {
   poserSocle(RAYON_SOL_DEFAUT, true)
 
   /**
-   * L'ENVIRONNEMENT. Le ciel, replié en carte d'éclairage, sert de reflet à
-   * tout ce qui en a un : les vitrages, le zinc, le laiton, le fer forgé. Sans
-   * lui, un métal sans source à refléter rend un gris mat — c'est ce qui
-   * donnait à la ferronnerie des balcons l'aspect du plastique peint.
+   * L'ENVIRONNEMENT — et c'est le réglage qui change le plus le rendu de tout
+   * le décor.
    *
-   * Son intensité est basse, et il le faut : la gestion des couleurs est coupée
-   * (voir plus haut), si bien qu'un éclairage d'environnement à pleine
+   * Il était le FOND DE SCÈNE lui-même : un blanc à peine dégradé, replié sur
+   * les six faces d'un cube. Un environnement uniforme n'a pas de direction —
+   * une baie vitrée y renvoie le même gris en haut et en bas, un garde-corps de
+   * verre le même voile sur toute sa hauteur, une couvertine de zinc la même
+   * clarté d'un bout à l'autre. C'est ce qui donnait à TOUTES les surfaces
+   * réfléchissantes du décor l'aspect du plastique peint, et aucune quantité de
+   * lumière directe n'y changeait rien : ce qui manquait n'était pas de la
+   * lumière, c'était un dehors.
+   *
+   * C'est désormais un vrai ciel — dégradé, avec sa ligne d'horizon franche,
+   * son sol sourd et deux sources douces (voir `creerScenetteEnvironnement`).
+   * Le verre prend le ciel en haut et le sol en bas, le métal attrape un point
+   * brillant quand la caméra dérive, et le nez des dalles de béton reçoit la
+   * ligne d'horizon. La scénette est rendue UNE FOIS, à l'ouverture, puis
+   * jetée : le coût est celui d'une image, pas d'une par seconde.
+   *
+   * Son intensité reste basse, et il le faut : la gestion des couleurs est
+   * coupée (voir plus haut), si bien qu'un éclairage d'environnement à pleine
    * puissance s'ajouterait tel quel aux lumières déjà réglées et délaverait la
    * scène entière. À un tiers, il ne se voit que là où il doit se voir — dans
-   * les reflets.
+   * les reflets —, et c'est `envMapIntensity`, matière par matière, qui dit
+   * lesquelles en prennent davantage (voir `matieres.js`).
    */
   const fabriqueEnv = new THREE.PMREMGenerator(renderer)
-  const scenette = new THREE.Scene()
-  scenette.background = M.textureFondBlanc()
+  const scenette = M.creerScenetteEnvironnement()
   const environnement = fabriqueEnv.fromScene(scenette, 0.04).texture
   scene.environment = environnement
   scene.environmentIntensity = 0.3
   fabriqueEnv.dispose()
+  M.viderGroupe(scenette)
 
   /* ------------------------------ les oiseaux -------------------------------- */
 
@@ -466,6 +598,40 @@ function creerScene(canvas, { mouvementReduit }) {
   }
   const cible = { ...val }
 
+  /**
+   * OÙ EN EST CHAQUE ACCUSÉ DE RÉCEPTION.
+   *
+   *   `engage`   une animation est en cours sur cette option : sa valeur s'est
+   *              franchement écartée de sa cible et n'y est pas encore revenue.
+   *   `restant`  le temps qu'il reste à l'illumination, en secondes. Nul le
+   *              reste du temps.
+   */
+  const accuses = Object.fromEntries(
+    Object.keys(ACCUSES).map((cle) => [cle, { engage: false, restant: 0, muet: true }]),
+  )
+
+  /**
+   * FAIT TAIRE LES ACCUSÉS DE RÉCEPTION jusqu'à ce que tout se soit reposé.
+   *
+   * Un accusé de réception salue une DÉCLARATION du vendeur. Or les mêmes
+   * valeurs bougent aussi quand personne n'a rien déclaré : à l'arrivée sur
+   * l'écran d'affinage, les options passent d'un bloc de « rien » à ce qui a
+   * été retenu — le standing saute de 0 à son rang, le terrain à la contenance
+   * cadastrale — et la maison entière s'illuminait en guise de bonjour. Elle
+   * saluait le fait d'avoir changé d'écran, ce qui ne veut rien dire.
+   *
+   * Chaque option est donc muette après un changement de stade, et le reste
+   * jusqu'à ce que sa valeur soit arrivée une première fois. La première
+   * animation est avalée ; les suivantes — celles que le vendeur provoque —
+   * sont saluées normalement.
+   */
+  const taireAccuses = () => {
+    Object.values(accuses).forEach((suivi) => {
+      suivi.muet = true
+      suivi.restant = 0
+    })
+  }
+
   /* ------------------------- le bâtiment courant ---------------------------- */
 
   const batiment = new THREE.Group()
@@ -474,6 +640,14 @@ function creerScene(canvas, { mouvementReduit }) {
   let ouvrage = null
   let familleMontee = null
   let palierMonte = -1
+  /** Dernier stade appliqué — il sert à faire taire les accusés de réception. */
+  let stadePrecedent = -1
+  /**
+   * Les fonctions qui illuminent un ouvrage d'affinage, relevées sur l'ouvrage
+   * courant. Elles sont REFAITES À CHAQUE MONTAGE : elles retiennent des
+   * matières, et celles d'une maison démontée n'existent plus.
+   */
+  let illuminations = {}
 
   /**
    * LA MUE — la maison se démonte, et une autre se rebâtit à sa place.
@@ -498,14 +672,16 @@ function creerScene(canvas, { mouvementReduit }) {
   /**
    * Le temps que met une maison à se défaire, puis à se refaire.
    *
-   * RAMENÉ DE 2,45 s À 1,4 s POUR LA MUE ENTIÈRE. Le geste est le même — la
+   * RAMENÉ DE 2,45 s À 1,4 s POUR LA MUE ENTIÈRE, puis à 1,24 s — un dixième
+   * de seconde de mieux, et pas davantage : au-delà, les planches cessent de se
+   * poser et se mettent à apparaître. Le geste est le même — la
    * maison se démonte planche par planche et la suivante se rassemble —, mais
    * il se joue à la vitesse d'un montage et non d'une démonstration : le
    * vendeur traverse volontiers trois paliers d'affilée au curseur, et chaque
    * mue qui traîne le laisse devant une maison en morceaux.
    */
-  const DUREE_DEMONTAGE = 0.5
-  const DUREE_REMONTAGE = 0.9
+  const DUREE_DEMONTAGE = 0.44
+  const DUREE_REMONTAGE = 0.8
 
 
   function demonterOuvrage() {
@@ -513,6 +689,7 @@ function creerScene(canvas, { mouvementReduit }) {
     batiment.remove(ouvrage.groupe)
     M.viderGroupe(ouvrage.groupe)
     ouvrage = null
+    illuminations = {}
   }
 
   function monterOuvrage(famille, palier) {
@@ -525,6 +702,16 @@ function creerScene(canvas, { mouvementReduit }) {
     batiment.add(ouvrage.groupe)
     familleMontee = famille
     palierMonte = palier
+
+    // Les ouvrages d'affinage que cette architecture sait montrer, et par quel
+    // nom le parcours les déclare. Une ossature n'en a aucun ; c'est normal,
+    // aucune option ne lui est proposée.
+    illuminations = {}
+    Object.entries(ouvrage?.ouvrages ?? {}).forEach(([cle, groupeOuvrage]) => {
+      if (ACCUSES[cle] !== undefined && groupeOuvrage) {
+        illuminations[cle] = M.illuminant(groupeOuvrage)
+      }
+    })
     // L'îlot se règle sur ce qui vient d'être monté, sans attendre la première
     // image : une maison de trois cents mètres carrés et une ossature n'ont pas
     // la même emprise, et un socle qui rejoindrait la sienne en glissant se
@@ -604,7 +791,54 @@ function creerScene(canvas, { mouvementReduit }) {
   const vise = new THREE.Vector3()
   const cibleLissee = new THREE.Vector3(0, 2, 0)
 
-  const plan = () => PLANS[borne(etat.stade, 0, DERNIER_PLAN)]
+  /**
+   * LE PLAN COURANT, RÉSOLU POUR L'ARCHITECTURE EN COURS.
+   *
+   * Un plan peut porter des valeurs de remplacement pour l'appartement (voir
+   * `reglageDuPlan` dans `plans.js`). La résolution rend un objet neuf : elle
+   * se fait donc au CHANGEMENT DE STADE, dans `cadrer`, et non image par image.
+   */
+  let planCourant = reglageDuPlan(PLANS[0], null)
+
+  /**
+   * LE DÉCENTREMENT DU CADRE — comment on range un bien dans un coin de l'image
+   * sans déplacer la caméra.
+   *
+   * On ne bouge pas l'appareil : on déplace le POINT VISÉ, dans le repère de
+   * l'appareil lui-même. Viser à droite pousse le sujet à gauche ; viser en
+   * haut le pousse en bas. Le drone reste exactement où il est, et c'est le
+   * cadre qui se recompose — la nuance compte, parce qu'un décentrement obtenu
+   * en déplaçant la caméra changerait aussi la perspective du bâtiment.
+   *
+   * Les deux axes sont donnés en fractions de la DISTANCE de prise de vue :
+   * c'est la seule unité qui garde le même cadrage qu'on filme une villa de
+   * quinze unités ou un immeuble de quarante.
+   */
+  const axeDroite = new THREE.Vector3()
+  const axeHaut = new THREE.Vector3()
+  const avant = new THREE.Vector3()
+  const HAUT_MONDE = new THREE.Vector3(0, 1, 0)
+  const regard = new THREE.Vector3()
+
+  function viserDecale(cible) {
+    regard.copy(cible)
+    const decalage = planCourant.decalage
+    if (!decalage) return regard
+
+    avant.subVectors(cible, camera.position)
+    const distance = avant.length()
+    if (distance < 1e-3) return regard
+    avant.divideScalar(distance)
+
+    axeDroite.crossVectors(avant, HAUT_MONDE)
+    if (axeDroite.lengthSq() < 1e-6) return regard
+    axeDroite.normalize()
+    axeHaut.crossVectors(axeDroite, avant).normalize()
+
+    regard.addScaledVector(axeDroite, (decalage.x ?? 0) * distance)
+    regard.addScaledVector(axeHaut, (decalage.y ?? 0) * distance)
+    return regard
+  }
 
   /**
    * LE BALANCEMENT — le seul mouvement latéral qui reste, et il est minuscule.
@@ -620,10 +854,12 @@ function creerScene(canvas, { mouvementReduit }) {
    */
   const AMPLITUDE_BALANCEMENT = 0.018
   const azimutVise = () =>
-    azimutDuPlan(plan()) + (mouvementReduit ? 0 : Math.sin(secondes * 0.068) * AMPLITUDE_BALANCEMENT)
+    azimutDuPlan(planCourant, mouvementReduit ? 0 : secondes) +
+    (mouvementReduit ? 0 : Math.sin(secondes * 0.068) * AMPLITUDE_BALANCEMENT)
 
   function cadrer() {
-    const p = plan()
+    planCourant = reglageDuPlan(PLANS[borne(etat.stade, 0, DERNIER_PLAN)], familleMontee)
+    const p = planCourant
     const envergure = ouvrage?.envergure ?? { largeur: 6, hauteur: 4 }
 
     const ouvertureV = (camera.fov * Math.PI) / 180
@@ -668,8 +904,20 @@ function creerScene(canvas, { mouvementReduit }) {
      * cadre — on aurait gagné sur le balcon ce qu'on aurait perdu sur tout le
      * reste.
      */
+    /**
+     * SAUF QUAND LE TOIT EST AMÉNAGÉ, et c'est la seule exception.
+     *
+     * Un rooftop déclaré demande l'inverse du plan rapproché : il se construit
+     * au SOMMET du bien, et il faut du champ pour le voir s'étendre. Les deux
+     * demandes sont contradictoires, et c'est le toit qui l'emporte — un plan
+     * serré sur un balcon du troisième pendant que le vendeur règle la surface
+     * de sa terrasse en toiture lui cacherait précisément ce qu'il règle.
+     */
+    const toitAmenage = borne(cible.rooftop, 0, 1) > 0.01
     const ancreExterieur =
-      etat.stade >= DERNIER_PLAN && (etat.options?.balcon || etat.options?.terrasse)
+      etat.stade >= DERNIER_PLAN &&
+      !toitAmenage &&
+      (etat.options?.balcon || etat.options?.terrasse)
         ? ouvrage?.ancrages?.exterieur
         : null
 
@@ -679,8 +927,34 @@ function creerScene(canvas, { mouvementReduit }) {
       ancreCible = ancreExterieur.clone()
     }
 
+    /**
+     * LE ROOFTOP GRANDIT, ET LA CAMÉRA RECULE POUR QU'ON LE VOIE GRANDIR.
+     *
+     * C'est le seul ouvrage de l'affinage qui se construise AU SOMMET du bien,
+     * et le cadrage est calculé sur l'envergure de l'immeuble : une terrasse
+     * qui s'étend au-delà de l'emprise du toit sortait donc du champ par le
+     * haut, et le vendeur voyait son curseur monter sans rien voir arriver.
+     *
+     * Le recul suit la surface déclarée, et le regard monte avec : c'est le
+     * geste d'un opérateur qui prend du champ parce que son sujet a grandi, et
+     * non un mouvement de drone — la caméra ne tourne pas, elle s'éloigne.
+     */
+    const surToit = familleMontee === 'immeuble' && toitAmenage ? borne(cible.rooftop, 0, 1) : 0
+    if (surToit > 0.01) {
+      distance *= 1 + 0.3 * surToit
+      ancreCible.y += (ouvrage?.ancrages?.hauteur ?? envergure.hauteur) * 0.08 * surToit
+    }
+
     droneCible.rayon = distance
-    droneCible.hauteur = Math.max(0.9, distance * (ancreExterieur ? 0.16 : p.elevation))
+    // ET LE DRONE MONTE UN PEU AVEC LE TOIT. Reculer suffit à faire tenir la
+    // terrasse dans le cadre, pas à la faire VOIR : à vingt-trois degrés de
+    // plongée, le platelage du dernier niveau se réduit à un trait. Un quart
+    // de hauteur de vol en plus, et l'on voit la terrasse s'étendre, ce qui
+    // est tout l'objet du curseur.
+    droneCible.hauteur = Math.max(
+      0.9,
+      distance * (ancreExterieur ? 0.16 : p.elevation) * (1 + 0.28 * surToit),
+    )
 
     pivotVise.copy(ancrePivot)
     vise.copy(ancreCible)
@@ -722,6 +996,14 @@ function creerScene(canvas, { mouvementReduit }) {
     const famille = familleArchitecture(etat.type)
     const palier = famille === 'villa' ? palierVilla(etat.surface) : -1
 
+    /**
+     * `aussitot` : l'ouvrage vient d'être monté à un stade où il devrait déjà
+     * être achevé. Ses valeurs de chantier sont alors posées D'UN BLOC, sans
+     * lissage — sinon le vendeur le regarde finir de paraître au lieu de le
+     * regarder (voir `CHANTIER.immeuble`).
+     */
+    let aussitot = false
+
     if (famille !== familleMontee) {
       // CHANGEMENT D'ARCHITECTURE — franc, et à dessein. On ne démonte pas une
       // ossature pour en faire un immeuble : ce n'est pas le même bien qu'on
@@ -731,6 +1013,7 @@ function creerScene(canvas, { mouvementReduit }) {
       mue.phase = null
       mue.ecart = 0
       mue.vise = palier
+      aussitot = famille === 'immeuble'
     } else if (famille === 'villa' && palier !== palierMonte) {
       // CHANGEMENT DE PALIER — la maison se démonte et se rebâtit.
       if (mouvementReduit) monterOuvrage(famille, palier)
@@ -743,19 +1026,25 @@ function creerScene(canvas, { mouvementReduit }) {
     cible.entree = lire(table, 'entree', stade)
     cible.menuiserie = lire(table, 'menuiserie', stade)
     cible.couronnement = lire(table, 'couronnement', stade)
+    // Le soir tombe dès l'écran du prix, et n'en repart plus.
     cible.lumiere = stade >= 6 ? 1 : 0
-    cible.halo = stade === 7 ? 1 : 0
+    // Le halo n'arrive qu'à la confirmation, une fois les coordonnées
+    // recueillies — c'est le seul stade qui le porte.
+    cible.halo = stade === 8 ? 1 : 0
 
     // Les options d'affinage ne valent qu'au dernier stade : avant, rien n'a
     // été demandé au vendeur, et lui montrer une piscine qu'il n'a pas
     // déclarée reviendrait à lui montrer un bien qui n'est pas le sien.
-    const o = stade >= 8 ? etat.options ?? {} : {}
+    const o = stade >= DERNIER_PLAN ? etat.options ?? {} : {}
     cible.piscine = o.piscine ? 1 : 0
     cible.terrain = borne(Number(o.terrain) || 0, 0, 1)
     cible.panneaux = o.panneaux ? 1 : 0
     cible.terrasse = o.terrasse ? 1 : 0
     cible.balcon = o.balcon ? 1 : 0
-    cible.rezDeJardin = o.rezDeJardin ? 1 : 0
+    // Le rez-de-jardin se déclare au mètre carré comme le rooftop : ce n'est
+    // plus un oui ou un non, c'est une surface, et elle se voit (voir
+    // `etendreJardin` dans `immeuble.js`).
+    cible.rezDeJardin = borne(Number(o.rezDeJardin) || 0, 0, 1)
     cible.rooftop = borne(Number(o.rooftop) || 0, 0, 1)
     cible.standing = borne(Number(o.standing) || 0, 0, 1)
 
@@ -782,7 +1071,44 @@ function creerScene(canvas, { mouvementReduit }) {
     cible.etageAllume =
       famille === 'immeuble' && Number.isFinite(etat.etage) && stade >= 2 ? 1 : 0
 
+    if (aussitot) {
+      // Le chantier seulement : les options d'affinage et l'éclairage gardent
+      // leur lissage, ils n'ont rien à voir avec le montage du bâtiment.
+      ;['montage', 'abords', 'entree', 'menuiserie', 'couronnement'].forEach((cle) => {
+        val[cle] = cible[cle]
+      })
+    }
+
+    // TOUT CHANGEMENT DE STADE FAIT TAIRE LES ACCUSÉS DE RÉCEPTION. C'est le
+    // vendeur qu'on salue, pas le parcours : ce qui bouge parce qu'on a changé
+    // d'écran ne mérite rien (voir `taireAccuses`).
+    if (stade !== stadePrecedent || aussitot) taireAccuses()
+    stadePrecedent = stade
+
     cadrer()
+
+    /**
+     * ET LA CAMÉRA SE POSE AVEC LUI.
+     *
+     * Bâtir l'immeuble d'un bloc ne suffit pas : le drone, lui, rejoint son
+     * plan en deux secondes environ, et il vient de l'ossature — deux fois plus
+     * petite. Le vendeur voyait donc l'immeuble entier, mais cadré comme une
+     * ossature : débordant de tous les côtés, puis rentrant dans le cadre
+     * pendant qu'il commençait à régler sa surface. C'est le même défaut, à un
+     * étage de plus.
+     *
+     * Le drone est donc posé à son plan sans transition, comme l'ouvrage. C'est
+     * le seul saut de caméra du parcours, et il est invisible : il se joue
+     * pendant le changement d'écran, au moment précis où le panneau de la carte
+     * s'efface et où celui de la surface n'est pas encore là.
+     */
+    if (aussitot) {
+      drone.rayon = droneCible.rayon
+      drone.hauteur = droneCible.hauteur
+      drone.angle = azimutVise()
+      pivot.copy(pivotVise)
+      cibleLissee.copy(vise)
+    }
   }
 
   /* -------------------------------- boucle ---------------------------------- */
@@ -829,6 +1155,59 @@ function creerScene(canvas, { mouvementReduit }) {
 
     ouvrage?.poser?.({ ...val, surface: etat.surface })
 
+    /**
+     * LES ACCUSÉS DE RÉCEPTION — deux secondes de lumière sur l'ouvrage qui
+     * vient d'arriver.
+     *
+     * Le déclenchement se lit sur la SEULE chose qui dise honnêtement qu'une
+     * animation est finie : l'écart entre la valeur affichée et sa cible. Tant
+     * qu'il est franc, l'ouvrage est en train de bouger ; quand il retombe sous
+     * le seuil APRÈS avoir été franc, le geste est terminé, et c'est là — et
+     * pas au clic — que la lumière s'allume. Un accusé de réception posé au
+     * clic arriverait avant l'ouvrage qu'il accuse.
+     *
+     * Il passe APRÈS `poser` : c'est l'ouvrage entièrement réglé qu'on
+     * illumine, et l'émission écrite ici doit être la dernière du tour.
+     */
+    Object.keys(ACCUSES).forEach((cle) => {
+      const suivi = accuses[cle]
+      const ecart = Math.abs(cible[cle] - val[cle])
+
+      // Une option déjà au repos au moment où l'écran a changé n'a rien à
+      // taire : elle retrouve la parole sans attendre.
+      if (suivi.muet && !suivi.engage && ecart < SEUIL_ENGAGE) suivi.muet = false
+
+      if (ecart > SEUIL_ENGAGE) suivi.engage = true
+      else if (suivi.engage && ecart < SEUIL_FINI) {
+        suivi.engage = false
+        if (suivi.muet) {
+          // La première arrivée après un changement d'écran : on l'avale, et
+          // l'option reprend la parole pour les suivantes.
+          suivi.muet = false
+        } else {
+          // Rien à saluer non plus quand l'ouvrage vient de s'en aller : une
+          // piscine qu'on décoche n'a pas à s'illuminer en disparaissant.
+          suivi.restant = cible[cle] > 0.02 ? DUREE_ACCUSE : 0
+        }
+      }
+
+      if (suivi.restant <= 0) {
+        illuminations[cle]?.(0)
+        return
+      }
+
+      suivi.restant = Math.max(0, suivi.restant - dt)
+      const ecoule = DUREE_ACCUSE - suivi.restant
+      // Montée courte, plateau, extinction longue : c'est le profil d'une
+      // lumière qu'on allume et qu'on laisse retomber, et non d'un clignotement.
+      const enveloppe = Math.min(
+        ecoule / MONTEE_ACCUSE,
+        suivi.restant / DESCENTE_ACCUSE,
+        1,
+      )
+      illuminations[cle]?.(Math.max(0, enveloppe) * ACCUSES[cle])
+    })
+
     // L'ÎLOT SUIT LA PROPRIÉTÉ. Chaque ouvrage déclare l'emprise que ses abords
     // occupent au sol (`rayonSol`), et la maison la recalcule à chaque image :
     // la pelouse s'étend avec la surface de terrain déclarée, et le socle doit
@@ -861,12 +1240,20 @@ function creerScene(canvas, { mouvementReduit }) {
     if (mouvementReduit) {
       // MOUVEMENTS RÉDUITS — la caméra se pose et n'en bouge plus du tout : ni
       // rapprochement d'un stade au suivant, ni balancement, ni respiration.
+      //
+      // ELLE SE POSE TOUT DE MÊME AU BON ENDROIT. L'azimut n'était jamais
+      // appliqué ici : le drone restait à l'aplomb exact de la façade, à
+      // l'angle où il avait été construit, et l'écart de quelques degrés que
+      // chaque plan demande — celui qui donne au bâtiment son retour de volume
+      // — n'existait pas. Supprimer le mouvement n'est pas supprimer le
+      // cadrage : on pose l'azimut du plan d'un bloc, sans transition.
+      drone.angle = azimutVise()
       camera.position.set(
         pivot.x + Math.cos(drone.angle) * droneCible.rayon,
         pivot.y + droneCible.hauteur,
         pivot.z + Math.sin(drone.angle) * droneCible.rayon,
       )
-      camera.lookAt(vise)
+      camera.lookAt(viserDecale(vise))
     } else {
       // LA CAMÉRA REJOINT SON PLAN EN DEUX SECONDES ENVIRON.
       //
@@ -893,7 +1280,7 @@ function creerScene(canvas, { mouvementReduit }) {
       // Le regard suit encore plus lentement que l'appareil : c'est ce décalage
       // entre l'un et l'autre qui donne au mouvement sa douceur.
       cibleLissee.lerp(vise, Math.min(1, dt * 1.0))
-      camera.lookAt(cibleLissee)
+      camera.lookAt(viserDecale(cibleLissee))
     }
 
     /* --- halo --- */

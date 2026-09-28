@@ -89,7 +89,7 @@ const pauseChantier = (step, retour) => (retour || step === 'adresse' ? 0 : PAUS
  * cochées (0, 1/3, 2/3, 1) : les seuils tombent entre deux crans, jamais
  * dessus.
  */
-function stadeChantier(step, avancement, affinage) {
+function stadeChantier(step, avancement, affinage, conversation) {
   switch (step) {
     case 'intro':
       return 0
@@ -99,13 +99,23 @@ function stadeChantier(step, avancement, affinage) {
       return 2
     case 'analyse':
       return avancement < 0.34 ? 3 : avancement < 0.67 ? 4 : 5
-    // Le soir tombe sur l'écran du prix ; le halo n'arrive qu'à la
-    // confirmation, une fois les coordonnées recueillies ; et l'affinage
-    // reprend tout le recul, parce qu'il faut alors voir le bien entier — son
-    // jardin, sa piscine, son toit.
+    /**
+     * L'ÉCRAN RÉSULTAT EN PORTE QUATRE, et c'est le seul du parcours dans ce
+     * cas — parce qu'il enchaîne quatre moments sans jamais changer d'étape :
+     *
+     *   6  LE PRIX FLOUTÉ. Le soir tombe, le drone redescend, et le bien
+     *      dérive très lentement sous lui (voir le plan 6 dans `plans.js`).
+     *   7  LA CONVERSATION. Le panneau reprend toute la largeur et recouvre la
+     *      scène : le bien se range en bas à gauche, dans ce qui reste de vide.
+     *   8  LA CONFIRMATION. Les coordonnées sont recueillies, le bien revient
+     *      au centre et son halo doré paraît.
+     *   9  L'AFFINAGE. Tout le recul du parcours : il faut alors voir le bien
+     *      entier — son jardin, sa piscine, son toit.
+     */
     case 'resultat':
-      if (affinage) return 8
-      return avancement >= 1 ? 7 : 6
+      if (affinage) return 9
+      if (avancement >= 1) return 8
+      return conversation ? 7 : 6
     default:
       return 0
   }
@@ -188,6 +198,15 @@ export default function Estimer() {
    * sachant où il en est de sa propre bascule (voir `EstimationResultStep`).
    */
   const [pleineLargeur, setPleineLargeur] = useState(false)
+  /**
+   * La conversation de capture est en cours — ni le prix au repos qui la
+   * précède, ni la confirmation qui la suit. C'est le seul moment du parcours
+   * où le panneau recouvre le milieu de l'écran, et le décor s'en sert pour
+   * ranger le bien dans le coin qui reste libre (voir le plan 7 dans
+   * `scene/plans.js`). L'écran résultat le déclare, lui seul sachant où il en
+   * est de ses propres bascules.
+   */
+  const [conversation, setConversation] = useState(false)
 
   // Identité stable : les étapes appellent ces deux fonctions depuis un effet,
   // un objet recréé à chaque rendu les relancerait en boucle. Les mises à jour
@@ -253,6 +272,7 @@ export default function Estimer() {
     // Et rend au parcours sa moitié d'écran : l'exception ne vaut que pour la
     // conversation de finalisation, qui vient de disparaître avec l'étape.
     setPleineLargeur(false)
+    setConversation(false)
     // Retour en haut à chaque changement d'écran. Sans cela, la position de
     // défilement héritée de l'étape précédente — celle de la carte, qui
     // déborde, ou celle laissée par la mise au point d'un champ — laisserait le
@@ -327,7 +347,7 @@ export default function Estimer() {
   //
   // Le décor n'a plus à savoir où se tient le panneau : il a sa propre zone
   // (voir la section, plus bas), et il la remplit d'un bord à l'autre.
-  const stade = stadeChantier(step, stageProgress, affinage)
+  const stade = stadeChantier(step, stageProgress, affinage, conversation)
   const typeScene = selection?.type ?? typeDeclare
   const surfaceScene = selection?.surfaceM2 ?? surfaceDeclaree ?? 100
   const etageScene = selection?.etage ?? etageDeclare
@@ -535,6 +555,7 @@ export default function Estimer() {
                   onProgress={setStageProgress}
                   onAffinage={setAffinage}
                   onPleineLargeur={setPleineLargeur}
+                  onConversation={setConversation}
                   onClose={goHome}
                 />
               ) : (

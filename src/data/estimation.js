@@ -9,10 +9,23 @@
 // secondes, elle en tient neuf. Rien n'y a été retiré — les trois temps se
 // cochent toujours, le drone fait toujours ses trois stations —, mais aucun
 // d'eux n'avait besoin de quatre secondes pleines pour se lire.
+/**
+ * L'ANALYSE DURE HUIT SECONDES, ET NON PLUS NEUF.
+ *
+ * La seconde gagnée l'est sur le DERNIER temps, et c'est le bon endroit : les
+ * deux premiers portent chacun un geste de chantier qu'on regarde se faire
+ * (voir `CHANTIER` dans `DroneScene`), le troisième n'annonce plus que le
+ * résultat qui vient. C'est aussi celui où l'attente se sent le plus — on sait
+ * déjà que c'est fini.
+ *
+ * Les trois restent proches en durée : les seuils du décor tombent aux tiers de
+ * l'avancement (voir `stadeChantier` dans `src/pages/Estimer.jsx`), et un temps
+ * nettement plus court y décalerait les gestes de construction.
+ */
 export const ANALYSIS_STEPS = [
-  { id: 'batiment', label: 'Expertise du bien…', done: 'Bien expertisé', durationMs: 3000 },
-  { id: 'marche', label: 'Étude comparative de marché…', done: 'Étude de marché réalisée', durationMs: 3000 },
-  { id: 'calcul', label: 'Calcul de l’estimation…', done: 'Estimation calculée', durationMs: 3000 },
+  { id: 'batiment', label: 'Expertise du bien…', done: 'Bien expertisé', durationMs: 2800 },
+  { id: 'marche', label: 'Étude comparative de marché…', done: 'Étude de marché réalisée', durationMs: 2800 },
+  { id: 'calcul', label: 'Calcul de l’estimation…', done: 'Estimation calculée', durationMs: 2400 },
 ]
 
 /**

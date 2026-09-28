@@ -20,10 +20,12 @@ import * as THREE from 'three'
  *               calcule sur l'envergure de l'ouvrage (voir `cadrer` dans
  *               `DroneScene`).
  *   `elevation` hauteur de vol rapportée à la distance — c'est l'angle de
- *               plongée. Toutes les valeurs tiennent désormais entre 0,40 et
+ *               plongée. Tous les plans du chantier tiennent entre 0,40 et
  *               0,46, soit vingt-deux à vingt-cinq degrés : la plongée qu'il
  *               faut pour que l'îlot se lise comme un disque et non comme un
- *               trait, et pas un degré de plus.
+ *               trait, et pas un degré de plus. Un seul descend plus bas —
+ *               celui du prix, où l'on ne construit plus rien et où l'on ne
+ *               fait plus que regarder (voir le plan 6).
  *   `face`      la position, ÉCRITE PAR RAPPORT À LA FAÇADE, en radians
  *               d'écart : 0 est l'aplomb de la porte d'entrée, positif le
  *               trois-quarts côté porte. C'est la seule façon dont un point de
@@ -31,15 +33,19 @@ import * as THREE from 'three'
  *               `ECART_FACE_MAX`).
  *   `regard`    hauteur visée, en part de la hauteur du bien.
  *
- * IL N'Y A PLUS DE DÉCENTREMENT, et c'est la mise en page qui l'a rendu inutile.
+ * LE DÉCENTREMENT NE SERT PLUS QU'À UN SEUL PLAN, et c'est la mise en page qui
+ * l'a voulu ainsi.
  *
  * Chaque plan portait un `cadre` : une translation d'objectif qui poussait le
  * bâtiment d'un cinquième de la largeur de l'écran, pour le sortir de derrière
  * le panneau de verre posé par-dessus. Le panneau ne se pose plus par-dessus —
- * il a sa zone, la scène a la sienne (voir `Estimer.jsx`). Le bien se cadre donc
- * au MILIEU de son propre cadre, comme n'importe quel sujet, et la moitié de la
- * machinerie de cadrage s'en va avec : le décentrement, la bande du haut du
- * téléphone, et la marge de cadrage élargie qu'elle demandait.
+ * il a sa zone, la scène a la sienne (voir `Estimer.jsx`) —, et le bien se cadre
+ * donc au MILIEU de son propre cadre, comme n'importe quel sujet.
+ *
+ * Tous, sauf un : l'écran de la CONVERSATION, le seul du parcours où le panneau
+ * reprend toute la largeur et recouvre le milieu de l'image. Là, et là
+ * seulement, le bien se range dans le coin qui reste libre — voir `decalage` sur
+ * le plan 7.
  */
 
 /** Azimut de la façade : le drone qui la regarde de face est à π/2. */
@@ -65,14 +71,33 @@ export const FACE = Math.PI / 2
 export const ECART_FACE_MAX = 0.4
 
 /**
- * LES NEUF PLANS, ET CE QU'IL RESTE DE DIFFÉRENT ENTRE EUX.
+ * LES DIX PLANS, ET CE QU'IL RESTE DE DIFFÉRENT ENTRE EUX.
  *
  * Trois choses seulement bougent d'un stade au suivant : on se rapproche un peu
  * pendant que le bien se construit, on redescend d'un degré ou deux à mesure
  * qu'il monte, et on recule à la fin pour que tout tienne dans le cadre. Aucun
- * plan ne change de côté, aucun ne change de pivot, aucun ne va chercher un
- * détail. Mises bout à bout, ces variations valent quelques mètres sur un
- * parcours entier — l'image paraît fixe, et c'est le bien qui change dedans.
+ * plan ne change de côté, aucun ne va chercher un détail. Mises bout à bout,
+ * ces variations valent quelques mètres sur un parcours entier — l'image paraît
+ * fixe, et c'est le bien qui change dedans.
+ *
+ * TROIS RÉGLAGES S'AJOUTENT AUX QUATRE D'ORIGINE, et chacun ne sert qu'à un ou
+ * deux plans :
+ *
+ *   `derive`    une très lente oscillation de l'azimut, par-dessus le
+ *               balancement. Elle n'existe qu'au plan du prix : c'est la
+ *               dérive d'un drone en vol stationnaire qui n'est pas tout à fait
+ *               immobile — deux ou trois kilomètres-heure, pas davantage. Au-delà,
+ *               ce n'est plus une dérive, c'est un survol.
+ *   `decalage`  pousse le bien hors du centre du cadre, en fractions de la
+ *               distance de prise de vue. Il ne sert qu'au plan de la
+ *               CONVERSATION, où le panneau reprend toute la largeur et
+ *               recouvre le milieu de l'image : le bien s'y range en bas à
+ *               gauche, dans ce qui reste de vide.
+ *   `immeuble`  des valeurs de remplacement pour l'appartement. C'est la seule
+ *               entorse au principe « un plan, une valeur » — et elle est due à
+ *               la géométrie : un immeuble de six niveaux fait deux fois la
+ *               hauteur d'une maison, et le recul qui le range dans un coin
+ *               n'est pas celui qui y range une villa.
  */
 export const PLANS = [
   // 0 — l'accueil. Le plan le plus large et le plus haut des trois premiers :
@@ -98,12 +123,61 @@ export const PLANS = [
   { recul: 1.06, elevation: 0.4, face: 0.24, regard: 0.5 },
   { recul: 1.06, elevation: 0.4, face: 0.24, regard: 0.5 },
 
-  // 6 — le soir : les vitrages s'allument. Le plan de l'analyse, inchangé ou
-  //     presque — on ne bouge pas pour regarder une lumière s'allumer.
-  { recul: 1.08, elevation: 0.41, face: 0.24, regard: 0.48 },
-  // 7 — le bien achevé et son halo : on prend un peu de champ, c'est tout.
+  /**
+   * 6 — LE PRIX, ENCORE FLOUTÉ. Le plan le plus BAS du parcours.
+   *
+   * Tous les autres sont des plongées de vingt-deux à vingt-cinq degrés : c'est
+   * ce qu'il faut pour que l'îlot se lise comme un disque pendant qu'on
+   * construit dessus. Ici, on ne construit plus rien — le bien est achevé, le
+   * soir tombe, et le vendeur attend son montant. Le drone redescend donc à
+   * dix-neuf degrés : c'est la hauteur d'où l'on REGARDE un bien, et non celle
+   * d'où on l'inspecte. La façade y reprend sa hauteur, et le toit cesse
+   * d'occuper le tiers de l'image.
+   *
+   * ET C'EST LE SEUL PLAN QUI DÉRIVE. Un vol stationnaire n'est jamais
+   * parfaitement stationnaire : l'appareil se replace en permanence, et cela se
+   * lit comme une très lente rotation du bien. Un centième de radian par
+   * seconde au passage à vide — à trente unités de distance, la vitesse d'un
+   * drone qui avance à deux ou trois kilomètres-heure. C'est un plan posé, pas
+   * un survol : sur toute la durée de l'écran, le point de vue tourne de moins
+   * de huit degrés.
+   */
+  {
+    recul: 1.1,
+    elevation: 0.34,
+    face: 0.24,
+    regard: 0.44,
+    derive: { amplitude: 0.14, pulsation: 0.093 },
+  },
+
+  /**
+   * 7 — LA CONVERSATION. Le seul plan décentré du parcours.
+   *
+   * C'est l'écran où le panneau reprend TOUTE la largeur et recouvre la scène
+   * (voir `pleineLargeur` dans `Estimer.jsx`) : le montant à gauche, les
+   * questions à droite, et le bien derrière. Centré, il se retrouve exactement
+   * sous le panneau — on le sait construit, on ne le voit plus.
+   *
+   * Il se range donc EN BAS À GAUCHE, là où la mise en page laisse du vide, et
+   * il prend du recul pour tenir dans ce coin. L'appartement en prend beaucoup
+   * plus que la maison, et c'est la seule raison pour laquelle ce plan a une
+   * variante : un immeuble de six niveaux est deux fois plus haut qu'une villa,
+   * et le décalage qui range l'une dans un coin sort l'autre du cadre.
+   */
+  {
+    recul: 1.32,
+    elevation: 0.4,
+    face: 0.24,
+    regard: 0.46,
+    decalage: { x: 0.11, y: 0.07 },
+    immeuble: { recul: 1.92, decalage: { x: 0.2, y: 0.1 } },
+  },
+
+  // 8 — le bien achevé et son halo, une fois les coordonnées recueillies : on
+  //     revient au centre et on prend un peu de champ, c'est tout.
   { recul: 1.16, elevation: 0.44, face: 0.24, regard: 0.46 },
-  // 8 — AFFINAGE : le plan le plus large du parcours. Il faut tout tenir dans
+
+  // 9 — AFFINAGE : le plan le plus large du parcours. Il faut tout tenir dans
   //     le cadre — la maison, son jardin, sa piscine —, et c'est le seul
   //     recul franc qui reste.
   { recul: 1.24, elevation: 0.42, face: 0.26, regard: 0.44 },
@@ -136,12 +210,42 @@ export function cibleDuPlan(plan, hauteurBien) {
   return new THREE.Vector3(0, hauteurBien * plan.regard, 0)
 }
 
-/** Azimut visé par le plan donné — toujours la façade, à son écart près. */
-export function azimutDuPlan(plan) {
-  return FACE + borneEcart(plan.face ?? 0)
+/**
+ * Azimut visé par le plan donné — toujours la façade, à son écart près, et à sa
+ * dérive près pour le seul plan qui en porte une.
+ */
+export function azimutDuPlan(plan, secondes = 0) {
+  const derive = plan.derive
+    ? Math.sin(secondes * plan.derive.pulsation) * plan.derive.amplitude
+    : 0
+  return FACE + borneEcart((plan.face ?? 0) + derive)
 }
 
 /** Ramène un écart à la façade dans la fenêtre autorisée. */
 export function borneEcart(ecart) {
   return Math.max(-ECART_FACE_MAX, Math.min(ECART_FACE_MAX, ecart))
+}
+
+/**
+ * LE PLAN RÉSOLU POUR L'ARCHITECTURE EN COURS.
+ *
+ * Un plan s'écrit une fois, pour tous les biens : c'est ce qui garantit que le
+ * parcours a le même rythme qu'on estime une maison ou un appartement. Un seul
+ * d'entre eux a besoin d'une variante (voir le plan 7), et cette fonction est
+ * le seul endroit où elle se lit — partout ailleurs, un plan est un plan.
+ *
+ * Elle rend un objet NEUF à chaque appel, et c'est voulu : le décor le retient
+ * le temps d'un stade (voir `planCourant` dans `DroneScene`), il n'est pas lu
+ * image par image.
+ */
+export function reglageDuPlan(plan, famille = null) {
+  const variante = (famille && plan[famille]) || null
+  return {
+    recul: variante?.recul ?? plan.recul,
+    elevation: variante?.elevation ?? plan.elevation,
+    regard: variante?.regard ?? plan.regard,
+    face: variante?.face ?? plan.face ?? 0,
+    derive: variante?.derive ?? plan.derive ?? null,
+    decalage: variante?.decalage ?? plan.decalage ?? null,
+  }
 }
