@@ -7,7 +7,29 @@ export default {
         // Palette stricte — ne pas improviser d'autres teintes.
         ink: '#10141C', // Ink Navy — fond principal sombre
         stone: '#EDEAE3', // Warm Stone — fond clair, sections alternées
-        brass: '#B08D57', // Brass — accent unique (CTA, liens, éléments actifs)
+        // Brass — accent unique (CTA, liens, éléments actifs).
+        //
+        // DEUX VALEURS, ET LE CHOIX SE FAIT SUR LE FOND, PAS SUR LE GOÛT.
+        //
+        // `brass` sur Ink donne 5,97:1 — confortable. Le MÊME laiton sur blanc
+        // tombe à 3,09:1, sous le seuil de 4,5:1 que demande un texte courant.
+        // Ce n'est pas une nuance d'appréciation : à cette valeur, l'ancre d'un
+        // lien dans un paragraphe cesse d'être lisible pour une partie des
+        // lecteurs, et le blog se lit sur fond blanc.
+        //
+        // `brass.sombre` est le même ton — teinte 36°, saturation 36 % — assombri
+        // jusqu'à 5,21:1 sur blanc. L'accent reste reconnaissable ; c'est un
+        // réglage de luminosité, pas une seconde couleur.
+        //
+        // La règle : `brass` sur fond sombre, `brass-sombre` sur fond clair.
+        //
+        // Deux jetons frères plutôt qu'un objet `{ DEFAULT, sombre }` : six
+        // appels `theme('colors.brass')` dans `src/index.css` — curseur de
+        // l'estimation, anneau de focus, dégradés — attendent une chaîne et
+        // échouent à la construction sur un objet. Les frères ne demandent rien
+        // à ce CSS-là.
+        brass: '#B08D57',
+        'brass-sombre': '#84683E',
         bottle: '#1F3B2E', // Bottle Green — accent secondaire très rare
         // Laiton du parcours d'estimation. Seule teinte ajoutée à la palette,
         // et volontairement cantonnée à un écran : c'est l'accent du panneau de

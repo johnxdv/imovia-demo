@@ -1,0 +1,176 @@
+# Génération d'un article de blog.
+#
+# SIX PASSAGES PAR MOIS, ESPACÉS
+#
+# Les 1, 6, 11, 16, 21 et 26 — un article tous les cinq jours, et non six d'un
+# coup en début de mois. Deux raisons : une publication régulière se lit mieux
+# côté moteurs qu'une rafale suivie de trois semaines de silence, et un sujet
+# choisi tous les cinq jours a le temps de tenir compte de ce qui a été publié
+# entre-temps.
+#
+# `cron` s'exprime en UTC : `7` UTC vaut 8 h à Paris en hiver, 9 h en été.
+# L'heure exacte n'a aucune importance ici — rien n'attend l'article.
+#
+# LE SYSTÈME EST AUTONOME
+#
+# Le sujet vient du plan éditorial que le système génère lui-même
+# (`src/data/plan.json`). Quand il ne reste que trois sujets, le passage en
+# cours planifie les douze suivants avant de rédiger le sien. Aucune validation
+# humaine n'intervient.
+#
+# CE QUE COÛTE CHAQUE PASSAGE
+#
+# Un article sans recherche coûte environ 0,07 $, un article avec vérification
+# de faits environ 0,45 $. La planification, tous les deux mois, ajoute 0,11 $.
+# Le coût réel de chaque article est enregistré dans son propre fichier, sous
+# `meta.cout` : il n'y a pas à l'estimer, il se relit.
+
+name: Article de blog
+
+on:
+  schedule:
+    # Les 1, 6, 11, 16, 21 et 26 de chaque mois.
+    - cron: '0 7 1,6,11,16,21,26 * *'
+
+  # Lancement à la demande depuis l'onglet Actions.
+  workflow_dispatch:
+    inputs:
+      sujet:
+        description: 'Sujet imposé, hors plan (laisser vide pour suivre le plan)'
+        required: false
+        type: string
+      essai:
+        description: 'Essai : dérouler sans écrire ni publier'
+        required: false
+        type: boolean
+        default: false
+
+# Deux générations simultanées écriraient deux articles au même instant, et se
+# marcheraient surtout dessus sur le plan et le journal.
+concurrency:
+  group: blog-article
+  cancel-in-progress: false
+
+jobs:
+  redaction:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` installe aussi les devDependencies, dont `@anthropic-ai/sdk`
+      # verrouillé dans `package-lock.json`. Rien à installer à part.
+      - run: npm ci
+
+      - name: Rédaction de l'article
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          # Le sujet saisi passe par l'environnement, jamais interpolé dans la
+          # ligne de commande : une expression `${{ inputs… }}` écrite
+          # directement dans un `run` est substituée AVANT que le shell ne lise
+          # la ligne, et un sujet contenant un guillemet ou un point-virgule y
+          # exécuterait ce qu'il veut. Ici, le shell ne voit qu'une variable.
+          SUJET: ${{ inputs.sujet }}
+          ESSAI: ${{ inputs.essai }}
+        run: |
+          arguments=()
+          [ "$ESSAI" = "true" ] && arguments+=(--essai)
+          [ -n "$SUJET" ] && arguments+=(--sujet "$SUJET")
+          node scripts/blog-article.mjs "${arguments[@]}"
+
+      - name: Publication
+        if: ${{ !inputs.essai }}
+        run: |
+          # L'article, ses images, le plan et le journal entrent dans le MÊME
+          # commit. C'est ce qui rend la publication atomique : il n'existe
+          # aucun état où l'article est en ligne sans sa trace au journal, ni
+          # l'inverse. Le raisonnement complet est dans `scripts/_lib/plan.mjs`.
+          suivi='src/data/articles public/blog src/data/plan.json src/data/journal.json'
+
+          # Même garde que l'import Modelo : rien à publier, pas de commit. Un
+          # passage qui échoue à produire un article ne doit pas relancer un
+          # déploiement pour rien. L'article est un fichier neuf, donc non
+          # suivi : `git status` le voit là où `git diff` ne verrait rien.
+          if [ -z "$(git status --porcelain -- $suivi)" ]; then
+            echo "Aucun article produit — pas de commit."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $suivi
+          git commit -m "Publie un article de blog"
+
+          # REPRISE SUR REJET DE PUSH.
+          #
+          # Sans elle, un commit poussé entre le `checkout` et ici — un import
+          # Modelo, une correction à la main — faisait échouer le push, et le
+          # passage était perdu : article écrit, jamais publié, sujet toujours
+          # en file mais coût déjà payé. Le rejet n'a rien d'exceptionnel, le
+          # dépôt reçoit d'autres écritures automatiques.
+          #
+          # `--rebase` rejoue notre commit par-dessus ce qui est arrivé. Nos
+          # fichiers sont neufs ou nous appartiennent, donc un conflit est très
+          # improbable ; s'il s'en produit un, la boucle s'arrête et l'étape
+          # échoue plutôt que de résoudre au hasard.
+          for essai in 1 2 3; do
+            if git push; then
+              echo "Poussé au $essai$([ $essai = 1 ] && echo 'er' || echo 'e') essai."
+              exit 0
+            fi
+            echo "Push rejeté — le dépôt a bougé. Rebase et nouvel essai…"
+            git pull --rebase --no-edit || exit 1
+            sleep $((essai * 5))
+          done
+
+          echo "Trois tentatives de push rejetées."
+          exit 1
+
+      # ── Alerte ────────────────────────────────────────────────────────────
+      #
+      # Sans cette étape, un échec de passage programmé est silencieux pour qui
+      # ne surveille pas l'onglet Actions : GitHub n'envoie d'e-mail sur un
+      # `schedule` en échec qu'à la personne qui a modifié le cron en dernier,
+      # et seulement si ses notifications sont réglées pour. Autrement dit, le
+      # blog peut s'arrêter pendant des semaines sans que personne ne le voie.
+      #
+      # Un ticket est visible de tous, garde l'historique, et déclenche les
+      # notifications normales du dépôt. Il en est ouvert un seul : les passages
+      # suivants commentent celui qui est ouvert plutôt que d'en empiler un par
+      # échec.
+      - name: Signaler l'échec
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          titre="Blog automatique — le passage a échoué"
+          ouvert=$(gh issue list --state open --search "$titre in:title" --json number --jq '.[0].number')
+
+          corps="Le passage du $(date -u '+%d/%m/%Y à %H:%M UTC') n'a pas abouti.
+
+          Journal complet : $LIEN
+
+          Aucun sujet n'a été consommé : le plan est intact et le prochain passage
+          reprendra le même sujet. Aucune action n'est requise pour éviter un doublon.
+
+          Si l'échec se répète, les causes les plus probables sont une clé d'API
+          expirée (\`ANTHROPIC_API_KEY\`), une limite de débit, ou un plan éditorial
+          vide que la planification n'a pas su regarnir."
+
+          if [ -n "$ouvert" ]; then
+            gh issue comment "$ouvert" --body "$corps"
+          else
+            gh issue create --title "$titre" --body "$corps" --label "blog" 2>/dev/null \
+              || gh issue create --title "$titre" --body "$corps"
+          fi
