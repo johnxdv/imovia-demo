@@ -19,10 +19,15 @@
 //
 // AUCUNE CLÉ N'EST OBLIGATOIRE : sans `UNSPLASH_ACCESS_KEY` ni `PEXELS_API_KEY`,
 // le module saute simplement ces étages et le dit dans son journal.
+//
+// Une clé PRÉSENTE MAIS INUTILISABLE — marqueur `[SENSITIVE]` d'un
+// `vercel env pull`, valeur d'exemple — est traitée comme absente, et signalée
+// comme telle par un message distinct. Voir `cleUtilisable()`.
 
 import { writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
+import { FORMATS, libelleFormat } from '../../api/_lib/articleTexte.js'
 import { DOSSIER_IMAGES, echappe } from './article.mjs'
 
 const DELAI_MS = 10_000
@@ -31,18 +36,84 @@ const DELAI_MS = 10_000
 const COULEURS = { ink: '#10141C', stone: '#EDEAE3', brass: '#B08D57' }
 
 /**
+ * Une clé d'API est-elle exploitable, ou n'est-ce qu'un marqueur laissé là ?
+ *
+ * Écrit après la panne qui a privé le blog d'images sur tout son premier mois.
+ * `vercel env pull` rend « [SENSITIVE] » à la place des variables déclarées en
+ * type Secret chez Vercel — elles y sont en écriture seule, rien ne les
+ * ressort. Ce marqueur de onze caractères s'était retrouvé dans
+ * `.env.production` pour les deux clés, et il est PIRE qu'une clé absente :
+ * `if (!cle)` le laisse passer, l'appel part avec un jeton qui n'en est pas un,
+ * l'API répond 401, et l'étage se saute en annonçant une « réponse 401 » — qui
+ * envoie chercher une clé révoquée alors que le problème est qu'il n'y en a
+ * jamais eu. Même piège et même parade que pour `ANTHROPIC_API_KEY` dans
+ * `_lib/claude-api.mjs`.
+ *
+ * POURQUOI CETTE FONCTION NE LÈVE PAS, LÀ OÙ CELLE DE CLAUDE-API LÈVE
+ *
+ * La clé Anthropic est obligatoire : sans elle il n'y a pas d'article, et
+ * s'arrêter avant le premier appel est la bonne réponse. Les clés d'images sont
+ * facultatives par contrat — l'en-tête de ce fichier l'annonce. Lever ici
+ * ferait échouer une génération entière, déjà payée en jetons, pour une photo
+ * manquante. Une clé malformée est donc traitée comme une clé absente.
+ *
+ * Elle ne se contente pas pour autant du même message. « Absente » et
+ * « inutilisable » demandent deux gestes différents — créer une clé, ou
+ * remplacer un marqueur collé par erreur — et un journal qui les confond fait
+ * chercher au mauvais endroit.
+ *
+ * CE QUE CE CONTRÔLE NE FAIT PAS : valider le format d'Unsplash ou de Pexels.
+ * Leurs clés font aujourd'hui 43 et 56 caractères, mais un fournisseur change
+ * ses formats sans prévenir, et un contrôle calé sur une longueur exacte
+ * rejetterait demain une clé parfaitement valide — panne plus difficile à
+ * comprendre que celle qu'il corrige. Il n'écarte donc que ce qui ne peut être
+ * aucune clé : une valeur d'exemple, des caractères qu'aucune n'emploie, ou une
+ * longueur qu'aucune n'atteint.
+ *
+ * Aucune valeur n'est journalisée, sauf celles que le test reconnaît comme
+ * marqueurs — une clé véritable mais jugée trop courte ne doit pas finir en
+ * clair dans les journaux d'une Action.
+ */
+const MARQUEURS = /^(\[?sensitive\]?|changeme|todo|xxx+|(votre|your)[-_ ]?(cle|clé|key)[-_ ]?(ici|here)?|a[-_ ]?remplir)$/i
+
+function cleUtilisable(nom, etiquette, journal) {
+  const brute = process.env[nom]
+
+  if (!brute || !brute.trim()) {
+    journal(`${etiquette} — ${nom} absente, étage sauté.`)
+    return null
+  }
+
+  // Guillemets parfois conservés par un copier-coller depuis un fichier
+  // d'environnement : `KEY="abc"` donne `"abc"` une fois lu.
+  const cle = brute.trim().replace(/^['"]|['"]$/g, '')
+
+  const raison = MARQUEURS.test(cle)
+    ? `valeur d'exemple ou marqueur de masquage (« ${cle} »)`
+    : /[\s<>[\]{}"']/.test(cle)
+      ? "caractères qu'aucune clé n'emploie (espace, chevron, crochet ou guillemet)"
+      : cle.length < 20
+        ? `${cle.length} caractères, trop court pour une clé`
+        : null
+
+  if (raison) {
+    journal(`${etiquette} — ${nom} inutilisable : ${raison}. Étage sauté, aucun appel envoyé.`)
+    return null
+  }
+
+  return cle
+}
+
+/**
  * Photo Unsplash.
  *
  * L'appel à `download_location` n'est pas facultatif : les conditions d'usage
  * de l'API imposent de le déclencher quand une photo est effectivement
  * utilisée, et de créditer l'auteur. Le manquer met le compte en infraction.
  */
-async function unsplash(requete, journal) {
-  const cle = process.env.UNSPLASH_ACCESS_KEY
-  if (!cle) {
-    journal('Unsplash — UNSPLASH_ACCESS_KEY absente, étage sauté.')
-    return null
-  }
+async function unsplash(requete, journal, exclure, largeur) {
+  const cle = cleUtilisable('UNSPLASH_ACCESS_KEY', 'Unsplash', journal)
+  if (!cle) return null
 
   const url = new URL('https://api.unsplash.com/search/photos')
   url.searchParams.set('query', requete)
@@ -61,11 +132,24 @@ async function unsplash(requete, journal) {
   }
 
   const data = await reponse.json()
-  const photo = data?.results?.[0]
+
+  // Première photo NON DÉJÀ RETENUE pour cet article. Sans ce filtre, une
+  // requête d'en-tête et une requête de corps proches — « house exterior » et
+  // « house interior » — rendent régulièrement le même cliché en tête de
+  // classement, et l'article affiche deux fois la même image à trois écrans
+  // d'intervalle. L'identifiant du fournisseur sert de clé, pas l'URL : celle-ci
+  // porte des paramètres de recadrage qui diffèrent d'un appel à l'autre.
+  const photo = (data?.results ?? []).find((r) => r?.id && !exclure?.has(`unsplash:${r.id}`))
   if (!photo) {
-    journal(`Unsplash — aucun résultat pour « ${requete} », repli sur Pexels.`)
+    const combien = data?.results?.length ?? 0
+    journal(
+      combien === 0
+        ? `Unsplash — aucun résultat pour « ${requete} », repli sur Pexels.`
+        : `Unsplash — les ${combien} résultats pour « ${requete} » sont déjà employés, repli sur Pexels.`,
+    )
     return null
   }
+  exclure?.add(`unsplash:${photo.id}`)
 
   // Déclenchement du téléchargement, exigé par les conditions de l'API.
   if (photo.links?.download_location) {
@@ -75,7 +159,7 @@ async function unsplash(requete, journal) {
     }).catch(() => {})
   }
 
-  const src = `${photo.urls.raw}&auto=format&fit=crop&w=1600&q=70`
+  const src = `${photo.urls.raw}&auto=format&fit=crop&w=${largeur ?? 1600}&q=70`
   journal(`Unsplash — photo de ${photo.user?.name ?? 'auteur inconnu'} retenue.`)
 
   return {
@@ -88,12 +172,9 @@ async function unsplash(requete, journal) {
 }
 
 /** Photo Pexels — même contrat, employée seulement si Unsplash n'a rien rendu. */
-async function pexels(requete, journal) {
-  const cle = process.env.PEXELS_API_KEY
-  if (!cle) {
-    journal('Pexels — PEXELS_API_KEY absente, étage sauté.')
-    return null
-  }
+async function pexels(requete, journal, exclure) {
+  const cle = cleUtilisable('PEXELS_API_KEY', 'Pexels', journal)
+  if (!cle) return null
 
   const url = new URL('https://api.pexels.com/v1/search')
   url.searchParams.set('query', requete)
@@ -111,11 +192,18 @@ async function pexels(requete, journal) {
   }
 
   const data = await reponse.json()
-  const photo = data?.photos?.[0]
+
+  const photo = (data?.photos ?? []).find((r) => r?.id && !exclure?.has(`pexels:${r.id}`))
   if (!photo) {
-    journal(`Pexels — aucun résultat pour « ${requete} ».`)
+    const combien = data?.photos?.length ?? 0
+    journal(
+      combien === 0
+        ? `Pexels — aucun résultat pour « ${requete} ».`
+        : `Pexels — les ${combien} résultats pour « ${requete} » sont déjà employés.`,
+    )
     return null
   }
+  exclure?.add(`pexels:${photo.id}`)
 
   journal(`Pexels — photo de ${photo.photographer ?? 'auteur inconnu'} retenue.`)
 
@@ -258,28 +346,103 @@ ${barres}
 }
 
 /**
- * Choisit et produit l'illustration d'un article.
+ * Une photo, Unsplash puis Pexels, ou rien.
  *
- * `graphique` vient de la rédaction : c'est le modèle qui signale qu'une
- * comparaison chiffrée porte l'article, à partir des seules données réelles
- * qu'on lui a fournies. Deux valeurs au moins, sinon il n'y a rien à comparer
- * et on retombe sur la photo.
+ * Le repli ne se déclenche pas sur un jugement de pertinence — l'API ne donne
+ * aucun indice exploitable là-dessus — mais sur ce qui est vérifiable : aucun
+ * résultat, aucun résultat encore libre, ou appel en échec.
  */
-export async function illustration({ slug, requeteImage, graphique }, journal = () => {}) {
-  if (graphique && Array.isArray(graphique.valeurs) && graphique.valeurs.length >= 2) {
+async function photo(requete, journal, vues, largeur, role) {
+  if (!requete) return null
+
+  const dit = (m) => journal(`${role} — ${m}`)
+  const trouvee =
+    (await unsplash(requete, dit, vues, largeur).catch((e) => (dit(`Unsplash en échec : ${e.message}`), null))) ??
+    (await pexels(requete, dit, vues).catch((e) => (dit(`Pexels en échec : ${e.message}`), null)))
+
+  if (!trouvee) dit(`aucune photo pour « ${requete} ».`)
+  return trouvee
+}
+
+/**
+ * Toutes les illustrations d'un article : en-tête, corps, graphique.
+ *
+ * CE QUI CHANGE PAR RAPPORT À LA VERSION PRÉCÉDENTE, ET POURQUOI
+ *
+ * L'ancienne fonction rendait UNE illustration, et le graphique passait avant
+ * la photo. Conséquence non voulue mais mécanique : un article de marché
+ * recevait son graphique et jamais de photo. Le seul article publié le montre —
+ * six sections de texte, un diagramme en barres, aucune image. C'est ce qui
+ * faisait que le blog ne ressemblait pas à un blog.
+ *
+ * Les deux ne sont donc plus en concurrence. L'en-tête est TOUJOURS une photo,
+ * quel que soit le format : c'est la vignette de la page de liste, l'aperçu de
+ * partage, et la première chose que voit un lecteur. Un graphique en 1200 × 630
+ * faisait un aperçu de partage correct mais une vignette illisible, et une
+ * entrée en matière austère.
+ *
+ * Le graphique, lui, descend DANS le corps, à l'endroit que la rédaction
+ * désigne — au plus près du passage qui le commente, ce qui est sa place. Et il
+ * n'est produit que pour les formats qui l'acceptent : un seul des quatre. La
+ * règle est portée par `FORMATS`, pas par un `if` ici, pour qu'il n'y ait qu'un
+ * endroit à lire pour savoir qui a droit à quoi.
+ *
+ * SUR L'ORDRE DES APPELS
+ *
+ * En-tête d'abord, corps ensuite, en série et non en parallèle. Deux raisons :
+ * le jeu d'exclusion qui évite de servir deux fois la même photo doit être
+ * rempli avant la requête suivante, et l'application Unsplash est en mode Demo
+ * — cinquante requêtes par heure, qu'une rafale parallèle épuiserait plus vite
+ * qu'elle ne les économise.
+ */
+export async function illustrations(
+  { slug, format, requeteEnTete, requetesCorps = [], graphique },
+  journal = () => {},
+) {
+  const vues = new Set()
+
+  const enTete = await photo(requeteEnTete, journal, vues, 1600, 'Image d’en-tête')
+
+  // Deux au maximum. Au-delà, l'article devient un album : les images cessent
+  // d'appuyer le propos et coupent la lecture.
+  const corps = []
+  for (const [i, demande] of requetesCorps.slice(0, 2).entries()) {
+    const trouvee = await photo(demande?.requete, journal, vues, 1200, `Image de corps ${i + 1}`)
+    if (trouvee) corps.push({ ...trouvee, apresSection: Number(demande?.apresSection) || 1 })
+  }
+
+  // ── Graphique ──────────────────────────────────────────────────────────
+  let dessin = null
+  const autorise = FORMATS[format]?.graphique === true
+  const exploitable = graphique && Array.isArray(graphique.valeurs) && graphique.valeurs.length >= 2
+
+  if (graphique && !autorise) {
+    journal(
+      `Graphique — écarté : le format « ${libelleFormat(format)} » n'en accepte pas. ` +
+        'Seul l’article de marché le fait.',
+    )
+  } else if (graphique && !exploitable) {
+    journal(`Graphique — écarté : ${graphique.valeurs?.length ?? 0} valeur(s), il en faut deux pour comparer.`)
+  } else if (autorise && exploitable) {
     const svg = graphiqueBarres(graphique)
     await mkdir(DOSSIER_IMAGES, { recursive: true })
     await writeFile(path.join(DOSSIER_IMAGES, `${slug}.svg`), svg, 'utf8')
     journal(`Graphique — ${graphique.valeurs.length} barres, écrit dans public/blog/${slug}.svg`)
 
-    return {
-      type: 'graphique',
+    dessin = {
       src: `/blog/${slug}.svg`,
       alt: graphique.titre,
       credit: `Source : relevés de prix du secteur, ${graphique.releve ?? 'données du site'}.`,
+      apresSection: Number(graphique.apresSection) || 1,
     }
   }
 
-  const requete = requeteImage || 'maison immobilier France'
-  return (await unsplash(requete, journal)) ?? (await pexels(requete, journal)) ?? null
+  if (!enTete) {
+    journal(
+      'Aucune image d’en-tête — l’article est publiable, mais sa vignette et son ' +
+        'aperçu de partage seront vides. Vérifiez UNSPLASH_ACCESS_KEY et PEXELS_API_KEY.',
+    )
+  }
+
+  return { enTete, corps, graphique: dessin }
 }

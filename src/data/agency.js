@@ -20,8 +20,32 @@ export const agency = {
   mapsHref: 'https://www.google.com/maps/search/?api=1&query=41A+rue+Principale+57980+Diebling',
   hours: 'Du lundi au samedi, 9h30 – 19h00',
   // Emprise cartographique (OpenStreetMap) centrée sur Diebling (57980).
-  mapBbox: '6.7410,49.1590,6.7650,49.1750',
-  mapMarker: '49.1670,6.7530',
+  //
+  // Coordonnées de l'ADRESSE de l'agence, géocodée au numéro sur la Base
+  // Adresse Nationale : « 41a Rue Principale 57980 Diebling », correspondance
+  // de type `housenumber`, score 0,96 — soit 49.1083 N, 6.9425 E.
+  //
+  // Les valeurs précédentes — 49.1670 / 6.7530 — plaçaient le repère à quinze
+  // kilomètres au nord-ouest. Le géocodage inverse de ce point ne rend AUCUNE
+  // adresse : c'était de la rase campagne. La carte de la page Contact montrait
+  // donc des champs à un visiteur venu chercher l'agence.
+  //
+  // À ne pas confondre avec le centre de la commune (49.1028 / 6.9339, le
+  // centroïde que publie geo.api.gouv.fr pour le code INSEE 57176) : il est à
+  // 700 m d'ici. Le centroïde sert à mesurer des distances entre communes —
+  // c'est lui qu'emploie `donnees-locales.mjs` — mais une carte qui répond à
+  // « où est l'agence ? » doit pointer la porte, pas le village.
+  //
+  // `mapBbox` se lit minLon, minLat, maxLon, maxLat — l'inverse de `mapMarker`,
+  // qui se lit lat, lon. Les deux ordres viennent d'OpenStreetMap et ne sont pas
+  // interchangeables : les intervertir affiche une carte de l'océan Atlantique
+  // sans lever la moindre erreur.
+  //
+  // L'emprise couvre environ 1,7 km sur 1,8 km autour du repère : assez pour
+  // situer le village et ses accès, assez serré pour que la rue Principale
+  // reste lisible.
+  mapBbox: '6.9305,49.1003,6.9545,49.1163',
+  mapMarker: '49.1083,6.9425',
   social: [
     { label: 'Facebook', href: 'https://www.facebook.com/cookie/consent' },
     { label: 'Instagram', href: 'https://www.instagram.com/immovia.fr' },

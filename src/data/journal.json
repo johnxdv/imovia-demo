@@ -1,0 +1,26 @@
+{
+  "entrees": [
+    {
+      "date": "2026-09-29",
+      "slug": "prix-immobilier-a-forbach-ce-qui-separe-le-centre-bellevue-et-le-wiesb",
+      "titre": "Prix immobilier à Forbach : ce qui sépare le Centre, Bellevue et le Wiesberg",
+      "sujet": "Prix immobilier à Forbach : ce qui sépare le Centre, Bellevue et le Wiesberg",
+      "commune": "Forbach",
+      "codeInsee": "57227",
+      "motCle": "prix m2 Forbach",
+      "angle": "Décomposer le marché forbachois quartier par quartier (Centre, Bellevue, Wiesberg, La Petite Forêt, Hommel) au lieu d'un prix moyen unique qui ne veut rien dire dans une ville aussi contrastée.",
+      "genre": "analyse de marché"
+    },
+    {
+      "date": "2026-09-24",
+      "slug": "prix-au-m-autour-de-diebling-ce-que-revele-la-comparaison-des-12-commu",
+      "titre": "Prix au m² autour de Diebling : ce que révèle la comparaison des 12 communes à moins de 7 km",
+      "sujet": "Comparatif des prix au m² des 12 communes situées à moins de 7 km de Diebling, maisons et appartements, avec traduction en surface achetable à budget constant.",
+      "commune": "Diebling",
+      "codeInsee": "57176",
+      "motCle": "prix m2 Diebling",
+      "angle": "Tous les contenus existants s'arrêtent aux villes-centres (Forbach, Sarreguemines) et traitent une commune à la fois ; cet article met en regard les villages de la couronne de Diebling, montre que les prix ne suivent pas la distance (60 % d'écart entre Farébersviller et Puttelange-aux-Lacs) et révèle l'inversion appartement/maison propre à Diebling, Nousseviller-Saint-Nabor et Bousbach, qu'aucune page de portail ne relève.",
+      "genre": "analyse de marché"
+    }
+  ]
+}

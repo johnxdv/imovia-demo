@@ -6,7 +6,9 @@ import { Button } from '../components/ui/Button'
 import { PlanDivider } from '../components/ui/PlanDivider'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { articles, dateLisible } from '../lib/articles'
-import { libelleCategorie } from '../lib/categories'
+import plan from '../data/plan.json'
+import journal from '../data/journal.json'
+import { libelleFormat } from '../../api/_lib/articleTexte'
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║  CETTE PAGE N'EST PROTÉGÉE PAR AUCUN MOT DE PASSE.                       ║
@@ -107,6 +109,8 @@ export default function Seo() {
     if (ok) setBrouillon({ titre: '', contenu: '' })
   }
 
+  const enFile = (plan.sujets ?? []).filter((s) => !s.publie)
+
   return (
     <Section tone="ink" py="pb-24 pt-36 sm:pt-44">
       <div className="max-w-4xl">
@@ -132,14 +136,73 @@ export default function Seo() {
           </p>
         ) : null}
 
+        {/* ── Plan éditorial et journal ─────────────────────────────────
+
+            Consultation seule. Le système publie de toute façon : ce bloc ne
+            bloque rien, il montre ce qui part sur le site. Le plan se regarnit
+            tout seul à trois sujets restants. */}
+        <PlanDivider className="mt-14" label="Plan éditorial" />
+
+        <p className="mt-6 max-w-2xl font-mono text-xs leading-relaxed text-stone/45">
+          {enFile.length} sujet{enFile.length > 1 ? 's' : ''} en file, généré
+          {plan.genereLe ? ` le ${dateLisible(plan.genereLe)}` : ''}. Le système en produit douze
+          nouveaux dès qu’il n’en reste que trois — sans intervention.
+        </p>
+
+        {enFile.length === 0 ? (
+          <p className="mt-8 text-base text-stone/55">
+            Aucun sujet en file. Le prochain passage en générera douze.
+          </p>
+        ) : (
+          <ol className="mt-8">
+            {enFile.map((sujet, i) => (
+              <li key={sujet.id ?? i} className="border-t border-white/10 py-5">
+                <p className="font-mono text-[0.68rem] uppercase tracking-micro text-brass">
+                  {[sujet.commune ?? 'Secteur', sujet.genre].filter(Boolean).join(' · ')}
+                  {sujet.besoinDonneesPrix ? ' · données de prix' : ''}
+                  {sujet.besoinRecherche ? ' · recherche' : ''}
+                </p>
+                <p className="mt-2 font-display text-lg text-stone">{sujet.titre}</p>
+                <p className="mt-1.5 font-mono text-xs leading-relaxed text-stone/45">
+                  Mot-clé visé : <span className="text-stone/70">{sujet.motCle}</span> — {sujet.angle}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {/* ── Journal des publications ──────────────────────────────────
+
+            La mémoire du système : c'est en le relisant qu'il évite de
+            reproposer un couple (commune, mot-clé) déjà traité. Il se
+            reconstruit tout seul à partir des articles publiés s'il venait à
+            être perdu — voir `scripts/_lib/plan.mjs`. */}
+        <PlanDivider className="mt-14" label="Journal" />
+
+        <p className="mt-6 max-w-2xl font-mono text-xs leading-relaxed text-stone/45">
+          {(journal.entrees ?? []).length} publication
+          {(journal.entrees ?? []).length > 1 ? 's' : ''} enregistrée
+          {(journal.entrees ?? []).length > 1 ? 's' : ''}. Aucun couple (commune, mot-clé) de cette
+          liste ne peut resservir.
+        </p>
+
+        <ul className="mt-8">
+          {(journal.entrees ?? []).map((e) => (
+            <li key={e.slug} className="border-t border-white/10 py-4">
+              <p className="font-mono text-xs leading-relaxed text-stone/55">
+                <span className="text-stone/35">{dateLisible(e.date)}</span>
+                {' · '}
+                <span className="text-brass">{e.commune ?? 'secteur'}</span>
+                {' · '}
+                <span className="text-stone/70">{e.motCle ?? 'sans mot-clé'}</span>
+              </p>
+              <p className="mt-1 font-mono text-xs leading-relaxed text-stone/45">{e.titre}</p>
+            </li>
+          ))}
+        </ul>
+
         {/* ── Articles publiés ──────────────────────────────────────────── */}
         <PlanDivider className="mt-14" label={`${articles.length} publié${articles.length > 1 ? 's' : ''}`} />
-
-        {articles.length > 0 ? (
-          <p className="mt-6 max-w-2xl font-mono text-xs leading-relaxed text-stone/45">
-            Rotation : le prochain sujet évitera les catégories des deux derniers articles.
-          </p>
-        ) : null}
 
         {articles.length === 0 ? (
           <p className="mt-8 text-base text-stone/55">
@@ -156,11 +219,12 @@ export default function Seo() {
                       {dateLisible(article.datePublication)} · {article.ville ?? '—'} ·{' '}
                       {article.meta?.genere === 'manuel' ? 'saisi à la main' : 'généré'}
                     </p>
-                    {/* La catégorie est affichée ici et nulle part ailleurs :
-                        elle sert à vérifier que la rotation tourne, ce qui
-                        regarde l'agence, pas le lecteur. */}
+                    {/* Le format éditorial — affiché ici et nulle part ailleurs :
+                        il sert à vérifier que le plan est suivi et que les
+                        articles de marché restent minoritaires, ce qui regarde
+                        l'agence, pas le lecteur. */}
                     <p className="mt-1 font-mono text-[0.68rem] text-stone/40">
-                      {libelleCategorie(article.categorie)}
+                      {libelleFormat(article.format)}
                     </p>
                     <h2 className="mt-2 font-display text-xl text-stone">{article.titre}</h2>
                     <p className="mt-2 max-w-xl font-mono text-xs leading-relaxed text-stone/45">

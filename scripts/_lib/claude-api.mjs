@@ -138,6 +138,55 @@ export function client() {
 }
 
 /**
+ * Déplace le point de reprise du cache sur le dernier bloc de la conversation.
+ *
+ * POURQUOI C'EST LE POSTE QUI DÉCIDE DU COÛT D'UN ARTICLE
+ *
+ * Avec un outil côté serveur, l'API déroule sa propre boucle et rend
+ * `pause_turn` pour demander une relance. On lui renvoie alors la conversation
+ * ENTIÈRE, résultats de recherche compris — et elle est refacturée au prix
+ * d'entrée à chaque tour.
+ *
+ * Mesuré : trois recherches web ont produit 191 000 jetons d'entrée sur un seul
+ * article, soit 1,15 $ à eux seuls. Les recherches elles-mêmes coûtaient 0,03 $.
+ * Ce n'est donc pas la recherche qui coûte cher, c'est de traîner ses résultats
+ * d'un tour à l'autre. Le même mécanisme avait déjà fait dérailler l'ancienne
+ * étape de recherche de sujet, sans qu'on en identifie la cause à l'époque.
+ *
+ * Le cache de prompt répond exactement à ça : ce qui a déjà été envoyé est relu
+ * à 0,50 $ le million au lieu de 5 $, soit un dixième. Il faut seulement poser
+ * un point de reprise à la fin de ce qui est déjà connu, et le déplacer à
+ * chaque tour — le cache est un préfixe, marquer le dernier bloc met en cache
+ * tout ce qui précède.
+ *
+ * L'API n'accepte que quatre points de reprise : les anciens sont donc retirés
+ * avant d'en poser un nouveau. Un seul suffit ici, puisqu'il couvre par
+ * construction tout le début de la conversation.
+ */
+function deplaceCache(messages) {
+  for (const message of messages) {
+    if (!Array.isArray(message.content)) continue
+    for (const bloc of message.content) {
+      if (bloc && typeof bloc === 'object') delete bloc.cache_control
+    }
+  }
+
+  const dernier = messages[messages.length - 1]
+  if (!Array.isArray(dernier?.content)) return
+
+  // Le point se pose sur le dernier bloc CACHABLE. Un bloc de réflexion n'en
+  // accepte pas, et le poser dessus fait échouer la requête entière en 400.
+  const cachables = new Set(['text', 'tool_result', 'web_search_tool_result', 'tool_use', 'server_tool_use'])
+  for (let i = dernier.content.length - 1; i >= 0; i -= 1) {
+    const bloc = dernier.content[i]
+    if (bloc && typeof bloc === 'object' && cachables.has(bloc.type)) {
+      bloc.cache_control = { type: 'ephemeral' }
+      return
+    }
+  }
+}
+
+/**
  * Un appel, jusqu'à sa vraie fin.
  *
  * Deux détails que l'appelant ne doit pas avoir à connaître :
@@ -155,12 +204,23 @@ export async function appel(anthropic, compteur, etape, requete, { relancesMax =
   const messages = [...requete.messages]
   let reponse = null
 
+  // La consigne système est identique à tous les tours : c'est le premier
+  // morceau à mettre en cache, et le plus rentable puisqu'il est relu autant de
+  // fois qu'il y a de relances.
+  const system =
+    typeof requete.system === 'string'
+      ? [{ type: 'text', text: requete.system, cache_control: { type: 'ephemeral' } }]
+      : requete.system
+
   for (let tour = 0; tour <= relancesMax; tour += 1) {
+    if (tour > 0) deplaceCache(messages)
+
     try {
       reponse = await anthropic.messages.create({
         model: MODELE,
         max_tokens: 16000,
         ...requete,
+        system,
         messages,
       })
     } catch (error) {

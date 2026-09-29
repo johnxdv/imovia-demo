@@ -14,13 +14,23 @@
 import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
-import { groupeSources, slugify, titreCourt } from '../../api/_lib/articleTexte.js'
+import {
+  CLES_FORMAT,
+  articlesLies,
+  decoupeLien,
+  groupeSources,
+  libelleFormat,
+  slugify,
+  tempsLecture,
+  titreCourt,
+  visuelsParSection,
+} from '../../api/_lib/articleTexte.js'
 
 // `slugify` est défini dans `api/_lib/` et réexporté ici : la fonction
 // serverless d'administration et ce script fabriquent le même identifiant pour
 // le même titre, et deux définitions qui divergeraient d'un caractère
 // donneraient deux adresses pour un seul article.
-export { slugify, titreCourt }
+export { slugify, titreCourt, tempsLecture, articlesLies, decoupeLien, libelleFormat }
 
 const RACINE = path.resolve(import.meta.dirname, '..', '..')
 export const DOSSIER_ARTICLES = path.join(RACINE, 'src', 'data', 'articles')
@@ -57,11 +67,24 @@ export function valider(article) {
 
   exigeTexte('slug')
   exigeTexte('titre')
-  // `categorie` n'est pas exigée : les articles saisis à la main depuis `/seo`
-  // n'en portent pas, et c'est `categoriesRecentes()` qui sait les ignorer
-  // dans la rotation. Exiger une catégorie ici bloquerait le dépannage.
+
   exigeTexte('resume')
   exigeTexte('datePublication')
+
+  // `format` n'est pas exigé — un article saisi à la main depuis `/seo` n'en
+  // porte pas — mais s'il est là, il doit être connu : un format inventé
+  // choisirait silencieusement les règles d'un autre au rendu.
+  if (article?.format && !CLES_FORMAT.includes(article.format)) {
+    manque.push(`format inconnu « ${article.format} » (attendu : ${CLES_FORMAT.join(', ')})`)
+  }
+
+  // Le graphique n'appartient qu'à l'article de marché. C'est la règle qui
+  // empêche le blog de redevenir ce qu'il était — un mur de barres sur tous les
+  // sujets. `illustrations()` l'applique déjà à la production ; elle est
+  // répétée ici parce qu'un article peut aussi arriver d'ailleurs.
+  if (article?.graphique && article?.format && article.format !== 'marche') {
+    manque.push(`graphique interdit sur le format « ${article.format} » (réservé à « marche »)`)
+  }
 
   if (!Array.isArray(article?.sections) || article.sections.length === 0) {
     manque.push('sections (au moins une)')
@@ -171,22 +194,86 @@ export function titreHtml(article, marque = 'IMMOVIA') {
  * **Les deux rendus doivent rester d'accord sur la structure** : un `h2` ici et
  * un `h3` là-bas donneraient deux lectures différentes du même article selon le
  * visiteur. Toute modification de structure se fait des deux côtés.
+ *
+ * ILS DOIVENT AUSSI S'ACCORDER SUR LES CLASSES, POUR UNE RAISON MOINS ÉVIDENTE
+ *
+ * `tailwind.config.js` ne balaie que `./index.html` et `./src/**`. Ce fichier-ci
+ * vit dans `scripts/` : une classe qu'il emploie et que la page React n'emploie
+ * pas est purgée du CSS produit, et n'existe donc PAS. Elle n'échoue pas
+ * bruyamment, elle ne fait simplement rien — un `aspect-[16/9]` absent laisse
+ * une image sans hauteur réservée, et le défaut ne se voit qu'à l'œil sur la
+ * page prérendue.
+ *
+ * Aucune classe ne doit donc apparaître ici sans apparaître aussi dans
+ * `src/pages/Article.jsx`. Et aucune classe ne peut être CONSTRUITE : un
+ * `grid-cols-${n}` n'est pas lisible par le balayage, même depuis `src/`.
+ *
+ * `tous` sert aux articles liés du pied de page. Absent, le bloc n'est
+ * simplement pas rendu — c'est l'état du premier article publié.
  */
-export function corpsHtml(article) {
+export function corpsHtml(article, tous = []) {
+  // ── Un paragraphe, lien contextuel compris ─────────────────────────────
+  //
+  // L'échappement passe AVANT la découpe, segment par segment : le texte de
+  // l'article ne peut donc pas injecter de balise, et l'ancre `[[…]]` est le
+  // seul HTML que la rédaction sait produire. Voir `decoupeLien()`.
+  const paragraphe = (p) =>
+    decoupeLien(p)
+      .map((seg) =>
+        seg.lien
+          ? `<a href="/estimer" class="text-brass-sombre underline decoration-brass-sombre/40 underline-offset-4">${echappe(seg.texte)}</a>`
+          : echappe(seg.texte),
+      )
+      .join('')
+
+  /**
+   * Une illustration, quelle qu'elle soit.
+   *
+   * Le crédit est un LIEN quand le fournisseur en donne un, et pas seulement un
+   * nom : les conditions d'usage d'Unsplash imposent de créditer l'auteur par un
+   * lien vers sa page. La version précédente conservait `creditUrl` dans le
+   * fichier de l'article et ne l'affichait nulle part — le compte était donc en
+   * infraction sans que rien ne le signale.
+   *
+   * `aspect-[16/9]` avec `object-cover` fixe la place de l'image avant son
+   * arrivée : sans hauteur réservée, le texte sous l'image saute au chargement,
+   * ce que les moteurs mesurent et sanctionnent.
+   */
+  const figure = (v, { hero = false } = {}) => {
+    if (!v?.src) return ''
+    const cadrage = v.type === 'graphique' ? 'w-full' : 'w-full aspect-[16/9] object-cover'
+    const charge = hero
+      ? 'loading="eager" fetchpriority="high"'
+      : 'loading="lazy" decoding="async"'
+    const credit = v.creditUrl
+      ? `<a href="${echappe(v.creditUrl)}" rel="nofollow noopener" target="_blank">${echappe(v.credit)}</a>`
+      : echappe(v.credit ?? '')
+
+    return `        <figure class="${hero ? 'mt-10' : 'mt-12'}">
+          <img src="${echappe(v.src)}" alt="${echappe(v.alt ?? '')}" class="${cadrage}" ${charge} />
+${v.credit ? `          <figcaption class="mt-3 font-mono text-xs text-ink/65">${credit}</figcaption>` : ''}
+        </figure>`
+  }
+
+  // Visuels du corps, rangés par section — bornage et ordre dans
+  // `visuelsParSection()`, partagé avec la page React.
+  const visuels = visuelsParSection(article)
+
   const sections = article.sections
-    .map(
-      (s) => `        <section class="mt-12">
-          <h2 class="font-display text-2xl text-stone">${echappe(s.question)}</h2>
-${s.paragraphes.map((p) => `          <p class="mt-4 text-base leading-relaxed text-stone/75">${echappe(p)}</p>`).join('\n')}
-        </section>`,
-    )
+    .map((s, i) => {
+      const apres = (visuels.get(i + 1) ?? []).map((v) => figure(v)).join('\n')
+      return `        <section class="mt-14">
+          <h2 class="font-display text-[1.6rem] leading-snug text-ink">${echappe(s.question)}</h2>
+${s.paragraphes.map((p) => `          <p class="mt-5 text-[1.0625rem] leading-[1.75] text-ink/75">${paragraphe(p)}</p>`).join('\n')}
+        </section>${apres ? `\n${apres}` : ''}`
+    })
     .join('\n')
 
   const faq = (article.faq ?? [])
     .map(
-      (q) => `          <div class="mt-8 border-t border-white/10 pt-6">
-            <h3 class="font-display text-xl text-stone">${echappe(q.question)}</h3>
-            <p class="mt-3 text-base leading-relaxed text-stone/75">${echappe(q.reponse)}</p>
+      (q) => `          <div class="mt-8 border-t border-ink/10 pt-6">
+            <h3 class="font-display text-xl text-ink">${echappe(q.question)}</h3>
+            <p class="mt-3 text-[1.0625rem] leading-[1.75] text-ink/75">${echappe(q.reponse)}</p>
           </div>`,
     )
     .join('\n')
@@ -199,9 +286,9 @@ ${s.paragraphes.map((p) => `          <p class="mt-4 text-base leading-relaxed t
   const sources = groupeSources(article.sources)
     .map(
       (s) => `            <li class="mt-5">
-              <a href="${echappe(s.url)}" rel="nofollow noopener" target="_blank" class="font-mono text-xs text-brass">${echappe(s.source)}</a>
+              <a href="${echappe(s.url)}" rel="nofollow noopener" target="_blank" class="font-mono text-xs text-brass-sombre">${echappe(s.source)}</a>
               <ul>
-${s.enonces.map((e) => `                <li class="mt-1.5 font-mono text-xs leading-relaxed text-stone/55">${echappe(e)}</li>`).join('\n')}
+${s.enonces.map((e) => `                <li class="mt-1.5 font-mono text-xs leading-relaxed text-ink/65">${echappe(e)}</li>`).join('\n')}
               </ul>
             </li>`,
     )
@@ -215,49 +302,87 @@ ${s.enonces.map((e) => `                <li class="mt-1.5 font-mono text-xs lead
   // secteur qui ne renvoie pas vers l'estimateur de ce secteur perd à la fois
   // son lecteur et le maillage interne qui donne du poids à la page visée.
   //
-  // L'intitulé nomme la commune traitée quand elle est connue : « Estimez
-  // votre bien à Forbach » dit où l'on va, là où « en savoir plus » ne dit
-  // rien — au lecteur comme au moteur.
+  // Ce bloc est le SECOND chemin vers l'estimateur, pas le seul : le premier
+  // est l'ancre contextuelle posée dans un paragraphe (voir `paragraphe()`).
+  // Le bloc se lit comme une offre, l'ancre se lit comme une phrase — et c'est
+  // l'ancre qui porte le poids SEO, parce qu'elle est en contexte.
   const ou = article.ville ? ` à ${article.ville}` : ' dans le secteur'
-  const cloture = `        <section class="mt-16 border-t border-white/10 pt-10">
-          <p class="text-lg leading-relaxed text-stone/80">Vous vous demandez ce que vaut votre bien${echappe(ou)} ?</p>
-          <p class="mt-3 text-base leading-relaxed text-stone/65">Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article, appliqués à l’adresse, à la surface et à l’état de votre logement.</p>
+  const cloture = `        <section class="mt-16 border-t border-ink/10 pt-10">
+          <p class="text-lg leading-relaxed text-ink/75">Vous vous demandez ce que vaut votre bien${echappe(ou)} ?</p>
+          <p class="mt-3 text-base leading-relaxed text-ink/70">Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article, appliqués à l’adresse, à la surface et à l’état de votre logement.</p>
           <p class="mt-6">
             <a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimez votre bien${echappe(ou)}</a>
           </p>
         </section>`
 
-  const image = article.image?.src
-    ? `        <figure class="mt-10">
-          <img src="${echappe(article.image.src)}" alt="${echappe(article.image.alt)}" class="w-full" loading="lazy" />
-${article.image.credit ? `          <figcaption class="mt-3 font-mono text-xs text-stone/45">${echappe(article.image.credit)}</figcaption>` : ''}
-        </figure>`
-    : ''
+  // Articles liés — deux ou trois, la même commune d'abord. C'est du maillage
+  // interne autant qu'un service au lecteur : deux articles sur Forbach qui se
+  // citent disent au moteur que le site traite Forbach en profondeur.
+  const liesListe = articlesLies(article, tous)
+  const lies =
+    liesListe.length > 0
+      ? `        <section class="mt-16 border-t border-ink/10 pt-10">
+          <h2 class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass-sombre">À lire aussi</h2>
+          <ul class="mt-6 grid gap-6 sm:grid-cols-3">
+${liesListe
+  .map(
+    (a) => `            <li>
+              <a href="/blog/${echappe(a.slug)}" class="group block">
+${a.imageEnTete?.src ? `                <img src="${echappe(a.imageEnTete.src)}" alt="" class="aspect-[16/10] w-full object-cover" loading="lazy" decoding="async" />` : '                <div class="aspect-[16/10] w-full bg-ink/10"></div>'}
+                <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-ink/65">${echappe(dateLisible(a.datePublication))}</p>
+                <p class="mt-1.5 font-display text-base leading-snug text-ink">${echappe(a.titre)}</p>
+              </a>
+            </li>`,
+  )
+  .join('\n')}
+          </ul>
+        </section>`
+      : ''
 
-  return `      <article class="mx-auto w-full max-w-3xl px-6 py-24">
-        <p class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">${echappe(article.ville ?? '')} · ${echappe(dateLisible(article.datePublication))}</p>
-        <h1 class="mt-6 font-display text-4xl leading-tight text-stone">${echappe(article.titre)}</h1>
-        <p class="mt-6 text-lg leading-relaxed text-stone/80">${echappe(article.resume)}</p>
-${image}
+  // Ligne de contexte : format, commune, date, temps de lecture. Le temps de
+  // lecture est calculé, jamais stocké — voir `tempsLecture()`.
+  const meta = [
+    article.format ? libelleFormat(article.format) : null,
+    article.ville,
+    dateLisible(article.datePublication),
+    `${tempsLecture(article)} min de lecture`,
+  ]
+    .filter(Boolean)
+    .map((t) => echappe(t))
+    .join(' · ')
+
+  // Le fond blanc est porté ICI et pas par le `body`, qui reste en `bg-ink`
+  // pour tout le site. Sans ce conteneur, la page prérendue afficherait du
+  // texte sombre sur fond sombre pendant la fraction de seconde qui précède la
+  // reprise par React — soit exactement ce que voient les robots qui n'exécutent
+  // pas de JavaScript, et eux ne reprennent jamais.
+  return `      <div class="bg-white text-ink">
+        <article class="mx-auto w-full max-w-3xl px-6 py-24">
+        <p class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass-sombre">${meta}</p>
+        <h1 class="mt-6 font-display text-4xl leading-tight text-ink">${echappe(article.titre)}</h1>
+${figure(article.imageEnTete, { hero: true })}
+        <p class="mt-10 text-xl leading-relaxed text-ink/80">${echappe(article.resume)}</p>
 ${sections}
 ${
   faq
     ? `        <section class="mt-16">
-          <h2 class="font-display text-2xl text-stone">Questions fréquentes</h2>
+          <h2 class="font-display text-2xl text-ink">Questions fréquentes</h2>
 ${faq}
         </section>`
     : ''
 }
 ${cloture}
+${lies}
 ${
   sources
-    ? `        <section class="mt-16 border-t border-white/10 pt-8">
-          <h2 class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">Sources</h2>
+    ? `        <section class="mt-16 border-t border-ink/10 pt-8">
+          <h2 class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass-sombre">Sources</h2>
           <ul class="mt-4">
 ${sources}
           </ul>
         </section>`
     : ''
 }
-      </article>`
+        </article>
+      </div>`
 }

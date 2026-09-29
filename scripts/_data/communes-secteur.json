@@ -1,0 +1,795 @@
+[
+ {
+  "nom": "Diebling",
+  "codeInsee": "57176",
+  "population": 1658,
+  "distanceKm": 0,
+  "prixMaison": 1462,
+  "prixAppartement": 1950
+ },
+ {
+  "nom": "Metzing",
+  "codeInsee": "57466",
+  "population": 702,
+  "distanceKm": 1.9
+ },
+ {
+  "nom": "Tenteling",
+  "codeInsee": "57665",
+  "population": 1043,
+  "distanceKm": 2.2
+ },
+ {
+  "nom": "Loupershouse",
+  "codeInsee": "57419",
+  "population": 904,
+  "distanceKm": 2.9
+ },
+ {
+  "nom": "Guebenhouse",
+  "codeInsee": "57264",
+  "population": 417,
+  "distanceKm": 3
+ },
+ {
+  "nom": "Hundling",
+  "codeInsee": "57340",
+  "population": 1339,
+  "distanceKm": 3.7,
+  "prixMaison": 1549,
+  "prixAppartement": 1436
+ },
+ {
+  "nom": "Nousseviller-Saint-Nabor",
+  "codeInsee": "57514",
+  "population": 1182,
+  "distanceKm": 4,
+  "prixMaison": 1676,
+  "prixAppartement": 2004
+ },
+ {
+  "nom": "Farschviller",
+  "codeInsee": "57208",
+  "population": 1318,
+  "distanceKm": 4.1
+ },
+ {
+  "nom": "Théding",
+  "codeInsee": "57669",
+  "population": 2408,
+  "distanceKm": 4.4,
+  "prixMaison": 1576,
+  "prixAppartement": 1336
+ },
+ {
+  "nom": "Bousbach",
+  "codeInsee": "57101",
+  "population": 1179,
+  "distanceKm": 4.8,
+  "prixMaison": 1433,
+  "prixAppartement": 1608
+ },
+ {
+  "nom": "Farébersviller",
+  "codeInsee": "57207",
+  "population": 5224,
+  "distanceKm": 5.1,
+  "prixMaison": 2144
+ },
+ {
+  "nom": "Ippling",
+  "codeInsee": "57348",
+  "population": 787,
+  "distanceKm": 5.1
+ },
+ {
+  "nom": "Ernestviller",
+  "codeInsee": "57197",
+  "population": 503,
+  "distanceKm": 5.2,
+  "prixMaison": 1443,
+  "prixAppartement": 1321
+ },
+ {
+  "nom": "Puttelange-aux-Lacs",
+  "codeInsee": "57556",
+  "population": 3016,
+  "distanceKm": 5.6,
+  "prixMaison": 1340,
+  "prixAppartement": 1250
+ },
+ {
+  "nom": "Henriville",
+  "codeInsee": "57316",
+  "population": 742,
+  "distanceKm": 5.7,
+  "prixMaison": 1573
+ },
+ {
+  "nom": "Folkling",
+  "codeInsee": "57222",
+  "population": 1411,
+  "distanceKm": 5.9,
+  "prixMaison": 1426,
+  "prixAppartement": 1450
+ },
+ {
+  "nom": "Woustviller",
+  "codeInsee": "57752",
+  "population": 2786,
+  "distanceKm": 5.9,
+  "prixMaison": 1406
+ },
+ {
+  "nom": "Rouhling",
+  "codeInsee": "57598",
+  "population": 1981,
+  "distanceKm": 6.1
+ },
+ {
+  "nom": "Lixing-lès-Rouhling",
+  "codeInsee": "57408",
+  "population": 799,
+  "distanceKm": 6.9,
+  "prixMaison": 1510,
+  "prixAppartement": 1171
+ },
+ {
+  "nom": "Cappel",
+  "codeInsee": "57122",
+  "population": 676,
+  "distanceKm": 7,
+  "prixMaison": 1371
+ },
+ {
+  "nom": "Grundviller",
+  "codeInsee": "57263",
+  "population": 674,
+  "distanceKm": 7,
+  "prixMaison": 2082,
+  "prixAppartement": 1766
+ },
+ {
+  "nom": "Hoste",
+  "codeInsee": "57337",
+  "population": 562,
+  "distanceKm": 7
+ },
+ {
+  "nom": "Behren-lès-Forbach",
+  "codeInsee": "57058",
+  "population": 6166,
+  "distanceKm": 7.2
+ },
+ {
+  "nom": "Kerbach",
+  "codeInsee": "57360",
+  "population": 1224,
+  "distanceKm": 7.2
+ },
+ {
+  "nom": "Seingbouse",
+  "codeInsee": "57644",
+  "population": 1722,
+  "distanceKm": 7.4,
+  "prixMaison": 1412,
+  "prixAppartement": 1240
+ },
+ {
+  "nom": "Cocheren",
+  "codeInsee": "57144",
+  "population": 3358,
+  "distanceKm": 7.5,
+  "prixMaison": 1454,
+  "prixAppartement": 1506
+ },
+ {
+  "nom": "Rémering-lès-Puttelange",
+  "codeInsee": "57571",
+  "population": 1050,
+  "distanceKm": 7.7
+ },
+ {
+  "nom": "Béning-lès-Saint-Avold",
+  "codeInsee": "57061",
+  "population": 1095,
+  "distanceKm": 7.9,
+  "prixMaison": 1401
+ },
+ {
+  "nom": "Œting",
+  "codeInsee": "57521",
+  "population": 2599,
+  "distanceKm": 8.1,
+  "prixMaison": 1445
+ },
+ {
+  "nom": "Richeling",
+  "codeInsee": "57581",
+  "population": 347,
+  "distanceKm": 8.3
+ },
+ {
+  "nom": "Morsbach",
+  "codeInsee": "57484",
+  "population": 2635,
+  "distanceKm": 8.5,
+  "prixMaison": 1340,
+  "prixAppartement": 1348
+ },
+ {
+  "nom": "Barst",
+  "codeInsee": "57052",
+  "population": 570,
+  "distanceKm": 8.6,
+  "prixMaison": 1623
+ },
+ {
+  "nom": "Rosbruck",
+  "codeInsee": "57596",
+  "population": 740,
+  "distanceKm": 8.6
+ },
+ {
+  "nom": "Etzling",
+  "codeInsee": "57202",
+  "population": 1136,
+  "distanceKm": 8.8
+ },
+ {
+  "nom": "Grosbliederstroff",
+  "codeInsee": "57260",
+  "population": 3346,
+  "distanceKm": 8.9,
+  "prixMaison": 1598,
+  "prixAppartement": 1738
+ },
+ {
+  "nom": "Hambach",
+  "codeInsee": "57289",
+  "population": 2766,
+  "distanceKm": 9,
+  "prixMaison": 1466,
+  "prixAppartement": 1316
+ },
+ {
+  "nom": "Guenviller",
+  "codeInsee": "57271",
+  "population": 680,
+  "distanceKm": 9.2
+ },
+ {
+  "nom": "Saint-Jean-Rohrbach",
+  "codeInsee": "57615",
+  "population": 960,
+  "distanceKm": 9.3
+ },
+ {
+  "nom": "Betting",
+  "codeInsee": "57073",
+  "population": 858,
+  "distanceKm": 9.4,
+  "prixMaison": 1456,
+  "prixAppartement": 1161
+ },
+ {
+  "nom": "Alsting",
+  "codeInsee": "57013",
+  "population": 2480,
+  "distanceKm": 9.8,
+  "prixMaison": 1425,
+  "prixAppartement": 1410
+ },
+ {
+  "nom": "Neufgrange",
+  "codeInsee": "57499",
+  "population": 1364,
+  "distanceKm": 10
+ },
+ {
+  "nom": "Sarreguemines",
+  "codeInsee": "57631",
+  "population": 20143,
+  "distanceKm": 10,
+  "prixMaison": 1480
+ },
+ {
+  "nom": "Holving",
+  "codeInsee": "57330",
+  "population": 1268,
+  "distanceKm": 10.1,
+  "prixMaison": 1346
+ },
+ {
+  "nom": "Forbach",
+  "codeInsee": "57227",
+  "population": 20493,
+  "distanceKm": 10.2,
+  "prixMaison": 1430,
+  "prixAppartement": 1020,
+  "quartiers": [
+   {
+    "nom": "Centre",
+    "maison": 1430,
+    "appartement": 1020
+   },
+   {
+    "nom": "Bellevue",
+    "maison": 1380,
+    "appartement": 970
+   },
+   {
+    "nom": "Wiesberg",
+    "maison": 1430,
+    "appartement": 970
+   },
+   {
+    "nom": "Centre-La Petite Foret",
+    "maison": 1400,
+    "appartement": 910
+   },
+   {
+    "nom": "Wiesberg-Hommel",
+    "maison": 1400,
+    "appartement": 970
+   }
+  ]
+ },
+ {
+  "nom": "Spicheren",
+  "codeInsee": "57659",
+  "population": 3143,
+  "distanceKm": 10.6,
+  "prixMaison": 1554,
+  "prixAppartement": 1852
+ },
+ {
+  "nom": "Leyviller",
+  "codeInsee": "57398",
+  "population": 502,
+  "distanceKm": 10.7,
+  "prixMaison": 1429
+ },
+ {
+  "nom": "Hilsprich",
+  "codeInsee": "57325",
+  "population": 847,
+  "distanceKm": 11,
+  "prixMaison": 1588,
+  "prixAppartement": 1798
+ },
+ {
+  "nom": "Stiring-Wendel",
+  "codeInsee": "57660",
+  "population": 10956,
+  "distanceKm": 11,
+  "prixMaison": 1509,
+  "prixAppartement": 1316
+ },
+ {
+  "nom": "Rémelfing",
+  "codeInsee": "57568",
+  "population": 1305,
+  "distanceKm": 11.2,
+  "prixMaison": 1499
+ },
+ {
+  "nom": "Biding",
+  "codeInsee": "57082",
+  "population": 338,
+  "distanceKm": 11.3
+ },
+ {
+  "nom": "Freyming-Merlebach",
+  "codeInsee": "57240",
+  "population": 13266,
+  "distanceKm": 11.3,
+  "prixMaison": 1274
+ },
+ {
+  "nom": "Maxstadt",
+  "codeInsee": "57453",
+  "population": 297,
+  "distanceKm": 11.4
+ },
+ {
+  "nom": "Willerwald",
+  "codeInsee": "57746",
+  "population": 1517,
+  "distanceKm": 11.5,
+  "prixMaison": 1222
+ },
+ {
+  "nom": "Altrippe",
+  "codeInsee": "57014",
+  "population": 365,
+  "distanceKm": 12
+ },
+ {
+  "nom": "Diffembach-lès-Hellimer",
+  "codeInsee": "57178",
+  "population": 359,
+  "distanceKm": 12.1
+ },
+ {
+  "nom": "Macheren",
+  "codeInsee": "57428",
+  "population": 2814,
+  "distanceKm": 12.1,
+  "prixMaison": 1561,
+  "prixAppartement": 1275
+ },
+ {
+  "nom": "Hombourg-Haut",
+  "codeInsee": "57332",
+  "population": 5976,
+  "distanceKm": 12.2
+ },
+ {
+  "nom": "Schœneck",
+  "codeInsee": "57638",
+  "population": 2435,
+  "distanceKm": 12.3,
+  "prixMaison": 1397,
+  "prixAppartement": 1432
+ },
+ {
+  "nom": "Siltzheim",
+  "codeInsee": "67468",
+  "population": 614,
+  "distanceKm": 12.5
+ },
+ {
+  "nom": "Blies-Guersviller",
+  "codeInsee": "57093",
+  "population": 651,
+  "distanceKm": 12.7,
+  "prixMaison": 1680
+ },
+ {
+  "nom": "Petite-Rosselle",
+  "codeInsee": "57537",
+  "population": 6171,
+  "distanceKm": 12.8,
+  "prixMaison": 1336,
+  "prixAppartement": 1484
+ },
+ {
+  "nom": "Sarralbe",
+  "codeInsee": "57628",
+  "population": 4364,
+  "distanceKm": 13,
+  "prixMaison": 1194,
+  "prixAppartement": 1335
+ },
+ {
+  "nom": "Lachambre",
+  "codeInsee": "57373",
+  "population": 906,
+  "distanceKm": 13.5,
+  "prixMaison": 1816,
+  "prixAppartement": 1367
+ },
+ {
+  "nom": "Frauenberg",
+  "codeInsee": "57234",
+  "population": 603,
+  "distanceKm": 13.6
+ },
+ {
+  "nom": "Petit-Tenquin",
+  "codeInsee": "57536",
+  "population": 217,
+  "distanceKm": 13.6
+ },
+ {
+  "nom": "Sarreinsming",
+  "codeInsee": "57633",
+  "population": 1178,
+  "distanceKm": 13.6
+ },
+ {
+  "nom": "Le Val-de-Guéblange",
+  "codeInsee": "57267",
+  "population": 789,
+  "distanceKm": 13.9
+ },
+ {
+  "nom": "Kappelkinger",
+  "codeInsee": "57357",
+  "population": 425,
+  "distanceKm": 14.1
+ },
+ {
+  "nom": "Laning",
+  "codeInsee": "57384",
+  "population": 579,
+  "distanceKm": 14.1
+ },
+ {
+  "nom": "Hellimer",
+  "codeInsee": "57311",
+  "population": 523,
+  "distanceKm": 14.2
+ },
+ {
+  "nom": "Zetting",
+  "codeInsee": "57760",
+  "population": 875,
+  "distanceKm": 14.2
+ },
+ {
+  "nom": "Herbitzheim",
+  "codeInsee": "67191",
+  "population": 1829,
+  "distanceKm": 14.3,
+  "prixMaison": 1172,
+  "prixAppartement": 1329
+ },
+ {
+  "nom": "Frémestroff",
+  "codeInsee": "57237",
+  "population": 304,
+  "distanceKm": 14.7
+ },
+ {
+  "nom": "Vahl-Ebersing",
+  "codeInsee": "57684",
+  "population": 487,
+  "distanceKm": 14.8,
+  "prixMaison": 1215,
+  "prixAppartement": 1013
+ },
+ {
+  "nom": "Altviller",
+  "codeInsee": "57015",
+  "population": 524,
+  "distanceKm": 15.2,
+  "prixMaison": 1422,
+  "prixAppartement": 1148
+ },
+ {
+  "nom": "Blies-Ébersing",
+  "codeInsee": "57092",
+  "population": 617,
+  "distanceKm": 15.4,
+  "prixMaison": 1780,
+  "prixAppartement": 1602
+ },
+ {
+  "nom": "Hazembourg",
+  "codeInsee": "57308",
+  "population": 152,
+  "distanceKm": 15.5
+ },
+ {
+  "nom": "Wittring",
+  "codeInsee": "57748",
+  "population": 736,
+  "distanceKm": 15.6
+ },
+ {
+  "nom": "L'Hôpital",
+  "codeInsee": "57336",
+  "population": 5183,
+  "distanceKm": 15.8,
+  "prixMaison": 1374,
+  "prixAppartement": 1140
+ },
+ {
+  "nom": "Nelling",
+  "codeInsee": "57497",
+  "population": 266,
+  "distanceKm": 15.8
+ },
+ {
+  "nom": "Lixing-lès-Saint-Avold",
+  "codeInsee": "57409",
+  "population": 673,
+  "distanceKm": 15.9,
+  "prixMaison": 1354,
+  "prixAppartement": 1390
+ },
+ {
+  "nom": "Gréning",
+  "codeInsee": "57258",
+  "population": 113,
+  "distanceKm": 16
+ },
+ {
+  "nom": "Freybouse",
+  "codeInsee": "57239",
+  "population": 422,
+  "distanceKm": 16.1
+ },
+ {
+  "nom": "Kirviller",
+  "codeInsee": "57366",
+  "population": 142,
+  "distanceKm": 16.2
+ },
+ {
+  "nom": "Saint-Avold",
+  "codeInsee": "57606",
+  "population": 14755,
+  "distanceKm": 16.6,
+  "prixMaison": 1498
+ },
+ {
+  "nom": "Insming",
+  "codeInsee": "57346",
+  "population": 605,
+  "distanceKm": 16.7,
+  "prixMaison": 1040,
+  "prixAppartement": 1635
+ },
+ {
+  "nom": "Keskastel",
+  "codeInsee": "67234",
+  "population": 1487,
+  "distanceKm": 16.9,
+  "prixMaison": 1200,
+  "prixAppartement": 1141
+ },
+ {
+  "nom": "Wiesviller",
+  "codeInsee": "57745",
+  "population": 914,
+  "distanceKm": 17,
+  "prixMaison": 1180,
+  "prixAppartement": 1746
+ },
+ {
+  "nom": "Vittersbourg",
+  "codeInsee": "57725",
+  "population": 334,
+  "distanceKm": 17.2
+ },
+ {
+  "nom": "Carling",
+  "codeInsee": "57123",
+  "population": 3291,
+  "distanceKm": 17.5,
+  "prixMaison": 1339,
+  "prixAppartement": 1347
+ },
+ {
+  "nom": "Kalhausen",
+  "codeInsee": "57355",
+  "population": 774,
+  "distanceKm": 17.6,
+  "prixMaison": 1175,
+  "prixAppartement": 1424
+ },
+ {
+  "nom": "Lelling",
+  "codeInsee": "57389",
+  "population": 458,
+  "distanceKm": 17.6,
+  "prixMaison": 1524
+ },
+ {
+  "nom": "Valmont",
+  "codeInsee": "57690",
+  "population": 3041,
+  "distanceKm": 17.6,
+  "prixMaison": 1452,
+  "prixAppartement": 1590
+ },
+ {
+  "nom": "Hinsingen",
+  "codeInsee": "67199",
+  "population": 78,
+  "distanceKm": 17.7
+ },
+ {
+  "nom": "Erstroff",
+  "codeInsee": "57198",
+  "population": 187,
+  "distanceKm": 17.8
+ },
+ {
+  "nom": "Bliesbruck",
+  "codeInsee": "57091",
+  "population": 961,
+  "distanceKm": 17.9,
+  "prixMaison": 1365
+ },
+ {
+  "nom": "Oermingen",
+  "codeInsee": "67355",
+  "population": 1086,
+  "distanceKm": 18
+ },
+ {
+  "nom": "Wœlfling-lès-Sarreguemines",
+  "codeInsee": "57750",
+  "population": 700,
+  "distanceKm": 18.1,
+  "prixMaison": 1104
+ },
+ {
+  "nom": "Folschviller",
+  "codeInsee": "57224",
+  "population": 3916,
+  "distanceKm": 18.2,
+  "prixMaison": 1428,
+  "prixAppartement": 1278
+ },
+ {
+  "nom": "Réning",
+  "codeInsee": "57573",
+  "population": 127,
+  "distanceKm": 18.3
+ },
+ {
+  "nom": "Honskirch",
+  "codeInsee": "57335",
+  "population": 213,
+  "distanceKm": 18.4
+ },
+ {
+  "nom": "Bissert",
+  "codeInsee": "67047",
+  "population": 153,
+  "distanceKm": 18.4
+ },
+ {
+  "nom": "Francaltroff",
+  "codeInsee": "57232",
+  "population": 750,
+  "distanceKm": 18.5
+ },
+ {
+  "nom": "Léning",
+  "codeInsee": "57394",
+  "population": 321,
+  "distanceKm": 18.5
+ },
+ {
+  "nom": "Grostenquin",
+  "codeInsee": "57262",
+  "population": 604,
+  "distanceKm": 19.1
+ },
+ {
+  "nom": "Achen",
+  "codeInsee": "57006",
+  "population": 963,
+  "distanceKm": 19.2,
+  "prixMaison": 932,
+  "prixAppartement": 1051
+ },
+ {
+  "nom": "Diesen",
+  "codeInsee": "57765",
+  "population": 1015,
+  "distanceKm": 19.2,
+  "prixMaison": 1400,
+  "prixAppartement": 1241
+ },
+ {
+  "nom": "Schopperten",
+  "codeInsee": "67456",
+  "population": 407,
+  "distanceKm": 19.3
+ },
+ {
+  "nom": "Givrycourt",
+  "codeInsee": "57248",
+  "population": 95,
+  "distanceKm": 19.4
+ },
+ {
+  "nom": "Albestroff",
+  "codeInsee": "57011",
+  "population": 606,
+  "distanceKm": 19.7
+ },
+ {
+  "nom": "Teting-sur-Nied",
+  "codeInsee": "57668",
+  "population": 1258,
+  "distanceKm": 19.8
+ }
+]

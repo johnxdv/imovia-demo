@@ -33,7 +33,15 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import { agency } from '../src/data/agency.js'
-import { corpsHtml, dateLisible, echappe, lireArticles, titreHtml } from './_lib/article.mjs'
+import {
+  corpsHtml,
+  dateLisible,
+  echappe,
+  libelleFormat,
+  lireArticles,
+  tempsLecture,
+  titreHtml,
+} from './_lib/article.mjs'
 import { baliseHtml } from './_lib/jsonLd.mjs'
 
 const RACINE = path.resolve(import.meta.dirname, '..')
@@ -100,27 +108,42 @@ function openGraph({ titre, description, url, image, type = 'article', publie })
     .join('\n')
 }
 
-/** Page de liste — prérendue elle aussi : c'est la porte d'entrée du blog. */
+/**
+ * Page de liste — prérendue elle aussi : c'est la porte d'entrée du blog.
+ *
+ * JUMELLE DE `src/pages/Blog.jsx`. Mêmes classes des deux côtés : celles que ce
+ * fichier emploie seul sont purgées du CSS produit, puisque `tailwind.config.js`
+ * ne balaie que `./index.html` et `./src/**`.
+ */
 function listeHtml(articles) {
   const items = articles
-    .map(
-      (a) => `          <li class="border-t border-white/10 py-8">
-            <a href="/blog/${echappe(a.slug)}" class="block">
-              <p class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">${echappe(a.ville ?? '')} · ${echappe(dateLisible(a.datePublication))}</p>
-              <h2 class="mt-3 font-display text-2xl text-stone">${echappe(a.titre)}</h2>
-              <p class="mt-3 max-w-2xl text-base leading-relaxed text-stone/70">${echappe(a.resume)}</p>
-            </a>
-          </li>`,
-    )
+    .map((a) => {
+      const eyebrow = [a.format ? libelleFormat(a.format) : null, a.ville].filter(Boolean).join(' · ')
+      const vignette = a.imageEnTete?.src
+        ? `                <img src="${echappe(a.imageEnTete.src)}" alt="" class="aspect-[16/10] w-full object-cover" loading="lazy" decoding="async" />`
+        : '                <div class="aspect-[16/10] w-full bg-ink/10"></div>'
+
+      return `            <li>
+              <a href="/blog/${echappe(a.slug)}" class="group block">
+${vignette}
+                <p class="mt-5 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-brass-sombre">${echappe(eyebrow)}</p>
+                <h2 class="mt-3 font-display text-[1.45rem] leading-snug text-ink">${echappe(a.titre)}</h2>
+                <p class="mt-3 text-[0.95rem] leading-[1.7] text-ink/70">${echappe(a.resume)}</p>
+                <p class="mt-4 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-ink/65">${echappe(dateLisible(a.datePublication))} · ${tempsLecture(a)} min</p>
+              </a>
+            </li>`
+    })
     .join('\n')
 
-  return `      <div class="mx-auto w-full max-w-3xl px-6 py-24">
-        <p class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">Le marché, vu du secteur</p>
-        <h1 class="mt-6 font-display text-4xl leading-tight text-stone">Articles</h1>
-        <p class="mt-6 text-lg leading-relaxed text-stone/75">Ce que nous observons sur le marché immobilier de la Moselle-Est, chiffres à l’appui.</p>
-        <ul class="mt-12">
-${items || '          <li class="border-t border-white/10 py-8 text-stone/60">Aucun article pour le moment.</li>'}
-        </ul>
+  return `      <div class="bg-white text-ink">
+        <div class="mx-auto w-full max-w-[1320px] px-6 py-24">
+        <p class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass-sombre">Le marché, vu du secteur</p>
+        <h1 class="mt-6 font-display text-4xl leading-tight text-ink">Articles</h1>
+        <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">Ce que nous observons sur le marché immobilier de la Moselle-Est : guides pratiques, communes du secteur, conseils de vente et relevés de prix.</p>
+        <ul class="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2">
+${items || '          <li class="text-ink/65">Aucun article pour le moment.</li>'}
+          </ul>
+        </div>
       </div>`
 }
 
@@ -159,12 +182,16 @@ async function main() {
           titre: article.titre,
           description: article.resume,
           url,
-          image: article.image?.src,
+          // La photo d'en-tête, pas le graphique : c'est elle qui fait un
+          // aperçu de partage lisible. `article.image` est l'ancien champ
+          // unique, gardé en secours le temps que tous les articles soient
+          // repris — un aperçu vide coûte la moitié des clics d'un partage.
+          image: article.imageEnTete?.src ?? article.image?.src,
           publie: article.datePublication,
         }),
         `    ${baliseHtml(article, BASE).split('\n').join('\n    ')}`,
       ].join('\n'),
-      corps: corpsHtml(article),
+      corps: corpsHtml(article, articles),
     })
 
     await writeFile(path.join(dossier, 'index.html'), page, 'utf8')

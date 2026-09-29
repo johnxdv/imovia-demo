@@ -131,3 +131,180 @@ export function groupeSources(sources) {
 
   return [...parUrl.values()]
 }
+
+// ── Les quatre formats éditoriaux ───────────────────────────────────────────
+//
+// Ils remplacent les six catégories de l'ancienne rotation. La différence n'est
+// pas cosmétique : une catégorie était un THÈME que le modèle choisissait
+// lui-même, un format est un MOULE décidé par le plan éditorial. Le thème n'a
+// donc plus à être cherché, et l'étape de recherche de sujet — le poste le plus
+// cher du système — disparaît avec lui.
+//
+// `recherche` dit si le format a besoin de la recherche web. Un guide pratique
+// et un article de conseil n'avancent aucun fait local à vérifier : ils
+// s'écrivent sur le métier. Les deux autres citent des écoles, des lignes de
+// bus, des montants d'aides — tout cela doit être sourcé, et c'est précisément
+// ce qu'un concurrent ne peut pas recopier.
+//
+// `graphique` dit si le format accepte un graphique. Un seul le fait. C'est la
+// règle qui empêche le blog de redevenir un mur de barres.
+export const FORMATS = {
+  guide: { libelle: 'Guide pratique', recherche: false, graphique: false },
+  local: { libelle: 'Article local', recherche: true, graphique: false },
+  marche: { libelle: 'Article de marché', recherche: true, graphique: true },
+  conseil: { libelle: 'Article de conseil', recherche: false, graphique: false },
+}
+
+export const CLES_FORMAT = Object.keys(FORMATS)
+
+/** Libellé lisible d'un format, ou la clé si elle est inconnue. */
+export const libelleFormat = (cle) => FORMATS[cle]?.libelle ?? cle ?? 'Sans format'
+
+/**
+ * Temps de lecture, en minutes.
+ *
+ * Calculé à l'affichage et jamais stocké : un compte figé dans le fichier
+ * mentirait dès la première correction du texte. À 200 mots par minute —
+ * vitesse de lecture courante en français sur un texte non technique — et
+ * jamais moins d'une minute, parce que « 0 min de lecture » ne veut rien dire.
+ *
+ * Le titre et le résumé comptent, la FAQ aussi : ce sont des mots que le
+ * lecteur lit. Les crochets du lien contextuel sont retirés pour ne pas
+ * compter `[[` comme un mot.
+ */
+export function tempsLecture(article) {
+  const morceaux = [
+    article?.titre,
+    article?.resume,
+    ...(article?.sections ?? []).flatMap((s) => [s.question, ...(s.paragraphes ?? [])]),
+    ...(article?.faq ?? []).flatMap((q) => [q.question, q.reponse]),
+  ]
+
+  const mots = morceaux
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\[\[|\]\]/g, '')
+    .split(/\s+/)
+    .filter(Boolean).length
+
+  return Math.max(1, Math.round(mots / 200))
+}
+
+/**
+ * Deux ou trois autres articles à proposer en fin de lecture.
+ *
+ * L'ordre de préférence sert le maillage interne autant que le lecteur : la
+ * même commune d'abord, parce que deux articles sur Forbach qui se citent
+ * disent au moteur que le site traite Forbach en profondeur ; le même format
+ * ensuite ; le reste par date. Un article seul dans sa commune n'est donc pas
+ * privé de liens, il en reçoit simplement de moins proches.
+ *
+ * Rend une liste éventuellement vide — au premier article publié, il n'y a rien
+ * à lier, et c'est un état normal, pas une panne.
+ */
+export function articlesLies(article, tous, combien = 3) {
+  const autres = (tous ?? []).filter((a) => a?.slug && a.slug !== article?.slug)
+
+  const rang = (a) => {
+    if (article?.ville && a.ville === article.ville) return 0
+    if (article?.format && a.format === article.format) return 1
+    return 2
+  }
+
+  return autres
+    .sort(
+      (a, b) =>
+        rang(a) - rang(b) ||
+        String(b.datePublication).localeCompare(String(a.datePublication)),
+    )
+    .slice(0, combien)
+}
+
+/**
+ * Découpe un paragraphe sur le lien contextuel vers l'estimateur.
+ *
+ * LE PROBLÈME QUE CETTE MICRO-SYNTAXE RÉSOUT
+ *
+ * Le lien vers l'estimateur doit être DANS une phrase, formulé naturellement —
+ * « nous le constatons sur les biens que nous estimons à Forbach ». Un bloc
+ * d'appel à l'action séparé ne remplace pas ça : le lecteur le saute, et le
+ * moteur voit un bouton, pas une ancre en contexte.
+ *
+ * Mais laisser le modèle produire du HTML dans un paragraphe ouvrirait la porte
+ * à du balisage arbitraire dans une page du site. La rédaction marque donc son
+ * ancre avec `[[…]]`, et c'est tout ce qu'elle peut faire : deux crochets, pas
+ * une balise.
+ *
+ * L'ordre des opérations compte, côté rendu statique : le texte est échappé
+ * D'ABORD, la découpe vient après. Les crochets traversent l'échappement sans
+ * être touchés — `echappe` ne s'occupe que de `& < > "` — donc la découpe
+ * retrouve ses marques, et aucun `<a>` ne peut sortir du texte de l'article.
+ *
+ * Rend une liste de segments plutôt qu'une chaîne, pour que les deux rendus
+ * partagent l'analyse et non sa mise en forme : le prérendu en fait du HTML, la
+ * page React en fait des éléments.
+ */
+export function decoupeLien(paragraphe) {
+  const texte = String(paragraphe ?? '')
+  const segments = []
+  let reste = texte
+  let trouve = false
+
+  for (;;) {
+    const debut = reste.indexOf('[[')
+    const fin = debut === -1 ? -1 : reste.indexOf(']]', debut + 2)
+
+    // Un seul lien par article : au-delà, les crochets sont retirés et le texte
+    // gardé tel quel. Trois liens vers la même page dans un article diluent
+    // l'ancre au lieu de la renforcer.
+    if (debut === -1 || fin === -1 || trouve) {
+      segments.push({ texte: reste.replace(/\[\[|\]\]/g, ''), lien: false })
+      return segments.filter((s) => s.texte !== '')
+    }
+
+    segments.push({ texte: reste.slice(0, debut), lien: false })
+    segments.push({ texte: reste.slice(debut + 2, fin), lien: true })
+    reste = reste.slice(fin + 2)
+    trouve = true
+  }
+}
+
+/** Y a-t-il un lien contextuel dans le corps de l'article ? */
+export const aLienContextuel = (article) =>
+  (article?.sections ?? []).some((s) =>
+    (s.paragraphes ?? []).some((p) => decoupeLien(p).some((seg) => seg.lien)),
+  )
+
+/**
+ * Visuels du corps rangés par rang de section.
+ *
+ * Partagé par les deux rendus. `apresSection` vient de la rédaction, qui sait
+ * où son propos appelle une image, et il est BORNÉ ici : un modèle qui annonce
+ * « après la section 7 » d'un article qui en compte quatre ferait autrement
+ * disparaître l'image au rendu, sans que rien ne le signale.
+ *
+ * Cette fonction vit dans le module partagé et non dans chacun des deux rendus
+ * parce qu'un bornage qui divergerait d'un cran placerait la même image à deux
+ * endroits différents selon que le lecteur exécute du JavaScript ou non — et
+ * cette divergence-là ne se voit pas en relisant l'un des deux fichiers.
+ *
+ * Rend une Map de rang (à partir de 1) vers la liste des visuels à poser après
+ * cette section, graphique compris, dans l'ordre : photos d'abord, graphique
+ * ensuite.
+ */
+export function visuelsParSection(article) {
+  const total = (article?.sections ?? []).length
+  const parRang = new Map()
+
+  const pose = (v, type) => {
+    if (!v?.src || total === 0) return
+    const rang = Math.min(Math.max(1, Number(v.apresSection) || 1), total)
+    if (!parRang.has(rang)) parRang.set(rang, [])
+    parRang.get(rang).push({ ...v, type })
+  }
+
+  for (const img of article?.imagesCorps ?? []) pose(img, 'photo')
+  pose(article?.graphique, 'graphique')
+
+  return parRang
+}

@@ -38,6 +38,8 @@ export function Navbar() {
     pathname === '/acheter' ||
     pathname === '/louer' ||
     pathname === '/estimer' ||
+    pathname === '/blog' ||
+    pathname.startsWith('/blog/') ||
     pathname.startsWith('/bien/')
 
   // Mesure la hauteur « immersive » du hero (mise en cache, recalculée au resize).

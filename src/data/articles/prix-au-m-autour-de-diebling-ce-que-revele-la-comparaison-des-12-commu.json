@@ -4,11 +4,20 @@
   "resume": "Les comparatifs de prix immobiliers du bassin houiller s'arrêtent presque toujours aux villes-centres. En mettant côte à côte les relevés de prix au m² des douze communes situées dans un rayon de 7 km autour de Diebling, deux faits apparaissent : l'éloignement n'explique pas les écarts, et dans plusieurs villages le prix au m² relevé pour un appartement dépasse celui d'une maison.",
   "sujet": "Comparatif des prix au m² des 12 communes situées à moins de 7 km de Diebling, maisons et appartements, avec traduction en surface achetable à budget constant.",
   "angle": "Tous les contenus existants s'arrêtent aux villes-centres (Forbach, Sarreguemines) et traitent une commune à la fois ; cet article met en regard les villages de la couronne de Diebling, montre que les prix ne suivent pas la distance (60 % d'écart entre Farébersviller et Puttelange-aux-Lacs) et révèle l'inversion appartement/maison propre à Diebling, Nousseviller-Saint-Nabor et Bousbach, qu'aucune page de portail ne relève.",
-  "categorie": "comparaison-prix",
+  "motCle": "prix m2 Diebling",
+  "genre": "analyse de marché",
+  "format": "marche",
   "ville": "Diebling",
   "codeInsee": "57176",
   "datePublication": "2026-09-24",
   "auteur": "IMMOVIA",
+  "imageEnTete": {
+    "type": "photo",
+    "src": "https://images.unsplash.com/photo-1787319307340-bc41a8b93b06?ixid=M3wxMDc2MTYyfDB8MXxzZWFyY2h8MXx8ZnJlbmNoJTIwdmlsbGFnZSUyMGFlcmlhbCUyMHZpZXd8ZW58MXwwfHx8MTc5MDY5ODc5NHww&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=70",
+    "alt": "Stone houses with terracotta roofs in the village of Les Baux-de-Provence",
+    "credit": "Photo Amélia Blondin — Unsplash",
+    "creditUrl": "https://unsplash.com/photos/stone-houses-in-les-baux-de-provence-Lgg92Or__sQ"
+  },
   "sections": [
     {
       "question": "Quelles communes forment la couronne de Diebling à moins de 7 km ?",
@@ -54,10 +63,34 @@
       "paragraphes": [
         "Un prix au m² communal sert à cadrer une réflexion, pas à conclure. Trois précautions s'imposent. D'abord, un relevé n'est pas une vente signée : en Moselle, le régime du livre foncier ne donne lieu à aucune publication de mutations en open data, ce qui rend impossible toute vérification transaction par transaction. Ensuite, aucun prix au m² de terrain n'est disponible à l'échelle de ces communes, alors que la surface de parcelle pèse lourd dans la valeur d'une maison de village. Enfin, aucun délai de vente ni volume local n'est mesuré ici.",
         "Côté offre, l'agence diffuse actuellement 7 biens, dont 3 en vente, d'une surface médiane de 55 m² et d'un prix de vente médian de 99 000 € — sur Hambach, Sarreguemines, Forbach, Porcelette, Rosbruck, Folschviller et Saint-Avold. Il s'agit de biens proposés, non de ventes conclues, et d'un échantillon trop restreint et trop éloigné de la couronne étudiée pour en tirer une conclusion sur les douze communes.",
-        "La démarche utile reste la même : partir du relevé communal, le corriger par l'état réel du bien, son année de construction, son terrain et sa performance énergétique, puis confronter le résultat aux biens comparables réellement proposés dans le secteur."
+        "La démarche utile reste la même : partir du relevé communal, le corriger par l'état réel du bien, son année de construction, son terrain et sa performance énergétique, puis confronter le résultat aux biens comparables réellement proposés dans le secteur. C'est la logique que suit notre [[estimation en ligne]] : elle applique ces mêmes relevés à une adresse et aux caractéristiques d'un logement précis."
       ]
     }
   ],
+  "imagesCorps": [
+    {
+      "type": "photo",
+      "src": "https://images.unsplash.com/photo-1721244654394-36a7bc2da288?ixid=M3wxMDc2MTYyfDB8MXxzZWFyY2h8MXx8aG91c2UlMjBmbG9vciUyMHBsYW4lMjBibHVlcHJpbnR8ZW58MXwwfHx8MTc5MDY5OTEwNXww&ixlib=rb-4.1.0&auto=format&fit=crop&w=1200&q=70",
+      "alt": "Architectural blueprint of a multi-story building",
+      "credit": "Photo Amsterdam City Archives — Unsplash",
+      "creditUrl": "https://unsplash.com/photos/architectural-blueprint-of-a-multi-story-building-9tmKEDz03uw",
+      "apresSection": 3
+    },
+    {
+      "type": "photo",
+      "src": "https://images.unsplash.com/photo-1776702879021-7875264157bf?ixid=M3wxMDc2MTYyfDB8MXxzZWFyY2h8MXx8YXBhcnRtZW50JTIwYnVpbGRpbmclMjBiYWxjb255JTIwZmFjYWRlfGVufDF8MHx8fDE3OTA2OTkxMDZ8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1200&q=70",
+      "alt": "Apartment building with many balconies and awnings",
+      "credit": "Photo Alpha Perspective — Unsplash",
+      "creditUrl": "https://unsplash.com/photos/apartment-building-with-many-balconies-and-awnings-xumPysHICwk",
+      "apresSection": 4
+    }
+  ],
+  "graphique": {
+    "src": "/blog/prix-au-m-autour-de-diebling-ce-que-revele-la-comparaison-des-12-commu.svg",
+    "alt": "Prix au m² relevé pour les maisons dans les 12 communes à moins de 7 km de Diebling (relevé septembre 2026)",
+    "credit": "Source : relevés de prix du secteur, données du site.",
+    "apresSection": 2
+  },
   "faq": [
     {
       "question": "Les prix cités correspondent-ils à des ventes réellement conclues ?",
@@ -249,12 +282,6 @@
       "url": "https://www.affiches-moniteur.com/dossier/2025/04/08/un-marche-en-baisse-mais-une-stabilisation-en-vue"
     }
   ],
-  "image": {
-    "type": "graphique",
-    "src": "/blog/prix-au-m-autour-de-diebling-ce-que-revele-la-comparaison-des-12-commu.svg",
-    "alt": "Prix au m² relevé pour les maisons dans les 12 communes à moins de 7 km de Diebling (relevé septembre 2026)",
-    "credit": "Source : relevés de prix du secteur, données du site."
-  },
   "meta": {
     "genere": "auto",
     "modele": "claude-opus-5",
