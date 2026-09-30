@@ -42,6 +42,22 @@ const RIEN = {
   declarerOptions: () => {},
 }
 
+/**
+ * LE REPÈRE D'OÙ SE MESURE LE DÉLAI — celui qui sépare le clic sur la carte de
+ * l'image où le bien paraît enfin.
+ *
+ * L'étape carte le pose dès qu'elle tranche sur le type (voir
+ * `EstimationBuildingStep`), le décor mesure jusqu'à la première image de la
+ * nouvelle architecture (voir `mesurerPremiereImage` dans `DroneScene`). La
+ * mesure se lit sous le nom `chantier:type→premiere-image`, dans l'onglet
+ * Performances du navigateur ou par `performance.getEntriesByType('measure')`.
+ *
+ * Ce n'est pas un ornement de mise au point : ce délai était le défaut — une à
+ * deux secondes d'attente entre le clic et l'immeuble —, et un chiffre relevé
+ * est le seul moyen de savoir qu'il ne revient pas.
+ */
+export const REPERE_TYPE = 'chantier:type-detecte'
+
 export const ChantierContext = createContext(RIEN)
 
 export const useChantier = () => useContext(ChantierContext)

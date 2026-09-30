@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import * as THREE from 'three'
+import { REPERE_TYPE } from './chantier'
 import * as M from './scene/matieres'
 import { creerVoliere } from './scene/oiseaux'
 import { creerOssature } from './scene/ossature'
@@ -155,21 +156,24 @@ const CHANTIER = {
     pousse: [0, 0, 0, 0.14, 0.58, 1, 1, 1, 1, 1],
   },
   /**
-   * L'IMMEUBLE EST ACHEVÉ DÈS L'ÉCRAN DE LA SURFACE, ET IL N'Y MET PAS DE TEMPS.
+   * L'IMMEUBLE EST ACHEVÉ DÈS L'ÉCRAN DE LA SURFACE — ET IL S'Y BÂTIT.
    *
-   * Il se bâtissait comme la maison : les dalles montaient, l'entrée arrivait,
-   * les baies se perçaient, le couronnement se posait — quatre gestes étalés du
-   * stade 2 au stade 5. C'était juste pour une maison qu'on regarde se
-   * construire, et faux ici, pour une raison de parcours : L'IMMEUBLE N'EST
-   * MONTÉ QU'AU MOMENT OÙ LE TYPE EST CONNU, c'est-à-dire au clic sur la carte,
-   * c'est-à-dire au stade 2 lui-même. Le vendeur ouvrait donc la fenêtre de
-   * surface sur un bâtiment à moitié bâti, et passait les premières secondes de
-   * son réglage à le regarder finir de paraître.
+   * Tout est à 1 dès le stade 2 : c'est son ÉTAT D'ARRIVÉE, et il n'a pas
+   * d'autre écran pour finir. L'IMMEUBLE N'EST MONTÉ QU'AU MOMENT OÙ LE TYPE EST
+   * CONNU — au clic sur la carte, c'est-à-dire au stade 2 lui-même —, là où la
+   * maison dispose des trois temps de l'analyse pour s'élever tranche par
+   * tranche. Il se bâtissait d'abord comme elle, du stade 2 au stade 5 ; le
+   * vendeur ouvrait donc la fenêtre de surface sur un bâtiment à moitié bâti, et
+   * passait les premières secondes de son réglage à le regarder finir de
+   * paraître.
    *
-   * Tout est donc à 1 dès le stade 2, et le décor pose ces valeurs D'UN BLOC
-   * quand l'architecture change (voir `aussitot` dans `appliquerEtat`) : quand
-   * l'écran de la surface arrive, l'immeuble est entier, et rien n'est en train
-   * de s'y terminer.
+   * Ces valeurs ont alors été posées D'UN BLOC au changement d'architecture, et
+   * c'était l'excès inverse : L'IMMEUBLE PARAISSAIT ENTIER DÈS LA PREMIÈRE
+   * IMAGE, alors que se construire est tout ce que la maison donne à voir. Le
+   * chemin jusqu'à l'état d'arrivée est désormais joué par une séquence qui lui
+   * est propre — les planchers coulés du bas vers le haut, puis les baies, les
+   * balcons et le couronnement (voir `LEVEE`) —, tenue dans les deux secondes
+   * qui précèdent le premier geste du vendeur sur son curseur.
    */
   immeuble: {
     //             0     1  2  3  4  5  6  7  8  9
@@ -179,6 +183,71 @@ const CHANTIER = {
     couronnement: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
     abords: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
   },
+}
+
+/**
+ * LA LEVÉE DE L'IMMEUBLE — comment il se bâtit, et en combien de temps.
+ *
+ * La maison monte au fil des écrans : une tranche de plus à chaque temps de
+ * l'analyse, le plan de coupe qui s'élève derrière le panneau, une dizaine de
+ * secondes en tout (voir `CHANTIER.villa`). L'immeuble n'a pas ces écrans-là —
+ * il est monté au clic sur la carte, et l'écran suivant est celui de la
+ * surface —, il lui faut donc SA PROPRE SÉQUENCE, tenue dans le temps qui reste
+ * avant que le vendeur ne pose la main sur son curseur.
+ *
+ *   `DUREE_LEVEE`  1,9 s pour l'ouvrage entier — un peu moins du quart de ce
+ *                  que la maison met à faire le même chemin. C'est court, et
+ *                  c'est voulu : au-delà de deux secondes, on attend l'immeuble
+ *                  au lieu de le regarder venir.
+ *
+ *   `FIN_MONTAGE`  la part de la levée que prennent les PLANCHERS. Ils sont
+ *                  coulés les premiers et du bas vers le haut, un à un (voir
+ *                  `paliersMontage` dans `immeuble.js`) : c'est la structure, et
+ *                  rien ne peut paraître avant elle.
+ *
+ *   `LEVEE`        pour chaque ouvrage, quand il commence à paraître et quand il
+ *                  est là, en part de la levée. LES DÉTAILS VIENNENT APRÈS LA
+ *                  STRUCTURE, dans l'ordre d'un chantier : la rue et le parvis
+ *                  au sol pendant que le béton monte, le hall dès que sa dalle
+ *                  est coulée, puis les baies, le bardage et les balcons sur des
+ *                  planchers déjà en place, et le couronnement en dernier — un
+ *                  toit ne se pose pas avant les murs.
+ *
+ * Les recouvrements sont voulus : un chantier où chaque corps de métier
+ * attendrait la fin du précédent durerait quatre fois plus longtemps, et se
+ * lirait comme une liste.
+ */
+const DUREE_LEVEE = 1.9
+const FIN_MONTAGE = 0.68
+const LEVEE = {
+  abords: [0.04, 0.5],
+  entree: [0.12, 0.46],
+  menuiserie: [0.44, 0.92],
+  couronnement: [0.7, 1],
+}
+
+/**
+ * Les valeurs du chantier — celles, et seulement celles, que la levée mène à
+ * leur état d'arrivée. L'éclairage et les options d'affinage n'en sont pas : ils
+ * n'ont rien à voir avec le montage du bâtiment.
+ */
+const CLES_CHANTIER = ['montage', 'abords', 'entree', 'menuiserie', 'couronnement']
+
+/**
+ * LE DÉLAI ENTRE LA DÉTECTION DU TYPE ET LA PREMIÈRE IMAGE DU BIEN — relevé, et
+ * non supposé.
+ *
+ * L'étape carte pose son repère dès qu'elle tranche, le décor mesure jusqu'à
+ * l'image où la nouvelle architecture est effectivement rendue (voir
+ * `REPERE_TYPE`). Deux appels par changement d'architecture, et rien d'autre :
+ * c'est le prix d'un chiffre qui dit si l'attente est revenue.
+ */
+function mesurerPremiereImage() {
+  try {
+    performance.measure('chantier:type→premiere-image', REPERE_TYPE)
+  } catch {
+    // Aucun repère posé : le type ne vient pas d'un clic sur la carte.
+  }
 }
 
 /**
@@ -643,11 +712,30 @@ function creerScene(canvas, { mouvementReduit }) {
   /** Dernier stade appliqué — il sert à faire taire les accusés de réception. */
   let stadePrecedent = -1
   /**
+   * Une architecture vient d'être montée et n'a pas encore été rendue. C'est de
+   * là que se relève le délai du clic à l'image (voir `mesurerPremiereImage`).
+   */
+  let architectureNeuve = false
+  /**
    * Les fonctions qui illuminent un ouvrage d'affinage, relevées sur l'ouvrage
    * courant. Elles sont REFAITES À CHAQUE MONTAGE : elles retiennent des
    * matières, et celles d'une maison démontée n'existent plus.
    */
   let illuminations = {}
+
+  /**
+   * CE QUI EST BÂTI D'AVANCE ET GARDÉ (voir `prechauffer`) : l'immeuble, qui
+   * entre et sort de la scène tel quel, et une maison qu'on ne montre jamais —
+   * elle n'est là que pour que ses matières restent en vie.
+   */
+  const reserve = { immeuble: null, maisonTemoin: null }
+  /** Les minuteries du préchauffage, à éteindre avec la scène. */
+  const minuteries = []
+  /**
+   * LA LEVÉE — où en est l'immeuble de sa construction, en secondes. `null` dès
+   * qu'il n'y a rien à bâtir, c'est-à-dire tout le reste du parcours.
+   */
+  const levee = { t: null }
 
   /**
    * LA MUE — la maison se démonte, et une autre se rebâtit à sa place.
@@ -687,16 +775,25 @@ function creerScene(canvas, { mouvementReduit }) {
   function demonterOuvrage() {
     if (!ouvrage) return
     batiment.remove(ouvrage.groupe)
-    M.viderGroupe(ouvrage.groupe)
+    // L'immeuble n'est pas défait : il n'en existe qu'un, et il retourne en
+    // réserve pour le prochain appartement (voir `prechauffer`).
+    if (ouvrage !== reserve.immeuble) M.viderGroupe(ouvrage.groupe)
     ouvrage = null
     illuminations = {}
   }
 
   function monterOuvrage(famille, palier) {
     demonterOuvrage()
+    // Une levée en cours ne survit pas au bâtiment qu'elle levait.
+    levee.t = null
     if (famille === 'villa') ouvrage = creerVilla(palier)
-    else if (famille === 'immeuble') ouvrage = creerImmeuble()
-    else ouvrage = creerOssature()
+    else if (famille === 'immeuble') {
+      // Il sort de la réserve, où il a été bâti pendant le temps mort qui a
+      // suivi l'ouverture de la page. S'il n'y est pas — un clic plus rapide que
+      // le préchauffage —, on le bâtit et on l'y met : le suivant sera gratuit.
+      reserve.immeuble = reserve.immeuble ?? creerImmeuble()
+      ouvrage = reserve.immeuble
+    } else ouvrage = creerOssature()
 
     appliquerCoupe(ouvrage.montant)
     batiment.add(ouvrage.groupe)
@@ -769,12 +866,208 @@ function creerScene(canvas, { mouvementReduit }) {
   }
 
   /**
+   * La hauteur du plan de coupe pendant la levée, PLANCHER PAR PLANCHER.
+   *
+   * Chaque plancher est coulé vite, puis tient un instant avant le suivant : ce
+   * temps d'arrêt est tout ce qui sépare un immeuble qu'on voit monter étage par
+   * étage d'un store qu'on lève.
+   */
+  function coupeEnPaliers(paliers, t) {
+    const p = borne(t, 0, 1) * paliers.length
+    const i = Math.min(paliers.length - 1, Math.floor(p))
+    const f = adouci(borne((p - i) / 0.7, 0, 1))
+    return lisser(i === 0 ? 0 : paliers[i - 1], paliers[i], f)
+  }
+
+  /** Où en est le chantier de l'immeuble, à `t` de sa levée (0 à 1). */
+  function poserLevee(t) {
+    const paliers = ouvrage?.paliersMontage
+    const montee = borne(t / FIN_MONTAGE, 0, 1)
+    val.montage = (paliers ? coupeEnPaliers(paliers, montee) : adouci(montee)) * cible.montage
+
+    Object.entries(LEVEE).forEach(([cle, [debut, fin]]) => {
+      val[cle] = adouci(borne((t - debut) / (fin - debut), 0, 1)) * cible[cle]
+    })
+  }
+
+  function engagerLevee() {
+    levee.t = 0
+    // Posée tout de suite : l'ouvrage vient d'être monté à son état d'arrivée, et
+    // la première image du bien doit être celle de sa dalle, pas celle de
+    // l'immeuble fini.
+    poserLevee(0)
+  }
+
+  /** Avance la levée d'une image, et rend la main aux lissages à l'arrivée. */
+  function avancerLevee(dt) {
+    levee.t += dt
+    const t = levee.t / DUREE_LEVEE
+    if (t >= 1) {
+      levee.t = null
+      CLES_CHANTIER.forEach((cle) => {
+        val[cle] = cible[cle]
+      })
+      return
+    }
+    poserLevee(t)
+  }
+
+  /**
    * Le décor intérieur n'est monté qu'une fois, et seulement si un appartement
    * est repéré : c'est la pièce la plus lourde de la scène — un escalier de
    * cent vingt marches et un appartement meublé — et une maison n'en a que
    * faire.
    */
   monterOuvrage('ossature', -1)
+
+  /**
+   * LES DEUX ARCHITECTURES SONT PRÉPARÉES AVANT LE CLIC, PAS PENDANT.
+   *
+   * Bâtir l'immeuble coûte 77 ms la première fois et 10 ms ensuite ; la maison,
+   * 21 puis 6 (relevés au navigateur sur une machine de bureau — comptez-en
+   * trois à quatre fois plus sur un téléphone). L'écart tient aux MATIÈRES : le
+   * bardage de bois, les vitrages, les bétons sont peints au canevas à la
+   * première demande et gardés ensuite (voir le cache de `matieres.js`). Payer
+   * cela au clic, c'est bloquer le fil principal au moment précis où l'animation
+   * doit partir.
+   *
+   * Tout est donc fait d'avance, pendant le temps mort qui suit l'ouverture de
+   * la page : l'ossature est déjà à l'écran, et le vendeur en est encore à sa
+   * saisie d'adresse.
+   *
+   *   L'IMMEUBLE VA EN RÉSERVE. Il n'en existe qu'un — un appartement, c'est
+   *   toujours le même immeuble —, il est donc monté une seule fois et se
+   *   contente ensuite d'entrer et de sortir de la scène. Le clic ne le paie
+   *   plus du tout.
+   *
+   *   LA MAISON, ELLE, N'EST JAMAIS MONTRÉE — et elle est gardée quand même.
+   *   Elle change avec la surface déclarée (six paliers, voir `villa.js`) : en
+   *   réutiliser une ne servirait qu'aux vendeurs de son palier, et la mue qui
+   *   la démonte planche par planche n'a pas à composer avec un ouvrage qu'elle
+   *   n'a pas le droit de jeter. Celle-ci ne sert donc qu'à TENIR SES MATIÈRES
+   *   EN VIE : ses six millisecondes de géométrie sont le prix de ses
+   *   programmes, que three libérerait avec la dernière matière qui s'en sert.
+   *   La maison du clic, elle, est bâtie neuve — mais sur des nuanceurs déjà
+   *   compilés, et c'est tout ce qui coûtait.
+   *
+   * En deux temps, et pas en un : bâtir les deux d'affilée bloquerait le fil
+   * principal une centaine de millisecondes, et l'ossature sauterait à l'écran.
+   */
+  function prechauffer() {
+    const preparer = (ouvrageNeuf) => {
+      // Le plan de coupe AVANT la compilation : il entre dans le programme.
+      appliquerCoupe(ouvrageNeuf.montant)
+      // ET TOUT RÉVÉLÉ AVANT ELLE AUSSI. Un ouvrage neuf a la moitié de ses
+      // pièces en `visible = false` — elles attendent d'être déclarées (voir
+      // `revelable` dans `kit.js`) —, et ni `compileAsync` ni le rendu ne
+      // regardent ce qui est invisible : on ne préparerait que les murs.
+      ouvrageNeuf.poser?.(TOUT_REVELE)
+      compiler(ouvrageNeuf.groupe).then(() => rodage(ouvrageNeuf))
+      return ouvrageNeuf
+    }
+
+    minuteries.push(
+      setTimeout(() => {
+        if (!reserve.immeuble) reserve.immeuble = preparer(creerImmeuble())
+      }, 400),
+      setTimeout(() => {
+        reserve.maisonTemoin = preparer(creerVilla(palierVilla(100)))
+      }, 900),
+    )
+  }
+
+  /** Les quatre pixels sur quatre où se rend l'image du rodage. */
+  const cibleMuette = new THREE.WebGLRenderTarget(4, 4)
+
+  /**
+   * L'ouvrage montré en entier — chantier achevé, toutes les options
+   * d'affinage dessinées. Il n'a pas à être joli : il a à être COMPLET, pour
+   * que rien ne reste à compiler le jour où le vendeur cochera « piscine ».
+   */
+  const TOUT_REVELE = {
+    montage: 1,
+    abords: 1,
+    entree: 1,
+    menuiserie: 1,
+    couronnement: 1,
+    pousse: 1,
+    piscine: 1,
+    terrain: 1,
+    panneaux: 1,
+    terrasse: 1,
+    balcon: 1,
+    rezDeJardin: 1,
+    rooftop: 1,
+    standing: 0.5,
+    lumiere: 0,
+    halo: 0,
+    etageAllume: 0,
+    surface: 200,
+  }
+
+  /**
+   * LE RODAGE — une image rendue pour personne, et qui coûte tout ce que la
+   * première image visible ne coûtera plus.
+   *
+   * `compileAsync` prépare les programmes des matières telles qu'on les voit.
+   * Il en reste d'autres que rien ne déclare : CEUX DES OMBRES. Le bâtiment est
+   * rendu une seconde fois, depuis la lumière, avec des matières de profondeur
+   * que three fabrique lui-même — et compile, elles aussi, à l'image où il en a
+   * besoin. C'était le dernier morceau du blocage : cent trente millisecondes à
+   * la première apparition, et sept aux suivantes.
+   *
+   * On lui en donne donc une, d'apparition, mais dans une cible de quatre pixels
+   * sur quatre que personne ne regarde. L'ouvrage est posé dans la scène le
+   * temps du rendu — ailleurs, il serait écarté par le tri de la caméra et rien
+   * ne serait compilé — puis retiré. Le canevas, lui, n'est pas touché.
+   */
+  function rodage(ouvrageNeuf) {
+    try {
+      scene.add(ouvrageNeuf.groupe)
+      renderer.setRenderTarget(cibleMuette)
+      renderer.render(scene, camera)
+    } finally {
+      renderer.setRenderTarget(null)
+      scene.remove(ouvrageNeuf.groupe)
+    }
+  }
+
+  /**
+   * COMPILE LES NUANCEURS D'UN OUVRAGE — le vrai coût du premier rendu, et
+   * celui qu'aucun préchauffage de géométrie ne couvrait.
+   *
+   * Bâtir l'immeuble ne coûte que dix millisecondes une fois ses matières
+   * peintes ; LE VOIR POUR LA PREMIÈRE FOIS en coûtait mille. Chacune de ses
+   * matières — le bardage et son relief, les vitrages et leur reflet
+   * d'environnement, les bétons, le laiton — demande à la carte graphique un
+   * programme qui lui est propre, et three ne les compile qu'à l'image où elle
+   * en a besoin. C'était ÇA, la seconde qui séparait le clic de l'immeuble :
+   * pas le réseau, pas la géométrie, mais une pile de compilations GLSL sur le
+   * fil principal, au pire moment.
+   *
+   * `compileAsync` les demande toutes ensemble et, là où la carte sait le faire
+   * (`KHR_parallel_shader_compile`), les compile en tâche de fond pendant que la
+   * scène continue de tourner. La compilation se fait contre la scène réelle :
+   * ses lumières, son environnement et ses ombres entrent dans le programme, et
+   * un programme compilé contre un autre éclairage serait à refaire.
+   *
+   * Les matières compilées ne doivent pas être jetées ensuite : three libère le
+   * programme avec la dernière matière qui s'en sert. C'est pourquoi l'immeuble
+   * reste en réserve, et pourquoi la maison de préchauffage, elle, n'est bâtie
+   * que pour ses textures.
+   */
+  function compiler(objet) {
+    try {
+      return renderer.compileAsync
+        ? renderer.compileAsync(objet, camera, scene)
+        : Promise.resolve(renderer.compile(objet, camera, scene))
+    } catch {
+      // Une compilation qui échoue ne coûte qu'un premier rendu plus lent.
+      return Promise.resolve()
+    }
+  }
+
+  prechauffer()
 
   /* ------------------------------- caméra ----------------------------------- */
 
@@ -1013,7 +1306,12 @@ function creerScene(canvas, { mouvementReduit }) {
       mue.phase = null
       mue.ecart = 0
       mue.vise = palier
+      architectureNeuve = true
       aussitot = famille === 'immeuble'
+      // ET L'IMMEUBLE SE LÈVE — il ne paraît pas (voir `LEVEE`). Mouvements
+      // réduits mis à part : là, aucune géométrie ne se construit jamais, elle
+      // est posée à son état d'arrivée.
+      if (aussitot && !mouvementReduit) engagerLevee()
     } else if (famille === 'villa' && palier !== palierMonte) {
       // CHANGEMENT DE PALIER — la maison se démonte et se rebâtit.
       if (mouvementReduit) monterOuvrage(famille, palier)
@@ -1071,10 +1369,10 @@ function creerScene(canvas, { mouvementReduit }) {
     cible.etageAllume =
       famille === 'immeuble' && Number.isFinite(etat.etage) && stade >= 2 ? 1 : 0
 
-    if (aussitot) {
-      // Le chantier seulement : les options d'affinage et l'éclairage gardent
-      // leur lissage, ils n'ont rien à voir avec le montage du bâtiment.
-      ;['montage', 'abords', 'entree', 'menuiserie', 'couronnement'].forEach((cle) => {
+    // L'ÉTAT D'ARRIVÉE, POSÉ D'UN BLOC — sauf si une levée est en cours, auquel
+    // cas c'est elle qui mène le chantier jusque-là, image après image.
+    if (aussitot && levee.t === null) {
+      CLES_CHANTIER.forEach((cle) => {
         val[cle] = cible[cle]
       })
     }
@@ -1140,6 +1438,10 @@ function creerScene(canvas, { mouvementReduit }) {
     Object.keys(val).forEach((cle) => {
       val[cle] += (cible[cle] - val[cle]) * (cle === 'montage' ? pasMontage : pas)
     })
+
+    // LA LEVÉE PASSE APRÈS LES LISSAGES ET LES ÉCRASE : tant qu'elle court, ce
+    // sont ses valeurs qui font le chantier de l'immeuble.
+    if (levee.t !== null) avancerLevee(dt)
 
     // Le plan de coupe. Une fois le bâtiment achevé, on le renvoie à l'infini :
     // un plan de coupe qui reste actif trie les transparences pour rien.
@@ -1299,6 +1601,14 @@ function creerScene(canvas, { mouvementReduit }) {
     cercleOr.visible = val.halo > 0.01
 
     renderer.render(scene, camera)
+
+    // LE BIEN VIENT DE PARAÎTRE : on relève ce que le clic a mis à devenir une
+    // image. Après le rendu, et pas avant — c'est l'image qui compte, pas
+    // l'intention de la faire.
+    if (architectureNeuve) {
+      architectureNeuve = false
+      mesurerPremiereImage()
+    }
   }
 
   animer()
@@ -1319,7 +1629,13 @@ function creerScene(canvas, { mouvementReduit }) {
 
     detruire() {
       cancelAnimationFrame(image)
+      minuteries.forEach(clearTimeout)
       demonterOuvrage()
+      // La réserve n'est pas dans la scène : le balayage ci-dessous ne la
+      // verrait pas passer.
+      if (reserve.immeuble) M.viderGroupe(reserve.immeuble.groupe)
+      if (reserve.maisonTemoin) M.viderGroupe(reserve.maisonTemoin.groupe)
+      cibleMuette.dispose()
       voliere.detruire()
       environnement.dispose()
       scene.traverse((objet) => {

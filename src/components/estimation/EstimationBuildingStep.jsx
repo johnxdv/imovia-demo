@@ -10,8 +10,8 @@ const BuildingMap = lazy(() =>
 )
 import { BuildingConfirmModal } from './BuildingConfirmModal'
 import { StepBackLink } from './StepBackLink'
-import { useChantier } from './chantier'
-import { detectPropertyType, typeImmediat } from '../../lib/typeBien'
+import { REPERE_TYPE, useChantier } from './chantier'
+import { detectPropertyType, typeImmediat, typeImmediatEtabli } from '../../lib/typeBien'
 import { EASE } from '../../lib/motion'
 
 /**
@@ -84,8 +84,9 @@ const ATTENTE_CADASTRE_MS = 2500
  * bâtiment qui se construit dans le décor 3D derrière le panneau — la villa
  * d'architecte pour une maison, l'immeuble haussmannien pour un appartement,
  * l'ossature du chantier tant que rien n'est repéré (voir `DroneScene`). Il y
- * est déclaré par `ChantierContext`, et la silhouette se précise avec la
- * détection : la déduction locale d'abord, la réponse du réseau ensuite.
+ * est déclaré par `ChantierContext`, et il y part DÈS LE CLIC quand le polygone
+ * arrive avec ses logements comptés — la lecture locale d'abord, la réponse du
+ * réseau ensuite, et l'ossature entre les deux quand la première se tait.
  */
 export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress }) {
   const chantier = useChantier()
@@ -109,29 +110,41 @@ export function EstimationBuildingStep({ address, onBack, onEstimate, onProgress
   const typeAffiche = detection?.type ?? typeImmediat(selection)
 
   /**
-   * LE DÉCOR ATTEND LA DÉTECTION ; LE PANNEAU, NON.
+   * LE DÉCOR S'ENGAGE DÈS LE CLIC — MAIS SEULEMENT SUR CE QUI EST ÉTABLI.
    *
-   * `typeImmediat` est une déduction faite sur les seuls attributs du polygone
-   * cliqué, et son repli est « maison » — le cas le plus fréquent du parc, pas
-   * une caractéristique lue sur ce bâtiment-ci. C'est exactement ce qu'il faut
-   * au panneau, qui n'y joue que l'apparition du champ étage : au pire, le
-   * champ arrive une demi-seconde plus tard.
+   * Il attendait la chaîne réseau en entier : cadastre, puis BDNB, deux
+   * allers-retours en série, une à deux secondes. Un appartement mettait donc
+   * tout ce temps à paraître — l'ossature continuait de monter sous le curseur
+   * du vendeur, puis l'immeuble arrivait d'un bloc, longtemps après le clic.
+   * C'était le prix d'une garantie, et elle valait qu'on la paie : NE JAMAIS
+   * BÂTIR UNE VILLA POUR LA REPRENDRE. `typeImmediat` répond toujours, et son
+   * repli est « maison » — le cas le plus fréquent du parc, pas une lecture de
+   * CE bâtiment-ci —, si bien qu'un immeuble dont la BD TOPO® ne compte pas les
+   * logements y passait pour une maison : une villa d'architecte se bâtissait,
+   * puis disparaissait d'un coup quand la BDNB répondait.
    *
-   * C'ÉTAIT EN REVANCHE UN BUG POUR LE DÉCOR. Un immeuble dont la BD TOPO® ne
-   * compte pas les logements y passait pour une maison : une villa d'architecte
-   * se bâtissait sous le curseur du vendeur, puis disparaissait d'un coup pour
-   * laisser place à l'immeuble quand la BDNB répondait. On lui montrait le
-   * mauvais bien, et on le lui reprenait.
+   * La garantie est gardée, l'attente non. `typeImmediatEtabli` ne répond que
+   * sur le seul relevé que la chaîne réseau ne démente jamais — LE NOMBRE DE
+   * LOGEMENTS RÉELLEMENT COMPTÉ par la BD TOPO®, mesuré sur vingt-quatre
+   * bâtiments d'un centre ancien — et se tait partout ailleurs, y compris quand
+   * la vocation déclarée semble claire : c'est précisément là que la BDNB la
+   * reprend. Le décor part donc au clic sur ce qui est lu, et l'ossature
+   * continue de monter sur le reste : elle ne dit rien de faux, elle dit qu'on
+   * n'a pas encore reconnu le bien.
    *
-   * Le décor ne reçoit donc que le type ÉTABLI. Le temps qu'il arrive — quelques
-   * centaines de millisecondes —, l'ossature du chantier continue de monter, ce
-   * qui est précisément ce qu'elle veut dire : on n'a pas encore reconnu le
-   * bien. Et si la détection venait à ne jamais répondre, elle continuerait de
-   * monter sans jamais affirmer quoi que ce soit de faux.
+   * La détection reprend la main dès qu'elle aboutit — c'est sa réponse qui
+   * descend au moteur, et c'est elle qui corrige le décor dans les rares cas où
+   * les deux divergent.
    */
+  const typeDecor = detection?.type ?? typeImmediatEtabli(selection)
+
   useEffect(() => {
-    chantier.declarerBien({ type: detection?.type ?? null })
-  }, [chantier, detection])
+    // Le repère d'où se mesure le délai jusqu'à la première image du bien (voir
+    // `REPERE_TYPE`). Posé ici, et pas dans le décor : ce qu'on veut mesurer
+    // part du moment où le parcours SAIT, pas de celui où il le dit.
+    if (typeDecor) performance.mark(REPERE_TYPE)
+    chantier.declarerBien({ type: typeDecor })
+  }, [chantier, typeDecor])
 
   // Changer d'adresse (retour puis nouvelle saisie) doit repartir d'une carte vierge.
   useEffect(() => {

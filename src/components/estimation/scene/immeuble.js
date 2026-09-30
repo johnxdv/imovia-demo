@@ -966,6 +966,26 @@ export function creerImmeuble() {
     groupe,
     montant,
     hauteurCoupe: hauteurTotale,
+
+    /**
+     * LES PALIERS DU MONTAGE — la hauteur du plan de coupe à laquelle chaque
+     * plancher vient d'être coulé, en part de la hauteur totale.
+     *
+     * L'immeuble ne monte pas d'un trait : il monte PLANCHER PAR PLANCHER, du
+     * bas vers le haut, et c'est cette liste qui dit au décor où s'arrêter
+     * entre deux (voir `coupeEnPaliers` dans `DroneScene`). Un plan de coupe qui
+     * glisse sans marquer les dalles ressemble à un store qu'on lève ; qui
+     * s'arrête sur chacune, à un chantier.
+     *
+     * Les six niveaux, puis la dalle de toiture — et la hauteur totale pour
+     * finir : au-delà du toit il n'y a plus de plancher à couler, seulement
+     * l'acrotère et le portique, et ceux-là paraissent en fondu.
+     */
+    paliersMontage: [
+      ...Array.from({ length: ETAGES + 1 }, (_, e) => hauteurEtage(e) / hauteurTotale),
+      yToit / hauteurTotale,
+      1,
+    ],
     envergure: { largeur: Math.max(LARGEUR + 2 * DEBORD + 2.6, PROFONDEUR + 4), hauteur: hauteurTotale },
 
     /**

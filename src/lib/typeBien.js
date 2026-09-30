@@ -322,6 +322,54 @@ export function typeImmediat(selection) {
 }
 
 /**
+ * Type immédiat, mais SEULEMENT QUAND IL EST ÉTABLI — celui sur lequel le décor
+ * peut engager un bâtiment sans risquer de le reprendre.
+ *
+ * `typeImmediat` répond toujours, et c'est ce qu'il faut au panneau : un champ
+ * étage qui arrive une demi-seconde trop tard ne coûte rien. LE DÉCOR, LUI,
+ * BÂTIT — et un bâtiment qu'on reprend est un mensonge qu'on avoue. Il ne peut
+ * donc partir que sur ce que la chaîne complète ne viendra pas démentir.
+ *
+ * CE N'EST PAS UNE QUESTION DE VRAISEMBLANCE, ET C'EST LA MESURE QUI LE DIT.
+ * Sur vingt-quatre bâtiments d'un centre ancien (Metz, rue des Clercs), les
+ * lectures immédiates ont été comparées une à une à la réponse de la chaîne
+ * cadastre → BDNB :
+ *
+ *   • partir dès que la BD TOPO® déclare une vocation, ou dès que le gabarit
+ *     penche à sept contre trois, engageait vingt-trois bâtiments sur
+ *     vingt-quatre — et se faisait reprendre DIX FOIS, presque toujours dans le
+ *     sens interdit : une villa bâtie, puis remplacée par un immeuble ;
+ *   • n'exiger que l'accord de la base et du gabarit n'y changeait presque
+ *     rien — quatre reprises sur douze engagements ;
+ *   • N'ACCEPTER QUE LE NOMBRE DE LOGEMENTS RÉELLEMENT COMPTÉ a engagé huit
+ *     bâtiments sur vingt-quatre, ET N'A ÉTÉ REPRIS AUCUNE FOIS.
+ *
+ * La raison tient en une phrase : un comptage est une LECTURE, tout le reste est
+ * une déduction. La vocation déclarée, elle, se trompe systématiquement au même
+ * endroit — l'immeuble de centre-ville avec ses commerces en pied, que la
+ * BD TOPO® dit « Commercial et services » et que la BDNB rend au logement dès
+ * qu'elle y compte des appartements (voir `fromBdnbUsage`). Un gabarit, lui,
+ * ne distingue pas un immeuble de faubourg d'un corps de ferme.
+ *
+ * D'où cette règle, et rien d'autre : UN logement compté, c'est une maison ;
+ * DEUX ou plus, c'est du collectif. Faute de comptage, on renvoie `null` — et
+ * c'est le point : l'ossature du chantier continue alors de monter, ce qui est
+ * exactement ce qu'elle veut dire, on n'a pas encore reconnu le bien. La chaîne
+ * réseau tranchera une seconde plus tard, et c'est elle qui aura raison.
+ */
+export function typeImmediatEtabli(selection) {
+  if (!selection) return null
+  if (selection.kind !== 'batiment') return 'terrain'
+
+  const logements = Number(selection.properties?.nombre_de_logements)
+  // Un comptage à zéro ou absent n'est pas un comptage : la BD TOPO® y met
+  // aussi bien le bâtiment non résidentiel que celui qu'elle n'a pas levé.
+  if (!Number.isFinite(logements) || logements < 1) return null
+
+  return logements > 1 ? 'appartement' : 'maison'
+}
+
+/**
  * Déduit le type du bien à partir de la sélection faite sur la carte.
  *
  * Chaîne : parcelle cadastrale sous le point (API Carto) → fiches BDNB de
