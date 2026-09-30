@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Maximize, LayoutGrid, BedDouble, MapPin, Phone } from 'lucide-react'
 import { getByReference } from '../lib/properties'
 import { formatPrice, formatSurface, formatNumber, photoUrl, photoSrcSet } from '../lib/format'
@@ -10,6 +10,7 @@ import { PlanFrame } from '../components/ui/PlanFrame'
 import { PlanDivider } from '../components/ui/PlanDivider'
 import { InfosComplementaires } from '../components/property/InfosComplementaires'
 import { EnergyDiagnostic } from '../components/property/EnergyDiagnostic'
+import { MentionsFinancieres } from '../components/property/MentionsFinancieres'
 import { agency } from '../data/agency'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -61,6 +62,13 @@ export default function PropertyDetail() {
 
   if (!property) return <NotFound />
 
+  // Ancienne URL — `/bien/LA1908-LUCASBELLA57510` — vers la forme courte. Le
+  // bien a bien été trouvé (`getByReference` reconnaît les deux formes) : on ne
+  // perd ni le lien ni le référencement, on le déplace.
+  if (property.reference !== reference) {
+    return <Navigate to={`/bien/${property.reference}`} replace />
+  }
+
   const {
     titre,
     typeBien,
@@ -78,10 +86,15 @@ export default function PropertyDetail() {
     descriptionLongue,
     photos,
     statut,
-    honorairesCharge,
     copropriete,
     energie,
+    dpeEtat,
+    finances,
   } = property
+
+  // Toujours la référence du bien, jamais celle de l'URL : les deux diffèrent
+  // le temps d'une redirection depuis une ancienne adresse.
+  const referenceBien = property.reference
 
   const sold = statut === 'vendu'
   const sousCompromis = statut === 'sous-compromis'
@@ -89,7 +102,7 @@ export default function PropertyDetail() {
   const transactionLabel = sold ? 'Vendu' : typeTransaction === 'location' ? 'À louer' : 'À vendre'
 
   const caracteristiques = [
-    ['Référence', reference],
+    ['Référence', referenceBien],
     ['Type de bien', typeBien],
     ['Transaction', transactionLabel],
     ['Ville', `${ville} (${codePostal})`],
@@ -186,10 +199,18 @@ export default function PropertyDetail() {
                 energyValue={energyValue}
                 climateClass={ges}
                 climateValue={climateValue}
+                dpeEtat={dpeEtat}
                 annualEnergyCostMin={energie?.depenseMin}
                 annualEnergyCostMax={energie?.depenseMax}
                 energyPriceReferenceYears={energie?.anneesReference}
               />
+            </div>
+
+            {/* Conditions financières — après le bloc énergétique, comme le
+                veut l'ordre de lecture d'une fiche : caractéristiques, DPE/GES,
+                dépenses d'énergie, puis conditions financières. */}
+            <div className="mt-12">
+              <MentionsFinancieres finances={finances} />
             </div>
           </div>
 
@@ -201,7 +222,7 @@ export default function PropertyDetail() {
                   <span className="font-mono text-[0.68rem] uppercase tracking-micro text-brass">
                     {transactionLabel}
                   </span>
-                  <FavoriteButton reference={reference} />
+                  <FavoriteButton reference={referenceBien} />
                 </div>
 
                 <h1 className="mt-5 text-display-md text-ink">{titre}</h1>
@@ -222,7 +243,7 @@ export default function PropertyDetail() {
                 </div>
 
                 <div className="mt-9 flex flex-col gap-3">
-                  <Button to={`/contact?bien=${reference}`} variant="solidDark" size="lg">
+                  <Button to={`/contact?bien=${referenceBien}`} variant="solidDark" size="lg">
                     Demander une visite
                   </Button>
                   <a
@@ -242,7 +263,7 @@ export default function PropertyDetail() {
         <div className="mt-16">
           <SectionTitle>Informations complémentaires</SectionTitle>
           <div className="border border-brass/20 bg-stone/50 p-6 sm:p-8">
-            <InfosComplementaires honorairesCharge={honorairesCharge} copropriete={copropriete} />
+            <InfosComplementaires copropriete={copropriete} />
           </div>
         </div>
       </div>

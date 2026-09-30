@@ -23,8 +23,31 @@ export function isDiffuse(property) {
   return STATUTS_DIFFUSES.includes(property.statut)
 }
 
+/**
+ * Bien portant cette référence.
+ *
+ * La référence publique est celle de Modelo, seule et nue (`LA1908`). Les URLs
+ * servies jusqu'ici portaient la référence *affichable* du flux, suffixée du
+ * négociateur et du code postal (`LA1908-LUCASBELLA57510`) : elles peuvent être
+ * en circulation, indexées ou en favori. Elles restent donc reconnues, et
+ * `PropertyDetail` redirige vers la forme courte.
+ */
 export function getByReference(reference) {
-  return allProperties.find((p) => p.reference === reference)
+  if (!reference) return undefined
+  return (
+    allProperties.find((p) => p.reference === reference) ??
+    allProperties.find((p) => p.referenceComplete === reference) ??
+    allProperties.find((p) => p.referenceTechnique === reference)
+  )
+}
+
+/**
+ * Référence canonique correspondant à une référence quelconque (courte,
+ * affichable ou technique), ou `null` si aucun bien ne la porte. Sert à
+ * rediriger une ancienne URL vers la nouvelle sans casser le lien.
+ */
+export function canonicalReference(reference) {
+  return getByReference(reference)?.reference ?? null
 }
 
 /**

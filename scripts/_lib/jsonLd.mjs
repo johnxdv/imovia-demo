@@ -42,8 +42,10 @@ export function ficheAgence(base = agency.siteUrl) {
       Number.isFinite(latitude) && Number.isFinite(longitude)
         ? { '@type': 'GeoCoordinates', latitude, longitude }
         : undefined,
-    // « Du lundi au samedi, 9h30 – 19h00 », dans la notation attendue.
-    openingHours: 'Mo-Sa 09:30-19:00',
+    // Horaires d'ouverture dans la notation schema.org. Le samedi, « sur
+    // rendez-vous », n'est pas une plage horaire : il n'a rien à y faire — une
+    // heure inventée annoncerait au moteur une ouverture qui n'existe pas.
+    openingHours: ['Mo-Fr 09:00-12:00', 'Mo-Fr 14:00-17:30'],
     sameAs: agency.social.map((s) => s.href),
     vatID: agency.legal.tva,
   }

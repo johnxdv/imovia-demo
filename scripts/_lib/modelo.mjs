@@ -105,6 +105,87 @@ function dateFr(value) {
 }
 
 /**
+ * Référence Modelo du bien, telle que l'agence la manipule dans son logiciel.
+ *
+ * Le flux ne transmet AUCUNE balise portant la référence seule. Il en donne
+ * deux versions, toutes deux suffixées d'une identité :
+ *
+ *   reference_a_afficher  LA1908-LUCASBELLA57510   (négociateur + code postal)
+ *   reference_technique   LA1908-COMPANY57204UQD   (société + identifiant)
+ *
+ * La référence du bien est le segment que les deux partagent — ici `LA1908`.
+ * On la retrouve donc par comparaison des deux champs, segment par segment sur
+ * le tiret, et non par une troncature à l'aveugle : si un jour le flux servait
+ * une référence contenant elle-même un tiret (`LA-1908-…`), la comparaison la
+ * conserverait entière là où un `split('-')[0]` l'amputerait.
+ *
+ * Sans second champ pour comparer, ou si les deux ne partagent rien, la
+ * référence affichable est rendue telle quelle : mieux vaut un suffixe de trop
+ * qu'une référence inventée.
+ */
+function referenceBien(afficher, technique) {
+  if (afficher == null) return null
+  if (technique == null) return afficher
+
+  const a = afficher.split('-')
+  const b = technique.split('-')
+
+  let communs = 0
+  while (communs < a.length && communs < b.length && a[communs] === b[communs]) communs++
+
+  // Aucun segment commun, ou bien les deux champs sont identiques : rien à
+  // retirer, on garde la référence affichable entière.
+  if (communs === 0 || communs === a.length) return afficher
+  return a.slice(0, communs).join('-')
+}
+
+/**
+ * Mentions réglementaires et financières retirées du texte commercial.
+ *
+ * Modelo termine `description` par un paragraphe qu'il compose lui-même —
+ * honoraires, loyer de base, provision sur charges, dépôt de garantie, état du
+ * DPE, phrase Géorisques. Le site regénère tout cela depuis les données
+ * structurées (`MentionsFinancieres`, `EnergyDiagnostic`,
+ * `InfosComplementaires`) : le laisser dans la description l'afficherait deux
+ * fois. Ce paragraphe se reconnaît sans ambiguïté à la phrase Géorisques,
+ * qu'il est le seul à porter.
+ *
+ * Certains rédacteurs ressaisissent en plus ces montants à la main, une ligne
+ * par information (« Loyer : 350 € HT / mois »). Ces lignes-là sont retirées
+ * une à une, et seulement lorsqu'elles sont entièrement constituées d'un
+ * libellé financier suivi de sa valeur : une phrase de vente qui *parle* du
+ * loyer ne commence pas par « Loyer : ».
+ */
+const PHRASE_GEORISQUES = /les risques auxquels ce bien est expos/i
+
+const LIGNE_FINANCIERE =
+  /^(?:loyer|charges?|honoraires|d[ée]p[ôo]t de garantie|provision sur charges|dpe)\b[^\n]*:[^\n]*$/i
+
+function sansMentionsRegenerees(texte) {
+  if (texte == null) return null
+
+  const nettoye = texte
+    .split('\n\n')
+    .filter((paragraphe) => !PHRASE_GEORISQUES.test(paragraphe))
+    .map((paragraphe) =>
+      paragraphe
+        .split('\n')
+        .filter((ligne) => {
+          const l = ligne.trim()
+          // Une ligne courte, entièrement « libellé : valeur ». Le plafond de
+          // longueur protège une vraie phrase qui contiendrait un deux-points.
+          return !(l.length <= 160 && LIGNE_FINANCIERE.test(l))
+        })
+        .join('\n')
+        .trim(),
+    )
+    .filter(Boolean)
+    .join('\n\n')
+
+  return nettoye === '' ? null : nettoye
+}
+
+/**
  * Texte descriptif d'une annonce vers du texte brut.
  *
  * `description` arrive en HTML léger : les `<br>` y font les paragraphes. Le
@@ -142,6 +223,76 @@ function honorairesCharge(value) {
   if (s.startsWith('locataire')) return 'locataire'
   if (s.includes('deux')) return 'les-deux'
   return null
+}
+
+/**
+ * Montant ou mesure dont `0` signifie « non renseigné ».
+ *
+ * Contrairement à `etage` ou `nb_terrasse`, où le zéro est une valeur, le flux
+ * remplit de `0.00` les champs financiers et les valeurs DPE qu'il n'a pas :
+ * `valeur_energie` 0 sur un bien sans diagnostic, `taxe_fonciere` 0 sur une
+ * location. Les afficher annoncerait « 0 kWh/m²/an » ou « 0 € de taxe ».
+ */
+function montant(value) {
+  const n = number(value)
+  return n == null || n === 0 ? null : n
+}
+
+/**
+ * État du DPE, tel que le déclare le flux (`dpe_etat`) : « Effectué »,
+ * « En cours », « A faire ».
+ *
+ * C'est la SEULE source autorisée pour afficher « DPE en cours ». L'absence de
+ * classe ne suffit pas : un DPE « à faire » n'est pas un DPE « en cours ».
+ */
+function etatDpe(value) {
+  const s = slug(value)
+  if (s == null) return null
+  if (s.startsWith('en cours')) return 'en-cours'
+  if (s.startsWith('effectue')) return 'effectue'
+  if (s.startsWith('a faire')) return 'a-faire'
+  if (s.startsWith('non requis') || s.startsWith('non soumis')) return 'non-requis'
+  return null
+}
+
+/**
+ * Libellé de charges du flux (`charges_type`). Modelo y glisse du balisage
+ * (`<span class="notranslate">100.00 €</span>`) et la notation anglo-saxonne
+ * des montants ; on ne retient que le texte, et seulement pour l'information
+ * qualitative qu'il porte et qu'aucun autre champ ne donne — « forfaitaires »,
+ * « régularisation annuelle ».
+ */
+function libelleCharges(value) {
+  return richText(value)
+}
+
+/**
+ * Conditions financières du bien, telles que les affiche `MentionsFinancieres`.
+ *
+ * Aucun montant n'est calculé ni reconstitué : chaque clé vient d'une balise du
+ * flux, et vaut `null` quand celle-ci est absente ou à zéro. Le bloc entier
+ * vaut `null` quand rien n'est renseigné — la fiche n'affiche alors pas la
+ * rubrique.
+ */
+function finances(bien, typeTransaction) {
+  const bloc = {
+    typeTransaction,
+    loyerBase: montant(bien.text('loyer')),
+    charges: montant(bien.text('charges')),
+    chargesLibelle: libelleCharges(bien.text('charges_type')),
+    depotGarantie: montant(bien.text('depot_garantie')),
+    honorairesLocataire: montant(bien.text('honoraires_locataire')),
+    honorairesEtatLieux: montant(bien.text('honoraires_etat_lieux')),
+    honorairesVisiteDossier: montant(bien.text('honoraires_visite_dossier')),
+    honorairesAcquereur: montant(bien.text('honoraires_acquereur')),
+    prixHorsHonorairesAcquereur: montant(bien.text('prix_hors_honoraires_acquereur')),
+    fraisNotaire: montant(bien.text('frais_notaire')),
+    taxeFonciere: montant(bien.text('taxe_fonciere')),
+    honorairesCharge: honorairesCharge(bien.text('honoraires_charges')),
+  }
+
+  const renseigne = Object.entries(bloc).some(([cle, valeur]) => cle !== 'typeTransaction' && valeur != null)
+  return renseigne ? bloc : null
 }
 
 /** Visuels, ordonnés par l'attribut `id` — qui porte l'ordre d'affichage voulu. */
@@ -188,8 +339,8 @@ function copropriete(bien) {
 
 /** Estimation des dépenses énergétiques annuelles, telle que l'affiche `EnergyDiagnostic`. */
 function energie(bien) {
-  const depenseMin = number(bien.text('dpe_cout_min_conso'))
-  const depenseMax = number(bien.text('dpe_cout_max_conso'))
+  const depenseMin = montant(bien.text('dpe_cout_min_conso'))
+  const depenseMax = montant(bien.text('dpe_cout_max_conso'))
   const annee = integer(bien.text('dpe_annee_reference_conso'))
 
   if (depenseMin == null && depenseMax == null && !annee) return null
@@ -218,7 +369,8 @@ export function mapBien(bien) {
     // `reference` porte la référence affichable : c'est elle qui compose les
     // URLs `/bien/:reference`. `referenceTechnique` est l'identifiant stable du
     // « annule et remplace », jamais montré.
-    reference: bien.text('reference_a_afficher'),
+    reference: referenceBien(bien.text('reference_a_afficher'), bien.text('reference_technique')),
+    referenceComplete: bien.text('reference_a_afficher'),
     referenceTechnique: bien.text('reference_technique'),
     titre: bien.text('titre'),
 
@@ -228,7 +380,9 @@ export function mapBien(bien) {
     // données (honoraires, copropriété, DPE, Géorisques). `description` les
     // contient en dur : la retenir afficherait deux fois les mêmes phrases.
     descriptionCourte: bien.text('accroche'),
-    descriptionLongue: richText(bien.text('description_impression')) ?? richText(bien.text('description')),
+    descriptionLongue:
+      richText(bien.text('description_impression')) ??
+      sansMentionsRegenerees(richText(bien.text('description'))),
     description: richText(bien.text('description')),
     descriptionImpression: richText(bien.text('description_impression')),
     accroche: bien.text('accroche'),
@@ -297,13 +451,20 @@ export function mapBien(bien) {
     honorairesAcquereur: number(bien.text('honoraires_acquereur')),
     honorairesLocataire: number(bien.text('honoraires_locataire')),
     honorairesCharge: honorairesCharge(bien.text('honoraires_charges')),
+    honorairesEtatLieux: number(bien.text('honoraires_etat_lieux')),
+    honorairesVisiteDossier: number(bien.text('honoraires_visite_dossier')),
+    chargesType: libelleCharges(bien.text('charges_type')),
+    // Bloc prêt à afficher, regroupant les conditions financières du bien.
+    finances: finances(bien, typeTransaction),
 
     // — DPE / GES / copropriété —
     dpe: bien.text('bilan_energie'),
-    energyValue: number(bien.text('valeur_energie')),
+    energyValue: montant(bien.text('valeur_energie')),
     ges: bien.text('bilan_ges'),
-    climateValue: number(bien.text('valeur_ges')),
-    dpeEtat: bien.text('dpe_etat'),
+    climateValue: montant(bien.text('valeur_ges')),
+    dpeEtat: etatDpe(bien.text('dpe_etat')),
+    dpeEtatLibelle: bien.text('dpe_etat'),
+    dpeVersion: bien.text('dpe_version'),
     dpeDateRealisation: dateFr(bien.text('dpe_date_realisation')),
     georisque: boolean(bien.text('georisque')),
     copropriete: copropriete(bien),

@@ -197,7 +197,7 @@ export function Hero() {
             transition={{ duration: 0.9, ease: EASE }}
             className="relative max-w-4xl text-center text-display-xl text-stone"
           >
-            L'immobilier avec la précision d'un plan.
+            L'immobilier, avec l'exigence et la proximité.
           </motion.h1>
         </motion.div>
 
@@ -211,7 +211,7 @@ export function Hero() {
             <div className="mb-8 flex flex-col items-start gap-6 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
               {reduce ? null : (
                 <p className="max-w-xl font-display text-display-md text-stone">
-                  L'immobilier avec la précision d'un plan.
+                  L'immobilier, avec l'exigence et la proximité.
                 </p>
               )}
               <EstimationCta />

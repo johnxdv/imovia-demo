@@ -18,7 +18,17 @@ export const agency = {
   },
   // URL Google Maps construite depuis l'adresse — pas de clé API requise.
   mapsHref: 'https://www.google.com/maps/search/?api=1&query=41A+rue+Principale+57980+Diebling',
-  hours: 'Du lundi au samedi, 9h30 – 19h00',
+  // Horaires d'ouverture, un jour par ligne — jamais regroupés en « du lundi au
+  // vendredi » : le client veut chaque journée lisible séparément, y compris
+  // quand cinq d'entre elles sont identiques.
+  hours: [
+    { jour: 'Lundi', horaire: '9h–12h / 14h–17h30' },
+    { jour: 'Mardi', horaire: '9h–12h / 14h–17h30' },
+    { jour: 'Mercredi', horaire: '9h–12h / 14h–17h30' },
+    { jour: 'Jeudi', horaire: '9h–12h / 14h–17h30' },
+    { jour: 'Vendredi', horaire: '9h–12h / 14h–17h30' },
+    { jour: 'Samedi', horaire: 'sur rendez-vous' },
+  ],
   // Emprise cartographique (OpenStreetMap) centrée sur Diebling (57980).
   //
   // Coordonnées de l'ADRESSE de l'agence, géocodée au numéro sur la Base

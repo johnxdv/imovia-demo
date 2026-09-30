@@ -21,11 +21,11 @@ const etapes = [
   },
   {
     titre: 'Sélection',
-    texte: 'Nous qualifions les acquéreurs, vérifions leur capacité de financement et organisons les visites avant d’étudier chaque offre.',
+    texte: 'Nous qualifions les acquéreurs, organisons les visites et vérifions leur capacité de financement avant de vous présenter chaque offre.',
   },
   {
     titre: 'Signature',
-    texte: 'Nous qualifions les acquéreurs, organisons les visites et vérifions la solidité de leur financement avant de présenter l’offre.',
+    texte: 'Nous suivons votre dossier jusqu’à la signature de l’acte définitif chez le notaire.',
   },
 ]
 

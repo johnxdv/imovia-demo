@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useReducedMotion } from 'framer-motion'
 import {
   ShieldCheck,
   ArrowRight,
@@ -52,19 +53,19 @@ const orientations = [
   {
     to: '/acheter',
     titre: 'Acheter',
-    texte: 'Une sélection resserrée de biens à la vente, du centre de Bordeaux au Bassin.',
+    texte: 'Découvrez nos biens disponibles et trouvez celui qui correspond à votre projet.',
     photo: '1600566753086-00f18fb6b3ea',
   },
   {
     to: '/louer',
     titre: 'Louer',
-    texte: 'Des locations vérifiées, meublées ou nues, prêtes à emménager.',
+    texte: 'Découvrez nos biens à louer et trouvez votre prochain chez-vous.',
     photo: '1502672260266-1c1ef2d93688',
   },
   {
     to: '/vendre',
     titre: 'Vendre',
-    texte: 'Un accompagnement clair, de l’estimation à la signature de l’acte.',
+    texte: 'De l’estimation à la signature, nous vous accompagnons à chaque étape.',
     photo: '1600585152220-90363fe7e115',
   },
 ]
@@ -84,7 +85,7 @@ function About() {
                 confiance, de proximité et d’engagement.
               </p>
               <p>
-                Implantée au cœur du village de Diebling, idéalement situé entre Sarreguemines,
+                Implantée au cœur du village de Diebling, idéalement située entre Sarreguemines,
                 Saint-Avold et Forbach, notre agence accompagne chaque client, qu’il soit
                 propriétaire, acquéreur, vendeur, bailleur, investisseur ou locataire, avec une
                 approche humaine, transparente et exigeante.
@@ -110,7 +111,7 @@ function About() {
                 src={photoUrl('1512917774080-9991f1c4c750', { w: 1200 })}
                 srcSet={photoSrcSet('1512917774080-9991f1c4c750')}
                 sizes="(min-width:1024px) 45vw, 92vw"
-                alt="Demeure de caractère dans le Bordelais"
+                alt="Demeure de caractère du secteur de l’agence"
                 loading="lazy"
                 className="h-full w-full object-cover"
               />
@@ -186,10 +187,39 @@ function Orientation() {
   )
 }
 
+// Rythme du défilement automatique et délai de reprise après une action
+// manuelle — assez long pour ne pas reprendre la main sous les doigts du
+// visiteur, assez court pour que la bande reparte d'elle-même.
+const DEFILEMENT_MS = 4500
+const REPRISE_APRES_ACTION_MS = 9000
+
+/**
+ * Carrousel « bande continue » des derniers biens.
+ *
+ * Le ruban affiche la liste deux fois de suite. Avancer incrémente simplement
+ * l'index ; quand il atteint la longueur de la liste, le ruban a défilé d'un
+ * tour complet et se retrouve visuellement identique à sa position de départ —
+ * on le recale alors sur 0, transition coupée, sans que rien ne bouge à
+ * l'écran. Reculer depuis 0 fait la manœuvre inverse. D'où une boucle sans fin,
+ * sans carte vide, sans saut et sans doublon visible : on ne voit jamais deux
+ * fois le même bien à l'écran puisque la seconde copie n'entre en scène que
+ * lorsque la première est sortie.
+ */
 function DerniersBiens() {
   const biens = latestAvailable(6)
+  const reduce = useReducedMotion()
+
   const [perView, setPerView] = useState(3)
   const [index, setIndex] = useState(0)
+  const [anime, setAnime] = useState(true)
+  // Horodatage de la dernière action manuelle : le défilement automatique
+  // reprend de lui-même passé `REPRISE_APRES_ACTION_MS`.
+  const [derniereAction, setDerniereAction] = useState(0)
+
+  const total = biens.length
+  // En dessous de ce seuil, il n'y a pas de quoi faire défiler : la bande
+  // resterait immobile ou tournerait sur des cartes déjà visibles.
+  const bouclable = total > perView
 
   // Biens visibles simultanément : 1 (téléphone), 2 (tablette), 3 (ordinateur).
   useEffect(() => {
@@ -202,67 +232,145 @@ function DerniersBiens() {
     return () => window.removeEventListener('resize', compute)
   }, [])
 
-  const maxIndex = Math.max(0, biens.length - perView)
-
-  // Recale l'index si perView change (redimensionnement).
+  // Un changement de largeur peut laisser l'index hors de la plage utile.
   useEffect(() => {
-    setIndex((i) => Math.min(i, Math.max(0, biens.length - perView)))
-  }, [perView, biens.length])
+    setIndex((i) => (total > 0 ? ((i % total) + total) % total : 0))
+  }, [perView, total])
 
-  const prev = () => setIndex((i) => Math.max(0, i - 1))
-  const next = () => setIndex((i) => Math.min(maxIndex, i + 1))
+  // Sans animation, le recalage de fin de tour ne peut pas s'appuyer sur
+  // `onTransitionEnd` — il n'y a pas de transition. L'index boucle alors
+  // directement en arithmétique modulaire : même bien affiché, sans le
+  // déplacement du ruban, et sans risque de sortir de la bande.
+  const avancer = useCallback(() => {
+    if (!bouclable) return
+    if (reduce) {
+      setIndex((i) => (i + 1) % total)
+      return
+    }
+    setAnime(true)
+    setIndex((i) => i + 1)
+  }, [bouclable, reduce, total])
+
+  const reculer = useCallback(() => {
+    if (!bouclable) return
+    if (reduce) {
+      setIndex((i) => (i - 1 + total) % total)
+      return
+    }
+    if (index > 0) {
+      setAnime(true)
+      setIndex(index - 1)
+      return
+    }
+    // Depuis la première carte : on saute sans transition à la copie de droite,
+    // puis on recule d'un cran à la frame suivante. Le visiteur ne voit que le
+    // recul.
+    setAnime(false)
+    setIndex(total)
+  }, [bouclable, reduce, index, total])
+
+  // Filet de sécurité : l'index ne sort jamais du ruban, même si la fin de
+  // transition n'a pas été signalée.
+  useEffect(() => {
+    if (total > 0 && index > total) setIndex(index % total)
+  }, [index, total])
+
+  // Recalage après le saut sans transition (aller comme retour).
+  useEffect(() => {
+    if (anime || total === 0) return
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setAnime(true)
+        setIndex((i) => (i === total ? total - 1 : i))
+      })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [anime, total])
+
+  const action = (fn) => () => {
+    setDerniereAction(Date.now())
+    fn()
+  }
+
+  // Défilement automatique. Suspendu si l'animation est désactivée par le
+  // système (`prefers-reduced-motion`), si l'onglet est en arrière-plan, ou
+  // dans les secondes qui suivent une action manuelle.
+  useEffect(() => {
+    if (reduce || !bouclable) return
+    const id = setInterval(() => {
+      if (document.hidden) return
+      if (Date.now() - derniereAction < REPRISE_APRES_ACTION_MS) return
+      avancer()
+    }, DEFILEMENT_MS)
+    return () => clearInterval(id)
+  }, [reduce, bouclable, derniereAction, avancer])
+
+  // Balayage tactile — même déplacement qu'un appui sur les flèches.
+  const toucheX = useRef(null)
+  const onTouchStart = (e) => {
+    toucheX.current = e.touches[0].clientX
+  }
+  const onTouchEnd = (e) => {
+    if (toucheX.current == null) return
+    const delta = e.changedTouches[0].clientX - toucheX.current
+    toucheX.current = null
+    if (Math.abs(delta) < 45) return
+    setDerniereAction(Date.now())
+    if (delta < 0) avancer()
+    else reculer()
+  }
 
   const arrowClass =
     'inline-flex h-11 w-11 items-center justify-center border border-ink/25 text-ink transition-colors hover:border-brass hover:text-brass disabled:pointer-events-none disabled:opacity-30 touch-manipulation'
 
+  // Le ruban porte la liste deux fois : la seconde copie fournit les cartes qui
+  // entrent par la droite en fin de tour.
+  const ruban = bouclable ? [...biens, ...biens] : biens
+
   return (
     <Section tone="stone" divider dividerLabel="Sélection">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <Reveal>
-          <h2 className="max-w-2xl text-display-md text-ink">Découvrez nos derniers biens.</h2>
-        </Reveal>
-        <Reveal delay={0.05}>
-          <div className="flex items-center gap-6">
-            <ArrowLink to="/acheter" className="!text-ink hover:!text-brass">
-              Voir tous nos biens
-            </ArrowLink>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={prev}
-                disabled={index === 0}
-                aria-label="Voir le bien précédent"
-                className={arrowClass}
-              >
-                <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={next}
-                disabled={index >= maxIndex}
-                aria-label="Voir le bien suivant"
-                className={arrowClass}
-              >
-                <ChevronRight className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </Reveal>
-      </div>
+      <Reveal>
+        <h2 className="max-w-2xl text-display-md text-ink">Découvrez nos derniers biens.</h2>
+      </Reveal>
 
       <div
         className="mt-14 -mx-3 overflow-hidden"
         role="region"
         aria-roledescription="carrousel"
         aria-label="Nos derniers biens"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        style={
+          bouclable
+            ? {
+                // Fondu aux deux bords : la carte sortante s'efface vers la
+                // gauche pendant que la suivante se révèle par la droite.
+                maskImage:
+                  'linear-gradient(to right, transparent 0, #000 3.5%, #000 96.5%, transparent 100%)',
+                WebkitMaskImage:
+                  'linear-gradient(to right, transparent 0, #000 3.5%, #000 96.5%, transparent 100%)',
+              }
+            : undefined
+        }
       >
         <div
-          className="flex transition-transform duration-500 ease-plan"
+          className={`flex ${anime && !reduce ? 'transition-transform duration-700 ease-plan' : ''}`}
           style={{ transform: `translateX(-${index * (100 / perView)}%)` }}
+          onTransitionEnd={(e) => {
+            // L'évènement remonte depuis les cartes, qui ont leurs propres
+            // transitions au survol : seul le ruban lui-même compte.
+            if (e.target !== e.currentTarget) return
+            // Un tour complet : le ruban est visuellement à son point de
+            // départ, on y revient sans transition.
+            if (index >= total) {
+              setAnime(false)
+              setIndex(0)
+            }
+          }}
         >
-          {biens.map((p) => (
+          {ruban.map((p, i) => (
             <div
-              key={p.reference}
+              key={`${p.reference}-${i}`}
               className="shrink-0 grow-0 px-3"
               style={{ flexBasis: `${100 / perView}%` }}
             >
@@ -271,6 +379,36 @@ function DerniersBiens() {
           ))}
         </div>
       </div>
+
+      {/* Commandes sous le carrousel, alignées à droite — accessibles
+          immédiatement après les cartes, sur ordinateur comme sur mobile. */}
+      <Reveal delay={0.05}>
+        <div className="mt-10 flex items-center justify-end gap-6">
+          <ArrowLink to="/acheter" className="!text-ink hover:!text-brass">
+            Voir tous nos biens
+          </ArrowLink>
+          {bouclable ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={action(reculer)}
+                aria-label="Voir le bien précédent"
+                className={arrowClass}
+              >
+                <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={action(avancer)}
+                aria-label="Voir le bien suivant"
+                className={arrowClass}
+              >
+                <ChevronRight className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </Reveal>
     </Section>
   )
 }
@@ -290,11 +428,10 @@ function VendreCTA() {
 
       <div className="container-page relative py-24 sm:py-32">
         <div className="max-w-2xl">
-          <p className="eyebrow">Vendeurs</p>
-          <h2 className="mt-6 text-display-lg text-stone">Vous avez un bien à vendre ?</h2>
+          <h2 className="text-display-lg text-stone">Vous avez un bien à vendre ?</h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-stone/80">
-            Obtenez une estimation fondée sur le marché réel, puis un accompagnement sur mesure
-            jusqu’à la signature. Notre outil d’estimation en ligne arrive prochainement.
+            Obtenez une estimation précise par un professionnel de l’immobilier, suivie d’un
+            accompagnement à chaque étape jusqu’à la signature.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             <Button to="/estimer" variant="primary" size="lg">
@@ -318,15 +455,23 @@ function VendreCTA() {
   )
 }
 
+/**
+ * Bandeau de contact — volontairement fin.
+ *
+ * La hauteur totale visée vaut environ trois fois celle du titre. C'est le
+ * bouton — plus haut que le titre — qui commande la hauteur de la ligne : le
+ * `py` ne fait que l'encadrer, réduit ici aux deux tiers d'une hauteur de titre
+ * là où les autres sections respirent sur `py-20 sm:py-28`. Titre et bouton
+ * sont centrés sur le même axe (`items-center`), et le bandeau garde les marges
+ * latérales du site via `container-page`. Sur mobile, les deux éléments
+ * s'empilent avec un écart serré plutôt que de reconstituer un bandeau haut.
+ */
 function ContactTeaser() {
   return (
-    <Section tone="stone" py="py-20 sm:py-24">
-      <div className="flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:justify-between">
+    <Section tone="stone" py="py-6 sm:py-7">
+      <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
         <Reveal>
-          <div>
-            <p className="eyebrow !text-bottle">Contact</p>
-            <h2 className="mt-4 max-w-xl text-display-md text-ink">Parlons de votre projet.</h2>
-          </div>
+          <h2 className="max-w-xl text-display-md text-ink">Parlons de votre projet.</h2>
         </Reveal>
         <Reveal delay={0.05}>
           <Button to="/contact" variant="solidDark" size="lg">
@@ -352,11 +497,18 @@ function EquipeTeaser() {
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center">
         <div className="lg:col-span-5">
           <Reveal>
-            <h2 className="text-display-md text-stone">Des conseillers, pas des intermédiaires.</h2>
+            {/* Retour à la ligne forcé après la virgule sur grand écran ; sur
+                mobile, `inline` laisse le texte se replier naturellement plutôt
+                que de déborder. */}
+            <h2 className="text-display-md text-stone">
+              Une équipe engagée,{' '}
+              <span className="inline lg:block">à vos côtés.</span>
+            </h2>
           </Reveal>
           <Reveal delay={0.05}>
             <p className="mt-6 max-w-md text-base leading-relaxed text-stone/75">
-              Une équipe stable, présente sur le terrain, qui connaît ses secteurs et ses clients.
+              La proximité pour mieux vous comprendre,{' '}
+              <span className="inline lg:block">l’exigence pour servir au mieux votre projet.</span>
             </p>
           </Reveal>
           <Reveal delay={0.1}>
@@ -415,13 +567,13 @@ function RecrutementTeaser() {
         <div className="lg:col-span-8">
           <Reveal>
             <h2 className="max-w-2xl text-display-md text-ink">
-              Envie de faire l’immobilier autrement ?
+              Envie de faire de l’immobilier autrement ?
             </h2>
           </Reveal>
           <Reveal delay={0.05}>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-ink/70">
-              Nous recrutons des conseillers qui partagent notre exigence et notre goût du travail
-              bien fait. Écrivez-nous.
+              Rejoignez une agence immobilière où proximité, exigence et innovation donnent une
+              autre dimension au métier.
             </p>
           </Reveal>
         </div>

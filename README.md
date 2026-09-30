@@ -274,15 +274,38 @@ arbitrages qui ne vont pas de soi :
 
 | Clé Immovia         | Source Modelo                    | Arbitrage                                                            |
 | ------------------- | -------------------------------- | -------------------------------------------------------------------- |
-| `reference`         | `reference_a_afficher`           | Compose les URLs `/bien/:reference`                                  |
+| `reference`         | segment commun à `reference_a_afficher` et `reference_technique` | Référence Modelo nue (`LA1908`). Compose les URLs `/bien/:reference` |
+| `referenceComplete` | `reference_a_afficher`           | Forme suffixée (`LA1908-LUCASBELLA57510`), gardée pour rediriger les anciennes URLs |
 | `referenceTechnique`| `reference_technique`            | Clé stable du « annule et remplace », jamais affichée                |
+| `finances`          | `loyer`, `charges`, `depot_garantie`, `honoraires_*`, `taxe_fonciere`… | Bloc prêt à afficher (`MentionsFinancieres`) ; `null` si rien n'est renseigné |
+| `dpeEtat`           | `dpe_etat`                       | `effectue` / `en-cours` / `a-faire` / `non-requis`. Seule source de « DPE en cours » |
 | `prix`              | `loyer` en location, `prix` sinon | Les deux champs bruts restent disponibles (`loyer`, `prixVente`)     |
-| `descriptionLongue` | `description_impression`         | Repli sur `description`. Voir la note ci-dessous                     |
+| `descriptionLongue` | `description_impression`         | Repli sur `description`, purgée des mentions regénérées ailleurs. Voir la note ci-dessous |
 | `typeTransaction`   | `type_annonce`                   | « Viager » et « Vente à terme » rejoignent `vente`                   |
 | `statut`            | `etat`                           | 1 → `disponible`, 2 → `sous-compromis`, 3 → `vendu`                  |
 | `datePublication`   | `date_mise_en_ligne`             | Repli sur `date_creation`. Ordonne l'accueil et « Biens récents »    |
 | `photos`            | `images`                         | Triées par l'attribut `id`, qui porte l'ordre d'affichage voulu      |
 | `dateDisponibilite` | `date_disponibilite`             | `1970-01-01T01:00:00+01:00` (époque Unix) vaut « non saisie » → `null` |
+
+**La référence publique est celle de Modelo, et rien d'autre.** Le flux ne
+transmet aucune balise portant la référence seule : il en donne deux versions
+suffixées d'une identité — `LA1908-LUCASBELLA57510` (négociateur + code postal)
+et `LA1908-COMPANY57204UQD` (société). La référence du bien est le segment que
+les deux partagent, retrouvé par comparaison segment par segment plutôt que par
+une troncature à l'aveugle. Le site ne concatène plus jamais la référence avec
+le nom du conseiller, le code postal ou quoi que ce soit d'autre. Les anciennes
+URLs suffixées restent reconnues (`getByReference`) et redirigent en `replace`
+vers la forme courte.
+
+**Les mentions réglementaires ne sont écrites qu'une fois.** Modelo termine
+`description` par un paragraphe qu'il compose lui-même : honoraires, loyer de
+base, provision sur charges, dépôt de garantie, état du DPE, phrase Géorisques.
+Le site regénère tout cela depuis les données structurées — `MentionsFinancieres`
+pour l'argent, `EnergyDiagnostic` pour le DPE/GES, `InfosComplementaires` pour
+Géorisques. `sansMentionsRegenerees` retire donc ce paragraphe du texte
+commercial, ainsi que les lignes « libellé : montant » que certains rédacteurs
+ressaisissent à la main. Sans cela, la même information s'afficherait deux fois
+sur la fiche.
 
 > **Pourquoi `description_impression` plutôt que `description`.** Le champ
 > `description` se termine par les mentions réglementaires en dur — honoraires,

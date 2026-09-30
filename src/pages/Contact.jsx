@@ -161,7 +161,15 @@ export default function Contact() {
                 <Clock className="mt-1 h-5 w-5 shrink-0 text-brass" strokeWidth={1.5} aria-hidden="true" />
                 <div>
                   <p className={labelClass}>Horaires</p>
-                  <p className="text-stone">{agency.hours}</p>
+                  {/* Une ligne par jour — le samedi sur rendez-vous compris. */}
+                  <dl className="mt-1 space-y-1">
+                    {agency.hours.map(({ jour, horaire }) => (
+                      <div key={jour} className="flex gap-3 text-stone">
+                        <dt className="w-24 shrink-0">{jour}</dt>
+                        <dd className="font-mono text-sm text-stone/80">{horaire}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               </li>
             </ul>
