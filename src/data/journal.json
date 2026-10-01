@@ -1,6 +1,17 @@
 {
   "entrees": [
     {
+      "date": "2026-10-01",
+      "slug": "ou-habiter-a-sarreguemines-le-tour-des-quartiers-pour-une-famille-qui",
+      "titre": "Où habiter à Sarreguemines ? Le tour des quartiers pour une famille qui s'installe",
+      "sujet": "Où habiter à Sarreguemines ? Le tour des quartiers pour une famille qui s'installe",
+      "commune": "Sarreguemines",
+      "codeInsee": "57631",
+      "motCle": "où habiter à Sarreguemines",
+      "angle": "Guider un acheteur familial entre Beausoleil, le centre historique, Neunkirch et les abords de la Blies : écoles, collèges, gare, temps d'accès à Sarrebruck.",
+      "genre": "guide d'achat par quartiers"
+    },
+    {
       "date": "2026-09-29",
       "slug": "prix-immobilier-a-forbach-ce-qui-separe-le-centre-bellevue-et-le-wiesb",
       "titre": "Prix immobilier à Forbach : ce qui sépare le Centre, Bellevue et le Wiesberg",
