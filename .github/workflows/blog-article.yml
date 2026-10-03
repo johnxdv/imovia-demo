@@ -75,6 +75,12 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          # Le contrôle des mots-clés commerciaux ouvre un ticket quand un
+          # emplacement reste manquant après ses deux tentatives de correction.
+          # Ce n'est PAS un échec de passage — l'article est publié — et le
+          # workflow ne le verrait donc pas : c'est le script qui alerte, et il
+          # lui faut un jeton pour cela (voir `scripts/_lib/ticket.mjs`).
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Le sujet saisi passe par l'environnement, jamais interpolé dans la
           # ligne de commande : une expression `${{ inputs… }}` écrite
           # directement dans un `run` est substituée AVANT que le shell ne lise

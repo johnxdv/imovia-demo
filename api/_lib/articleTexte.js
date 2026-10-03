@@ -221,7 +221,7 @@ export function articlesLies(article, tous, combien = 3) {
 }
 
 /**
- * Découpe un paragraphe sur le lien contextuel vers l'estimateur.
+ * Découpe un paragraphe sur ses liens internes ancrés.
  *
  * LE PROBLÈME QUE CETTE MICRO-SYNTAXE RÉSOUT
  *
@@ -233,7 +233,10 @@ export function articlesLies(article, tous, combien = 3) {
  * Mais laisser le modèle produire du HTML dans un paragraphe ouvrirait la porte
  * à du balisage arbitraire dans une page du site. La rédaction marque donc son
  * ancre avec `[[…]]`, et c'est tout ce qu'elle peut faire : deux crochets, pas
- * une balise.
+ * une balise. Elle peut nommer une CIBLE après une barre verticale —
+ * `[[estimation immobilière Forbach|estimation]]`, `[[agence immobilière
+ * Forbach|agence]]` — et rien d'autre : le vocabulaire est fermé, et c'est
+ * `lienInterne` qui le traduit en adresse.
  *
  * L'ordre des opérations compte, côté rendu statique : le texte est échappé
  * D'ABORD, la découpe vient après. Les crochets traversent l'échappement sans
@@ -244,28 +247,57 @@ export function articlesLies(article, tous, combien = 3) {
  * partagent l'analyse et non sa mise en forme : le prérendu en fait du HTML, la
  * page React en fait des éléments.
  */
-export function decoupeLien(paragraphe) {
+export const CIBLES_LIEN = ['estimation', 'agence']
+
+/**
+ * Où mène une ancre interne. UNE SEULE DÉFINITION, partagée par les deux rendus.
+ *
+ * La rédaction ne produit jamais d'adresse : elle nomme une CIBLE prise dans un
+ * vocabulaire fermé, et c'est ce fichier qui sait ce qu'elle vaut en URL. Un
+ * modèle qui écrirait l'adresse lui-même finirait par inventer
+ * `/agence-forbach` un jour où `/agence-immobiliere/forbach` est la bonne, et
+ * personne ne le verrait avant que la page ne renvoie un 404.
+ *
+ * La page d'agence n'existe que pour une commune : sans elle, l'ancre retombe
+ * sur la page de contact, qui porte les mêmes coordonnées.
+ */
+export function lienInterne(cible, ville) {
+  if (cible === 'agence') return ville ? `/agence-immobiliere/${slugify(ville)}` : '/contact'
+  return '/estimer'
+}
+
+export function decoupeLien(paragraphe, { max = 1 } = {}) {
   const texte = String(paragraphe ?? '')
   const segments = []
   let reste = texte
-  let trouve = false
+  let poses = 0
 
   for (;;) {
     const debut = reste.indexOf('[[')
     const fin = debut === -1 ? -1 : reste.indexOf(']]', debut + 2)
 
-    // Un seul lien par article : au-delà, les crochets sont retirés et le texte
-    // gardé tel quel. Trois liens vers la même page dans un article diluent
-    // l'ancre au lieu de la renforcer.
-    if (debut === -1 || fin === -1 || trouve) {
-      segments.push({ texte: reste.replace(/\[\[|\]\]/g, ''), lien: false })
+    // Au-delà du quota, les crochets sont retirés et le texte gardé tel quel.
+    // Il vaut UN par défaut — trois liens vers la même page dans un paragraphe
+    // diluent l'ancre au lieu de la renforcer — et la conclusion est le seul
+    // passage à en demander deux, parce qu'ils ne vont pas au même endroit.
+    if (debut === -1 || fin === -1 || poses >= max) {
+      segments.push({ texte: reste.replace(/\[\[|\]\]/g, ''), lien: false, cible: null })
       return segments.filter((s) => s.texte !== '')
     }
 
-    segments.push({ texte: reste.slice(0, debut), lien: false })
-    segments.push({ texte: reste.slice(debut + 2, fin), lien: true })
+    // `[[texte]]` vise l'estimateur — la forme d'origine, et celle de tous les
+    // articles déjà publiés. `[[texte|agence]]` vise la page de la commune.
+    // Une cible inconnue n'invente pas d'adresse : elle retombe sur la première.
+    const brut = reste.slice(debut + 2, fin)
+    const barre = brut.indexOf('|')
+    const libelle = barre === -1 ? brut : brut.slice(0, barre)
+    const demandee = barre === -1 ? 'estimation' : brut.slice(barre + 1).trim()
+    const cible = CIBLES_LIEN.includes(demandee) ? demandee : 'estimation'
+
+    segments.push({ texte: reste.slice(0, debut), lien: false, cible: null })
+    segments.push({ texte: libelle, lien: true, cible })
     reste = reste.slice(fin + 2)
-    trouve = true
+    poses += 1
   }
 }
 

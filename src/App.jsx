@@ -11,6 +11,7 @@ import Louer from './pages/Louer'
 import PropertyDetail from './pages/PropertyDetail'
 import Blog from './pages/Blog'
 import Article from './pages/Article'
+import AgenceCommune from './pages/AgenceCommune'
 import Equipe from './pages/Equipe'
 import Contact from './pages/Contact'
 import Recrutement from './pages/Recrutement'
@@ -45,6 +46,10 @@ export default function App() {
           <Route path="/plan-du-site" element={<PlanDuSite />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<Article />} />
+          {/* Une page par commune du secteur — la destination des ancres
+              « agence immobilière {ville} » posées en conclusion d'article
+              (voir `src/data/secteur.js`). Un slug hors secteur rend un 404. */}
+          <Route path="/agence-immobiliere/:commune" element={<AgenceCommune />} />
           {/* Administration éditoriale — aucun lien n’y mène, nulle part.
               Voir l’avertissement en tête de `src/pages/Seo.jsx`. */}
           <Route path="/seo" element={<Seo />} />

@@ -43,6 +43,8 @@ import {
   titreHtml,
 } from './_lib/article.mjs'
 import { baliseHtml } from './_lib/jsonLd.mjs'
+import { lireSecteur } from './_lib/planification.mjs'
+import { slugify } from '../api/_lib/articleTexte.js'
 
 const RACINE = path.resolve(import.meta.dirname, '..')
 const DIST = path.join(RACINE, 'dist')
@@ -147,8 +149,87 @@ ${items || '          <li class="text-ink/65">Aucun article pour le moment.</li>
       </div>`
 }
 
+/**
+ * Page d'agence d'une commune — jumelle de `src/pages/AgenceCommune.jsx`.
+ *
+ * MÊMES CLASSES DES DEUX CÔTÉS, et ici c'est vital : `tailwind.config.js` ne
+ * balaie que `./index.html` et `./src/**`, donc une classe employée seulement
+ * par ce fichier est purgée du CSS produit et ne fait rien.
+ *
+ * TOUT CE QUI S'Y ÉCRIT EST VÉRIFIABLE. Identité de l'agence, adresse,
+ * téléphone, horaires, carte professionnelle, distance relevée, articles
+ * consacrés à la commune — et rien d'autre. Pas une phrase d'ambiance, pas une
+ * statistique de marché : ces pages existent pour donner une destination aux
+ * ancres « agence immobilière {ville} », pas pour meubler.
+ */
+function agenceHtml(commune, articles, communes) {
+  const lies = articles.filter((a) => a.ville === commune.nom)
+  const siege = commune.distanceKm === 0
+  // Le nom tel qu'il s'écrit, et non la ligne postale « 57980 DIEBLING ».
+  const villeSiege = communes.find((c) => c.distanceKm === 0)?.nom ?? commune.nom
+
+  const presentation = siege
+    ? `${agency.name} est une agence immobilière indépendante. Son bureau se trouve à ${commune.nom}, ${agency.address.line1}.`
+    : `${agency.name} est une agence immobilière indépendante installée à ${villeSiege}, à ${String(commune.distanceKm).replace('.', ',')} km de ${commune.nom}. La commune fait partie de son secteur d’intervention.`
+
+  const horaires = agency.hours
+    .map(
+      ({ jour, horaire }) => `            <div class="flex gap-3 text-stone">
+              <dt class="w-24 shrink-0">${echappe(jour)}</dt>
+              <dd class="font-mono text-sm text-stone/80">${echappe(horaire)}</dd>
+            </div>`,
+    )
+    .join('\n')
+
+  const liste =
+    lies.length > 0
+      ? `          <ul class="mt-6 space-y-6">
+${lies
+  .map(
+    (a) => `            <li class="border-t border-brass/20 pt-5">
+              <a href="/blog/${echappe(a.slug)}" class="group block">
+                <p class="font-mono text-[0.65rem] uppercase tracking-micro text-stone/50">${echappe(dateLisible(a.datePublication))}</p>
+                <p class="mt-1.5 font-display text-lg leading-snug text-stone">${echappe(a.titre)}</p>
+              </a>
+            </li>`,
+  )
+  .join('\n')}
+          </ul>`
+      : `          <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">Aucun article ne porte encore sur ${echappe(commune.nom)}. <a href="/blog" class="text-brass">Le blog</a> publie des analyses de prix et des guides sur les communes de la Moselle-Est.</p>`
+
+  return `      <div class="mx-auto w-full max-w-[1320px] px-6 py-24">
+        <p class="font-mono text-[0.62rem] uppercase tracking-micro text-stone/50">${echappe(agency.name)} · ${echappe(commune.nom)}</p>
+        <h1 class="mt-6 font-display text-4xl leading-tight text-stone">Agence immobilière à ${echappe(commune.nom)}</h1>
+        <p class="mt-6 max-w-2xl text-lg leading-relaxed text-stone/75">${echappe(presentation)}</p>
+        <div class="mt-16 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+          <div class="lg:col-span-5">
+            <p class="mb-2 block font-mono text-[0.62rem] uppercase tracking-micro text-stone/50">Adresse</p>
+            <p class="text-stone">${echappe(agency.address.line1)}<br />${echappe(agency.address.line2)}</p>
+            <p class="mb-2 mt-6 block font-mono text-[0.62rem] uppercase tracking-micro text-stone/50">Téléphone</p>
+            <a href="${echappe(agency.phoneHref)}" class="font-mono text-stone">${echappe(agency.phone)}</a>
+            <p class="mb-2 mt-6 block font-mono text-[0.62rem] uppercase tracking-micro text-stone/50">Email</p>
+            <a href="mailto:${echappe(agency.email)}" class="font-mono text-stone">${echappe(agency.email)}</a>
+            <p class="mb-2 mt-6 block font-mono text-[0.62rem] uppercase tracking-micro text-stone/50">Horaires</p>
+            <dl class="mt-1 space-y-1">
+${horaires}
+            </dl>
+            <p class="mt-10 font-mono text-[0.68rem] leading-relaxed text-stone/50">Carte professionnelle ${echappe(agency.legal.carteProfessionnelle)}, délivrée par ${echappe(agency.legal.carteDelivreePar)}.</p>
+          </div>
+          <div class="lg:col-span-7">
+            <h2 class="font-display text-2xl text-stone">Estimation immobilière à ${echappe(commune.nom)}</h2>
+            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">L’estimation en ligne s’appuie sur les relevés de prix du secteur, appliqués à l’adresse, à la surface et à l’état du logement.</p>
+            <p class="mt-6"><a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimation immobilière ${echappe(commune.nom)}</a></p>
+            <h2 class="mt-16 font-display text-2xl text-stone">${lies.length > 0 ? `Nos articles sur ${echappe(commune.nom)}` : 'Le marché du secteur'}</h2>
+${liste}
+            <p class="mt-12 font-mono text-[0.68rem] uppercase tracking-micro text-stone/50"><a href="/vendre">Vendre</a> · <a href="/acheter">Acheter</a> · <a href="/contact">Contact</a></p>
+          </div>
+        </div>
+      </div>`
+}
+
 async function main() {
   const articles = await lireArticles()
+  const communes = (await lireSecteur()).map((c) => ({ ...c, slug: slugify(c.nom) }))
 
   let coquille
   try {
@@ -173,14 +254,20 @@ async function main() {
       // Borné à 60 caractères : au-delà, une page de résultats coupe la fin,
       // et c'est la fin qui porte la promesse de l'article.
       titre: titreHtml(article, agency.name),
-      description: article.resume,
+      // LA MÉTA-DESCRIPTION EST ÉCRITE POUR ÊTRE LUE DANS UNE PAGE DE RÉSULTATS,
+      // le résumé pour être lu en tête d'article. Ce sont deux textes différents
+      // et ils l'étaient déjà : le résumé fait trois phrases et quatre cents
+      // caractères, dont un moteur n'en montre que cent cinquante-cinq. La
+      // description vise en plus le mot-clé commercial de la commune (voir
+      // `seo-mots-cles.mjs`). Le résumé reste le repli des articles d'avant.
+      description: article.seo?.metaDescription ?? article.resume,
       canonique: url,
       tete: [
         openGraph({
           // Open Graph n'a pas la contrainte de longueur d'un résultat de
           // recherche : l'aperçu d'un partage affiche le titre en entier.
           titre: article.titre,
-          description: article.resume,
+          description: article.seo?.metaDescription ?? article.resume,
           url,
           // La photo d'en-tête, pas le graphique : c'est elle qui fait un
           // aperçu de partage lisible. `article.image` est l'ancien champ
@@ -219,6 +306,29 @@ async function main() {
   )
   console.log(`  ✓ /blog  (${articles.length} article${articles.length > 1 ? 's' : ''})`)
 
+  // Pages d'agence, une par commune du secteur.
+  for (const commune of communes) {
+    const url = `${BASE}/agence-immobiliere/${commune.slug}`
+    const dossier = path.join(DIST, 'agence-immobiliere', commune.slug)
+    await mkdir(dossier, { recursive: true })
+
+    const titre = `Agence immobilière à ${commune.nom} — ${agency.name}`
+    const description = `${agency.name}, agence immobilière à ${commune.nom} : adresse, téléphone, horaires et estimation en ligne.`
+
+    await writeFile(
+      path.join(dossier, 'index.html'),
+      composePage(coquille, {
+        titre,
+        description,
+        canonique: url,
+        tete: openGraph({ titre, description, url, image: null, type: 'website' }),
+        corps: agenceHtml(commune, articles, communes),
+      }),
+      'utf8',
+    )
+  }
+  console.log(`  ✓ /agence-immobiliere/…  (${communes.length} communes)`)
+
   // Sitemap.
   const entrees = [
     ...ROUTES_FIXES.map((r) => ({ url: `${BASE}${r.url}`, priorite: r.priorite, date: null })),
@@ -227,6 +337,9 @@ async function main() {
       priorite: '0.7',
       date: a.dateModification ?? a.datePublication,
     })),
+    // Les pages d'agence passent en dernier et en priorité basse : ce sont des
+    // points d'atterrissage, pas le contenu du site.
+    ...communes.map((c) => ({ url: `${BASE}/agence-immobiliere/${c.slug}`, priorite: '0.5', date: null })),
   ]
 
   await writeFile(

@@ -11,6 +11,7 @@ import {
   decoupeLien,
   groupeSources,
   libelleFormat,
+  lienInterne,
   tempsLecture,
   titreCourt,
   visuelsParSection,
@@ -34,15 +35,22 @@ import {
 // n'existe pas, et la page statique s'affiche de travers sans qu'aucune erreur
 // ne le dise. Ce fichier est donc la référence de ce qui existe.
 
-/** Un paragraphe, avec l'ancre contextuelle vers l'estimateur si elle y est. */
-function Paragraphe({ texte, className }) {
+/**
+ * Un paragraphe, avec ses ancres internes si elles y sont.
+ *
+ * `max` vaut un partout, sauf dans la conclusion, qui en porte deux — vers
+ * l'estimateur et vers la page de la commune. La destination est résolue par
+ * `lienInterne`, partagée avec le rendu statique : les deux pages doivent
+ * envoyer le lecteur au même endroit.
+ */
+function Paragraphe({ texte, className, ville, max = 1 }) {
   return (
     <p className={className}>
-      {decoupeLien(texte).map((segment, i) =>
+      {decoupeLien(texte, { max }).map((segment, i) =>
         segment.lien ? (
           <Link
             key={i}
-            to="/estimer"
+            to={lienInterne(segment.cible, ville)}
             className="text-brass-sombre underline decoration-brass-sombre/40 underline-offset-4"
           >
             {segment.texte}
@@ -160,6 +168,7 @@ export default function Article() {
                 <Paragraphe
                   key={j}
                   texte={paragraphe}
+                  ville={article.ville}
                   className="mt-5 text-[1.0625rem] leading-[1.75] text-ink/75"
                 />
               ))}
@@ -188,28 +197,39 @@ export default function Article() {
           </section>
         ) : null}
 
-        {/* Clôture — jumeau du bloc rendu par `corpsHtml()`. L'intitulé nomme
-            la commune traitée : « Estimez votre bien à Forbach » dit où l'on
-            va, là où « en savoir plus » ne dit rien.
+        {/* Clôture — jumeau du bloc rendu par `corpsHtml()`.
 
-            C'est le SECOND chemin vers l'estimateur, pas le seul : le premier
-            est l'ancre posée dans un paragraphe par `Paragraphe`. Le bloc se lit
-            comme une offre, l'ancre se lit comme une phrase — et c'est l'ancre
-            qui porte le poids, parce qu'elle est en contexte. */}
-        <section className="mt-16 border-t border-ink/10 pt-10">
-          <p className="text-lg leading-relaxed text-ink/75">
-            Vous vous demandez ce que vaut votre bien{ou} ?
-          </p>
-          <p className="mt-3 text-base leading-relaxed text-ink/70">
-            Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article,
-            appliqués à l’adresse, à la surface et à l’état de votre logement.
-          </p>
-          <p className="mt-6">
-            <Button to="/estimer" variant="primary">
-              Estimez votre bien{ou}
-            </Button>
-          </p>
-        </section>
+            LA CONCLUSION RÉDIGÉE PASSE DEVANT LE BLOC TOUT FAIT. Le bloc est le
+            même sur tous les articles : un robot y voit un encart, et une ancre
+            identique sur deux cents pages ne dit plus rien de chacune. La
+            conclusion est écrite pour CET article et porte deux ancres en
+            contexte — l'estimateur et la page de la commune. Le bloc ne sert
+            plus qu'aux articles publiés avant cette règle. */}
+        {article.conclusion ? (
+          <section className="mt-16 border-t border-ink/10 pt-10">
+            <Paragraphe
+              texte={article.conclusion}
+              ville={article.ville}
+              max={2}
+              className="text-lg leading-relaxed text-ink/75"
+            />
+          </section>
+        ) : (
+          <section className="mt-16 border-t border-ink/10 pt-10">
+            <p className="text-lg leading-relaxed text-ink/75">
+              Vous vous demandez ce que vaut votre bien{ou} ?
+            </p>
+            <p className="mt-3 text-base leading-relaxed text-ink/70">
+              Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article,
+              appliqués à l’adresse, à la surface et à l’état de votre logement.
+            </p>
+            <p className="mt-6">
+              <Button to="/estimer" variant="primary">
+                Estimez votre bien{ou}
+              </Button>
+            </p>
+          </section>
+        )}
 
         {/* Articles liés — la même commune d'abord. Maillage interne autant que
             service au lecteur : deux articles sur Forbach qui se citent disent

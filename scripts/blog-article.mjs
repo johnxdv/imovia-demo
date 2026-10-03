@@ -69,6 +69,15 @@ import { illustrations } from './_lib/illustration.mjs'
 import { ecrireArticle, lireArticles, slugDisponible } from './_lib/article.mjs'
 import { generePlan, lireSecteur } from './_lib/planification.mjs'
 import {
+  compte as compteOccurrences,
+  controle,
+  jeuMotsCles,
+  META_MAX,
+  resumeControle,
+  tableau,
+} from './_lib/seo-mots-cles.mjs'
+import { ouvreTicket } from './_lib/ticket.mjs'
+import {
   RESTANT_MINIMAL,
   ecrireJournal,
   ecrirePlan,
@@ -105,7 +114,10 @@ const villeImposee = valeurDe('--ville')
 let compteurDuPassage = null
 
 const journal = (message) => console.log(`  ${message}`)
-const etape = (n, titre) => console.log(`\n[${n}/6] ${titre}`)
+const etape = (n, titre) => console.log(`\n[${n}/7] ${titre}`)
+
+/** Tentatives de correction d'un emplacement manquant, avant de publier sans. */
+const CORRECTIONS_MAX = 2
 
 /** Commune du siège — point de départ du secteur décrit par les articles. */
 const COMMUNE_SIEGE = agency.address.line2.replace(/^\d+\s*/, '').trim()
@@ -115,9 +127,12 @@ const SCHEMA_ARTICLE = {
   required: [
     'titre',
     'titreSeo',
+    'metaDescription',
     'resume',
     'sections',
     'faq',
+    'conclusion',
+    'alternatifEnTete',
     'chiffresCites',
     'sources',
     'graphique',
@@ -130,6 +145,11 @@ const SCHEMA_ARTICLE = {
       type: 'string',
       description:
         'Le même titre, ramené à 45 caractères au maximum — il sera suivi de « — IMMOVIA » dans la balise title. Il doit porter la promesse de l’article, pas seulement son sujet, parce que c’est lui qu’on lit dans une page de résultats.',
+    },
+    metaDescription: {
+      type: 'string',
+      description:
+        `La description affichée sous le titre dans une page de résultats. ${META_MAX} caractères AU PLUS — au-delà, la fin est coupée. Elle dit ce que la page apporte, elle ne résume pas l’article. Elle porte le mot-clé commercial imposé plus bas.`,
     },
     resume: { type: 'string', description: 'Deux à trois phrases, en tête d’article.' },
     sections: {
@@ -156,6 +176,16 @@ const SCHEMA_ARTICLE = {
         required: ['question', 'reponse'],
         properties: { question: { type: 'string' }, reponse: { type: 'string' } },
       },
+    },
+    conclusion: {
+      type: 'string',
+      description:
+        'UN paragraphe de clôture, en trois ou quatre phrases, qui porte DEUX ancres de lien interne et rien d’autre. Voir les consignes de liens : c’est le seul passage de l’article qui en porte deux.',
+    },
+    alternatifEnTete: {
+      type: 'string',
+      description:
+        'Le texte alternatif de la photo d’en-tête : ce qu’on dirait de cette image à quelqu’un qui ne la voit pas. Une phrase descriptive d’une dizaine de mots, en français, qui NOMME la commune. Ni liste de mots-clés, ni titre de l’article répété.',
     },
     chiffresCites: {
       type: 'array',
@@ -309,7 +339,7 @@ async function verifieFaits(anthropic, compteur, { sujet }) {
  * lui donner le dossier complet « au cas où » est précisément ce qui faisait
  * dériver chaque article vers un tableau comparatif.
  */
-async function redige(anthropic, compteur, { sujet, donnees }) {
+async function redige(anthropic, compteur, { sujet, donnees, jeu }) {
   const reponse = await appel(anthropic, compteur, 'rédaction', {
     output_config: { format: { type: 'json_schema', schema: SCHEMA_ARTICLE } },
     system: [
@@ -339,6 +369,18 @@ async function redige(anthropic, compteur, { sujet, donnees }) {
       '- Tu n’ajoutes aucune source qui ne serait pas dans le dossier : tu n’as pas accès au web à cette étape.',
       '',
       'Ton : sobre, professionnel, utile. Pas de superlatif, pas d’argumentaire de vente, pas d’appel à l’action répété. Tu informes un propriétaire ou un acquéreur du secteur.',
+      '',
+      'LES MOTS-CLÉS COMMERCIAUX — DES PLACES À TENIR, PAS DES MOTS À SAUPOUDRER',
+      '',
+      'Un propriétaire qui cherche une agence dans sa commune doit pouvoir tomber sur cet article. Cela se joue à cinq endroits précis, et nulle part ailleurs : la méta-description, les cent premiers mots, une question de FAQ, la conclusion, le texte alternatif de l’image. Tu les tiens TOUS, et tu t’arrêtes là.',
+      '',
+      'Ce que tu écris à ces endroits est de la MISE EN RELATION — dire qu’une agence existe ici et ce qu’elle peut faire. Ce n’est jamais une nouvelle affirmation de fait : aucun chiffre, aucune ancienneté, aucun nombre de ventes, aucune part de marché. Les règles ci-dessus sur les chiffres valent mot pour mot ici.',
+      '',
+      'INTERDIT, SANS EXCEPTION : « meilleure agence », « n° 1 », « numéro un », « leader », « incontournable », « la première agence de », et tout superlatif portant sur l’agence. Une agence se présente, elle ne se classe pas.',
+      '',
+      'Chaque mot-clé commercial paraît UNE à TROIS fois au plus dans l’article entier, et jamais deux fois dans un même paragraphe. Dans le doute, écris-le moins souvent : une occurrence bien placée vaut mieux que trois de trop.',
+      '',
+      'Relis chaque phrase que tu ajoutes pour ces mots-clés comme un rédacteur, pas comme un référenceur : si elle ne se lirait pas dans un article de presse locale, réécris-la.',
       '',
       'Les prix fournis sont des relevés de prix au m², pas des ventes conclues : ne les présente jamais comme des transactions constatées.',
     ].join('\n'),
@@ -370,11 +412,27 @@ async function redige(anthropic, compteur, { sujet, donnees }) {
           'Renseigne `graphique` uniquement si une comparaison chiffrée porte réellement l’article (écart de prix entre communes ou entre quartiers), avec des valeurs prises telles quelles dans le dossier. Sinon, mets-le à null.',
           'Tous les sujets ne reposent pas sur des chiffres : un article de conseil ou d’entretien peut n’en porter aucun, et c’est très bien. Ne force pas un tableau de prix dans un sujet qui n’en demande pas.',
           '',
-          'LIEN VERS L’ESTIMATEUR — UNE FOIS, ET DANS UNE PHRASE.',
-          'Exactement UN paragraphe de l’article porte une ancre vers notre estimateur, écrite entre doubles crochets : `[[texte de l’ancre]]`.',
+          'LIEN VERS L’ESTIMATEUR — UNE FOIS DANS LE CORPS, ET DANS UNE PHRASE.',
+          'Exactement UN paragraphe des `sections` porte une ancre vers notre estimateur, écrite entre doubles crochets : `[[texte de l’ancre]]`.',
           'Elle doit se lire comme une phrase, pas comme un encart — « la logique que suit notre [[estimation en ligne]] », et non « cliquez ici ». Le texte de l’ancre dit où l’on va : « estimation en ligne », « estimer votre bien à Forbach ». Jamais « ici », « ce lien », « en savoir plus ».',
-          'Place-la là où le propos l’appelle — le plus souvent dans la dernière section, quand l’article passe du constat à ce qu’on en fait. Un seul jeu de crochets dans tout l’article : les suivants seraient ignorés.',
+          'Place-la là où le propos l’appelle — le plus souvent dans la dernière section, quand l’article passe du constat à ce qu’on en fait. Un seul jeu de crochets dans le corps : les suivants y seraient ignorés.',
           'N’écris AUCUNE autre balise et AUCUN autre lien : les doubles crochets sont le seul balisage que tu produis.',
+          '',
+          '── LES CINQ EMPLACEMENTS COMMERCIAUX DE CET ARTICLE ──',
+          '',
+          `Mot-clé « agence »     : ${jeu.commerciaux.agence}`,
+          `Mot-clé « vente »      : ${jeu.commerciaux.vente}`,
+          `Mot-clé « estimation » : ${jeu.commerciaux.estimation}`,
+          `Variantes autorisées, qui ne tiennent aucun emplacement : ${jeu.variantes.join(' · ')}`,
+          '',
+          `1. \`metaDescription\` — ${META_MAX} caractères au plus, et elle contient « ${jeu.commerciaux.agence} ». Si la phrase ne tient pas dans la limite avec ce mot-clé, emploie « ${jeu.commerciaux.vente} » à la place.`,
+          `2. \`resume\` — dans les cent premiers mots de l’article, une mention NATURELLE de l’agence ou de la vente dans la commune : « ${jeu.commerciaux.agence} » ou « ${jeu.commerciaux.vente} », écrit exactement ainsi. Pas une phrase d’auto-présentation — une phrase qui dit au lecteur d’où l’article est écrit.`,
+          `3. \`faq\` — l’une des questions est exactement : « Comment choisir son agence immobilière à ${jeu.commune} ? ». Sa réponse est un cadrage de GUIDE : ce qu’il faut regarder, quelles questions poser, quels documents demander. Elle ne recommande aucune agence, la nôtre comprise, et n’emploie aucun superlatif. Cette question s’ajoute aux autres, elle ne remplace pas la FAQ du sujet.`,
+          '4. `conclusion` — un paragraphe de trois ou quatre phrases portant DEUX ancres, et exactement deux :',
+          `   • \`[[${jeu.commerciaux.estimation}|estimation]]\` — vers l’estimateur ;`,
+          `   • \`[[${jeu.commerciaux.agence}|agence]]\` — vers la page de l’agence pour cette commune.`,
+          '   Le texte des deux ancres est exactement celui-là, barre verticale et cible comprises. Les phrases qui les portent se lisent comme une suite de l’article, pas comme un encart publicitaire : on vient de lire une analyse, on dit ce qu’on peut en faire.',
+          `5. \`alternatifEnTete\` — une phrase descriptive de la photo d’en-tête, d’une dizaine de mots, qui nomme ${jeu.commune}.`,
         ].join('\n'),
       },
     ],
@@ -386,6 +444,196 @@ async function redige(anthropic, compteur, { sujet, donnees }) {
   }
   return redaction
 }
+/**
+ * Schéma des correctifs — un champ par emplacement, tous facultatifs.
+ *
+ * C'est ce schéma qui garantit qu'une correction RESTE une correction : le
+ * modèle ne peut rendre que ces cinq passages. Il ne peut pas renvoyer un
+ * article, ni une section, ni un chiffre — la forme de la réponse l'en empêche,
+ * et pas seulement la consigne.
+ */
+const SCHEMA_CORRECTIF = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    metaDescription: { type: 'string' },
+    resume: { type: 'string' },
+    faqAgence: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['question', 'reponse'],
+      properties: { question: { type: 'string' }, reponse: { type: 'string' } },
+    },
+    conclusion: { type: 'string' },
+    alternatifEnTete: { type: 'string' },
+    paragraphes: {
+      type: 'array',
+      description: 'Paragraphes du corps reformulés, repérés par leur numéro.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['section', 'rang', 'texte'],
+        properties: {
+          section: { type: 'number' },
+          rang: { type: 'number' },
+          texte: { type: 'string' },
+        },
+      },
+    },
+  },
+}
+
+/**
+ * Les paragraphes du corps où un mot-clé déborde du plafond.
+ *
+ * Rend les SEULS paragraphes à reformuler — repérés par leur section et leur
+ * rang —, pas l'article. C'est ce qui permet à la correction de coûter deux
+ * centimes au lieu de vingt : on envoie trois cents mots, pas douze cents.
+ */
+function paragraphesEnExces(article, excessifs) {
+  const vises = []
+
+  for (const o of excessifs) {
+    let vus = 0
+    ;(article.sections ?? []).forEach((section, i) => {
+      ;(section.paragraphes ?? []).forEach((texte, j) => {
+        const n = compteOccurrences(texte, o.expression)
+        if (n === 0) return
+        vus += n
+        // Les premières occurrences sont dans le quota : seules celles qui le
+        // dépassent appellent une reformulation.
+        if (vus > o.plafond) vises.push({ section: i + 1, rang: j + 1, texte, retirer: o.expression })
+      })
+    })
+  }
+
+  // Un même paragraphe peut déborder sur deux mots-clés : il ne part qu'une fois.
+  const vu = new Set()
+  return vises.filter((p) => {
+    const cle = `${p.section}:${p.rang}`
+    if (vu.has(cle)) return false
+    vu.add(cle)
+    return true
+  })
+}
+
+/**
+ * Régénère LES PASSAGES qui manquent, et eux seuls.
+ *
+ * CE QUI SE JOUE ICI EST UNE QUESTION DE COÛT AVANT D'ÊTRE UNE QUESTION DE STYLE
+ *
+ * La réaction naturelle à un contrôle qui échoue est de relancer la rédaction.
+ * Elle coûte 0,17 $ et réécrirait un article déjà bon pour y ajouter une
+ * question de FAQ — en rebattant au passage tous les chiffres qui avaient été
+ * vérifiés. Cet appel-ci reçoit les seuls passages concernés et ne rend que
+ * ceux-là : quelques centaines de jetons dans les deux sens, deux centimes.
+ *
+ * Il ne reçoit DÉLIBÉRÉMENT ni le dossier de prix, ni les faits sourcés, ni les
+ * sections de l'article. Non pour économiser : pour qu'aucune affirmation
+ * nouvelle ne puisse en sortir. Un passage de mise en relation n'a pas à
+ * connaître les chiffres, et ce qu'il ne connaît pas, il ne peut pas l'inventer.
+ */
+async function corrigePassages(anthropic, compteur, { article, jeu, rapport, tentative }) {
+  const manquants = rapport.manquants
+  const exces = paragraphesEnExces(article, rapport.excessifs)
+
+  const demandes = manquants.map((m) => `- ${m.intitule} — attendu : ${m.attendu}`)
+  if (exces.length > 0) {
+    demandes.push(
+      `- Occurrences en excès — reformule les paragraphes listés plus bas pour en retirer une mention, sans rien changer à leur sens ni à leurs chiffres.`,
+    )
+  }
+  if (rapport.superlatifs.length > 0) {
+    demandes.push(`- Superlatif interdit à retirer : « ${rapport.superlatifs.join(' », « ')} »`)
+  }
+
+  const reponse = await appel(anthropic, compteur, `correction SEO ${tentative}`, {
+    output_config: { format: { type: 'json_schema', schema: SCHEMA_CORRECTIF } },
+    system: [
+      `Tu corriges des passages d'un article déjà rédigé pour le blog de ${agency.name}, agence immobilière à ${COMMUNE_SIEGE} (Moselle).`,
+      '',
+      "L'article est bon et il est gardé tel quel. Tu ne rends QUE les passages demandés, et seulement ceux-là.",
+      '',
+      'RÈGLES ABSOLUES :',
+      "- Tu n'avances AUCUN fait nouveau : aucun chiffre, aucune date, aucune ancienneté, aucun nombre de ventes, aucune part de marché, aucun nom d'équipement. Ces phrases mettent en relation, elles n'affirment rien.",
+      "- Tu ne reprends aucun chiffre de l'article : si un passage t'est donné à reformuler, ses chiffres restent mot pour mot ce qu'ils sont.",
+      '- Aucun superlatif sur l’agence : ni « meilleure », ni « n° 1 », ni « leader », ni « incontournable », ni « la première agence de ».',
+      '- Ton sobre, phrases complètes. Chaque phrase doit pouvoir se lire dans un article de presse locale sans détonner.',
+      '- Le texte des ancres est donné à la lettre : tu le recopies tel quel, barre verticale et cible comprises.',
+    ].join('\n'),
+    messages: [
+      {
+        role: 'user',
+        content: [
+          `Commune : ${jeu.commune}`,
+          `Titre de l'article : ${article.titre}`,
+          '',
+          'Mots-clés à employer, écrits exactement ainsi :',
+          `- ${jeu.commerciaux.agence}`,
+          `- ${jeu.commerciaux.vente}`,
+          `- ${jeu.commerciaux.estimation}`,
+          '',
+          'À CORRIGER :',
+          ...demandes,
+          '',
+          'Passages actuels — les seuls que tu peux toucher :',
+          JSON.stringify(
+            {
+              metaDescription: article.seo?.metaDescription ?? null,
+              resume: article.resume,
+              faqAgence: (article.faq ?? []).find((q) => /comment\s+choisir/i.test(q.question)) ?? null,
+              conclusion: article.conclusion ?? null,
+              alternatifEnTete: article.imageEnTete?.alt ?? null,
+              paragraphes: exces,
+            },
+            null,
+            2,
+          ),
+          '',
+          `Rappels de forme : la méta-description tient en ${META_MAX} caractères ; la conclusion porte exactement \`[[${jeu.commerciaux.estimation}|estimation]]\` et \`[[${jeu.commerciaux.agence}|agence]]\` ; la question de FAQ est « Comment choisir son agence immobilière à ${jeu.commune} ? » et sa réponse cadre le choix sans recommander personne.`,
+          '',
+          'Rends uniquement les champs demandés.',
+        ].join('\n'),
+      },
+    ],
+  })
+
+  return jsonDuTexte(texte(reponse)) ?? {}
+}
+
+/** Applique un correctif à l'article, sans rien toucher d'autre. */
+function appliqueCorrectif(article, correctif) {
+  const suivant = { ...article, seo: { ...article.seo } }
+
+  if (correctif.metaDescription) suivant.seo.metaDescription = correctif.metaDescription
+  if (correctif.resume) suivant.resume = correctif.resume
+  if (correctif.conclusion) suivant.conclusion = correctif.conclusion
+
+  if (correctif.alternatifEnTete && suivant.imageEnTete) {
+    suivant.imageEnTete = { ...suivant.imageEnTete, alt: correctif.alternatifEnTete }
+  }
+
+  if (correctif.faqAgence?.question) {
+    const faq = [...(suivant.faq ?? [])]
+    const place = faq.findIndex((q) => /comment\s+choisir/i.test(q.question))
+    if (place >= 0) faq[place] = correctif.faqAgence
+    else faq.push(correctif.faqAgence)
+    suivant.faq = faq
+  }
+
+  for (const p of correctif.paragraphes ?? []) {
+    const section = suivant.sections?.[p.section - 1]
+    if (!section?.paragraphes?.[p.rang - 1]) continue
+    const paragraphes = [...section.paragraphes]
+    paragraphes[p.rang - 1] = p.texte
+    suivant.sections = suivant.sections.map((s, i) =>
+      i === p.section - 1 ? { ...s, paragraphes } : s,
+    )
+  }
+
+  return suivant
+}
+
 /** Compte les mots du corps — pour vérifier la longueur demandée. */
 const compteMots = (article) =>
   [article.resume, ...article.sections.flatMap((s) => s.paragraphes), ...article.faq.map((q) => q.reponse)]
@@ -527,8 +775,14 @@ async function main() {
   }
 
   // ── Rédaction ─────────────────────────────────────────────────────────
+  //
+  // Le jeu de mots-clés est construit AVANT la rédaction, sans le moindre appel :
+  // il se déduit de la commune et du sujet (voir `seo-mots-cles.mjs`). La
+  // rédaction le reçoit, place ses cinq emplacements du premier coup, et le
+  // contrôle qui suit n'a le plus souvent rien à reprendre.
+  const jeu = jeuMotsCles({ ville: commune.nom, sujet })
   etape(4, 'Rédaction')
-  const redaction = await redige(anthropic, compteur, { sujet, donnees })
+  const redaction = await redige(anthropic, compteur, { sujet, donnees, jeu })
   journal(`${redaction.sections.length} sections, ${redaction.faq.length} questions, ${compteMots(redaction)} mots.`)
 
   // ── Illustrations ─────────────────────────────────────────────────────
@@ -548,7 +802,7 @@ async function main() {
     journal,
   )
 
-  const article = {
+  let article = {
     slug,
     titre: redaction.titre,
     titreSeo: redaction.titreSeo,
@@ -562,13 +816,28 @@ async function main() {
     codeInsee: sujet.codeInsee ?? commune.codeInsee,
     datePublication: new Date().toISOString().slice(0, 10),
     auteur: agency.name,
-    imageEnTete: visuels.enTete,
+    // LE TEXTE ALTERNATIF VIENT DE LA RÉDACTION, PAS DE LA BANQUE D'IMAGES.
+    // Unsplash rend le sien — « brown and gray concrete buildings during
+    // daytime » sur la photo d'en-tête de l'article de Forbach : exact, en
+    // anglais, et qui ne dit ni de quelle commune il s'agit ni ce que l'image
+    // fait là. Celui de la rédaction décrit la scène ET nomme la commune.
+    imageEnTete: { ...visuels.enTete, alt: redaction.alternatifEnTete ?? visuels.enTete?.alt },
     sections: redaction.sections,
     imagesCorps: visuels.corps,
     graphique: visuels.graphique,
     faq: redaction.faq,
+    conclusion: redaction.conclusion ?? null,
     chiffresCites: redaction.chiffresCites,
     sources: redaction.sources ?? [],
+    seo: {
+      metaDescription: redaction.metaDescription ?? null,
+      // Le jeu est enregistré avec l'article, et pas seulement vérifié : c'est
+      // lui qui dira, dans six mois, sur quelle requête cette page a été écrite
+      // — y compris si la règle qui le construit a changé entre-temps.
+      motsClesCommerciaux: jeu.commerciaux,
+      variantes: jeu.variantes,
+      bien: jeu.bien,
+    },
     meta: {
       genere: 'auto',
       modele: MODELE,
@@ -585,6 +854,59 @@ async function main() {
     },
   }
 
+  // ── Contrôle SEO ──────────────────────────────────────────────────────
+  //
+  // IL NE BLOQUE JAMAIS LA PUBLICATION, et c'est la décision qui compte ici.
+  // Un article complet à qui il manque une question de FAQ reste un bon article ;
+  // le retenir pour ça coûterait un passage entier — déjà payé — et laisserait
+  // un trou dans le rythme de publication pour un défaut qui se rattrape en une
+  // phrase. Deux tentatives de correction ciblée, puis on publie ce qu'on a et
+  // on ouvre un ticket avec le détail de ce qui manque.
+  etape(6, 'Contrôle des mots-clés commerciaux')
+  let rapport = controle(article, jeu)
+  const tentatives = []
+
+  for (let n = 1; n <= CORRECTIONS_MAX && !rapport.ok; n += 1) {
+    journal(`Tentative ${n}/${CORRECTIONS_MAX} — ${resumeControle(rapport)}`)
+    for (const m of rapport.manquants) journal(`  à reprendre : ${m.intitule}`)
+
+    try {
+      const correctif = await corrigePassages(anthropic, compteur, { article, jeu, rapport, tentative: n })
+      article = appliqueCorrectif(article, correctif)
+      // Le texte alternatif corrigé doit redescendre dans le champ que lit le
+      // rendu, sans quoi le contrôle suivant relirait l'ancien.
+      rapport = controle(article, jeu)
+      tentatives.push({ n, champs: Object.keys(correctif), reste: rapport.manquants.map((m) => m.cle) })
+    } catch (error) {
+      // Une correction qui échoue ne fait pas échouer l'article : on publie en
+      // l'état et le ticket le dira.
+      journal(`Correction interrompue — ${error?.message ?? error}`)
+      tentatives.push({ n, erreur: String(error?.message ?? error) })
+      break
+    }
+  }
+
+  console.log('')
+  console.log(tableau(rapport))
+
+  article.seo = {
+    ...article.seo,
+    controle: {
+      ok: rapport.ok,
+      mots: rapport.mots,
+      plafond: rapport.plafond,
+      emplacements: rapport.emplacements.map((e) => ({ cle: e.cle, ok: e.ok })),
+      occurrences: rapport.occurrences.map((o) => ({ cle: o.cle, expression: o.expression, n: o.occurrences })),
+      corrections: tentatives,
+    },
+  }
+
+  if (rapport.ok) {
+    journal(`Tous les emplacements sont tenus${tentatives.length ? ` (après ${tentatives.length} correction(s))` : ''}.`)
+  } else {
+    journal(`Publié SANS ${rapport.manquants.map((m) => m.intitule).join(', ') || 'excès corrigé'} — un ticket est ouvert.`)
+  }
+
   // ── Publication ───────────────────────────────────────────────────────
   //
   // Article, plan et journal sont écrits ensemble, juste avant que le workflow
@@ -592,7 +914,7 @@ async function main() {
   // continue, rien n'est durable avant le push, donc tout entre dans le même
   // commit ou rien n'y entre. Il n'existe pas d'état intermédiaire où l'article
   // serait en ligne sans sa trace au journal.
-  etape(6, essai ? 'Publication — sautée (essai)' : 'Publication')
+  etape(7, essai ? 'Publication — sautée (essai)' : 'Publication')
   if (essai) {
     const sortie = path.join(process.env.TMPDIR ?? '/tmp', `article-essai-${slug}.json`)
     await writeFile(sortie, `${JSON.stringify(article, null, 2)}\n`, 'utf8')
@@ -606,6 +928,19 @@ async function main() {
       article,
     )
 
+    // LE CONTRÔLE ENTRE AU JOURNAL, RÉUSSI OU NON. Un contrôle qui ne se
+    // journalise que lorsqu'il échoue ne dit rien du taux de réussite, et c'est
+    // ce taux-là qui dira si la consigne de rédaction suffit ou si elle dérive.
+    journalAJour.entrees[0] = {
+      ...journalAJour.entrees[0],
+      seoCheck: {
+        ok: rapport.ok,
+        manquants: rapport.manquants.map((m) => m.cle),
+        occurrences: Object.fromEntries(rapport.occurrences.map((o) => [o.cle, o.occurrences])),
+        corrections: tentatives.length,
+      },
+    }
+
     const chemin = await ecrireArticle(article)
     await ecrirePlan(planAJour)
     await ecrireJournal(journalAJour)
@@ -613,6 +948,33 @@ async function main() {
     journal(`Écrit : ${chemin}`)
     journal(`Plan  : ${restants(planAJour)} sujet(s) encore en file.`)
     journal('Article, plan et journal sont commités ensemble par le workflow.')
+
+    if (!rapport.ok) {
+      const ticket = await ouvreTicket({
+        titre: 'Blog automatique — emplacements SEO manquants',
+        etiquette: 'blog',
+        corps: [
+          `L'article **${article.titre}** (\`${article.slug}\`, ${article.ville}) a été publié avec des emplacements non tenus.`,
+          '',
+          'Ce qui manque :',
+          ...rapport.manquants.map((m) => `- **${m.intitule}** — attendu : ${m.attendu}`),
+          ...rapport.excessifs.map(
+            (o) => `- **${o.expression}** — ${o.occurrences} occurrences pour un plafond de ${o.plafond}.`,
+          ),
+          ...rapport.superlatifs.map((v) => `- Superlatif interdit employé : « ${v} »`),
+          '',
+          `${tentatives.length} correction(s) ciblée(s) ont été tentées sans y parvenir.`,
+          '',
+          "L'article est en ligne et se lit normalement : il lui manque une phrase, pas un paragraphe. La correction se fait à la main dans `src/data/articles/" + `${article.slug}.json\`.`,
+        ].join('\n'),
+      })
+
+      journal(
+        ticket.ouvert
+          ? `Ticket ouvert : ${ticket.url ?? `commentaire sur le #${ticket.numero}`}`
+          : `Ticket NON ouvert (${ticket.raison}) — le détail est ci-dessus.`,
+      )
+    }
   }
 
   imprimeReleve(compteur, 'Coût réel de cet article')

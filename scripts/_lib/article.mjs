@@ -20,6 +20,7 @@ import {
   decoupeLien,
   groupeSources,
   libelleFormat,
+  lienInterne,
   slugify,
   tempsLecture,
   titreCourt,
@@ -30,7 +31,7 @@ import {
 // serverless d'administration et ce script fabriquent le même identifiant pour
 // le même titre, et deux définitions qui divergeraient d'un caractère
 // donneraient deux adresses pour un seul article.
-export { slugify, titreCourt, tempsLecture, articlesLies, decoupeLien, libelleFormat }
+export { slugify, titreCourt, tempsLecture, articlesLies, decoupeLien, libelleFormat, lienInterne }
 
 const RACINE = path.resolve(import.meta.dirname, '..', '..')
 export const DOSSIER_ARTICLES = path.join(RACINE, 'src', 'data', 'articles')
@@ -217,11 +218,11 @@ export function corpsHtml(article, tous = []) {
   // L'échappement passe AVANT la découpe, segment par segment : le texte de
   // l'article ne peut donc pas injecter de balise, et l'ancre `[[…]]` est le
   // seul HTML que la rédaction sait produire. Voir `decoupeLien()`.
-  const paragraphe = (p) =>
-    decoupeLien(p)
+  const paragraphe = (p, { max = 1 } = {}) =>
+    decoupeLien(p, { max })
       .map((seg) =>
         seg.lien
-          ? `<a href="/estimer" class="text-brass-sombre underline decoration-brass-sombre/40 underline-offset-4">${echappe(seg.texte)}</a>`
+          ? `<a href="${echappe(lienInterne(seg.cible, article.ville))}" class="text-brass-sombre underline decoration-brass-sombre/40 underline-offset-4">${echappe(seg.texte)}</a>`
           : echappe(seg.texte),
       )
       .join('')
@@ -307,7 +308,20 @@ ${s.enonces.map((e) => `                <li class="mt-1.5 font-mono text-xs lead
   // Le bloc se lit comme une offre, l'ancre se lit comme une phrase — et c'est
   // l'ancre qui porte le poids SEO, parce qu'elle est en contexte.
   const ou = article.ville ? ` à ${article.ville}` : ' dans le secteur'
-  const cloture = `        <section class="mt-16 border-t border-ink/10 pt-10">
+
+  // LA CONCLUSION RÉDIGÉE PASSE DEVANT LE BLOC TOUT FAIT.
+  //
+  // Le bloc ci-dessous est le même pour tous les articles : un robot y voit un
+  // encart, et une ancre identique sur deux cents pages ne dit plus rien de
+  // chacune. La conclusion, elle, est écrite pour CET article et porte deux
+  // ancres en contexte — l'estimateur et la page de la commune. Quand elle
+  // existe, elle tient lieu d'appel à l'action ; le bloc ne sert plus qu'aux
+  // articles d'avant (voir `conclusion` dans `blog-article.mjs`).
+  const cloture = article.conclusion
+    ? `        <section class="mt-16 border-t border-ink/10 pt-10">
+          <p class="text-lg leading-relaxed text-ink/75">${paragraphe(article.conclusion, { max: 2 })}</p>
+        </section>`
+    : `        <section class="mt-16 border-t border-ink/10 pt-10">
           <p class="text-lg leading-relaxed text-ink/75">Vous vous demandez ce que vaut votre bien${echappe(ou)} ?</p>
           <p class="mt-3 text-base leading-relaxed text-ink/70">Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article, appliqués à l’adresse, à la surface et à l’état de votre logement.</p>
           <p class="mt-6">

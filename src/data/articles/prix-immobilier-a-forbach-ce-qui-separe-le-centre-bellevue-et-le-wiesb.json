@@ -114,6 +114,10 @@
     {
       "question": "Faut-il se fier au prix au m² du quartier pour fixer son prix de vente ?",
       "reponse": "Il donne un ordre de grandeur de départ. Mais deux appartements du même immeuble peuvent s'écarter sensiblement selon l'étage, l'état, le DPE et les charges. Le relevé de quartier sert à vérifier qu'on n'est pas hors marché, pas à déterminer un prix au euro près."
+    },
+    {
+      "question": "Comment choisir son agence immobilière à Forbach ?",
+      "reponse": "Regardez d'abord ce que l'agence connaît du terrain : sur une ville aussi contrastée, savoir qu'un bien se trouve au Centre plutôt qu'au Wiesberg change l'estimation, et cela ne s'improvise pas. Demandez sur quoi repose le prix proposé — relevés, biens comparables, transactions récentes — et faites-vous expliquer l'écart avec le prix moyen de la ville. Vérifiez la carte professionnelle, le mandat proposé et sa durée, les honoraires et qui les règle. Demandez enfin comment le bien sera diffusé et à quelle fréquence vous aurez un compte rendu des visites."
     }
   ],
   "chiffresCites": [
@@ -459,5 +463,19 @@
         "coutUsd": 1.6056100000000002
       }
     }
+  },
+  "conclusion": "Un prix au m² de quartier donne un ordre de grandeur, pas la valeur d'un bien : l'état, l'année de construction, le terrain et le diagnostic énergétique déplacent le curseur dans les deux sens. Pour partir d'une base chiffrée sur votre adresse plutôt que sur une moyenne de ville, notre [[estimation immobilière Forbach|estimation]] applique ces relevés à votre logement. Et si vous préférez en parler de vive voix, les coordonnées et les horaires de notre [[agence immobilière Forbach|agence]] sont sur une page dédiée.",
+  "seo": {
+    "motsClesCommerciaux": {
+      "agence": "agence immobilière Forbach",
+      "vente": "vente maison Forbach",
+      "estimation": "estimation immobilière Forbach"
+    },
+    "variantes": [
+      "agence immo Forbach",
+      "vendre son bien à Forbach"
+    ],
+    "bien": "maison",
+    "rattrapage": "FAQ et conclusion ajoutées le 2026-10-03, aucun autre passage touché."
   }
 }
