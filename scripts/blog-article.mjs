@@ -57,6 +57,7 @@ import {
   Compteur,
   MODELE,
   OUTIL_RECHERCHE_WEB,
+  PLAFOND_ARTICLE_USD,
   appel,
   client,
   jsonDuTexte,
@@ -1002,7 +1003,18 @@ function imprimeReleve(compteur, titre) {
       `${String(releve.totaux.recherchesWeb).padStart(2)} recherche(s) · ` +
       `$${releve.totaux.coutUsd.toFixed(4)}`,
   )
-  console.log(`  Six articles par mois, à ce coût : $${(releve.totaux.coutUsd * 6).toFixed(2)}/mois.\n`)
+  console.log(`  Six articles par mois, à ce coût : $${(releve.totaux.coutUsd * 6).toFixed(2)}/mois.`)
+
+  // Le plafond se constate, il ne s'applique pas : au moment où cette ligne
+  // s'imprime, l'argent est dépensé (voir `PLAFOND_ARTICLE_USD`).
+  if (releve.totaux.coutUsd > PLAFOND_ARTICLE_USD) {
+    console.log(
+      `  AU-DESSUS DU PLAFOND de $${PLAFOND_ARTICLE_USD.toFixed(2)} — ` +
+        `$${(releve.totaux.coutUsd - PLAFOND_ARTICLE_USD).toFixed(4)} de trop. ` +
+        'Le poste à regarder est celui qui porte des recherches.',
+    )
+  }
+  console.log('')
 }
 
 main().catch((error) => {

@@ -20,8 +20,16 @@
 #
 # CE QUE COÛTE CHAQUE PASSAGE
 #
-# Un article sans recherche coûte environ 0,07 $, un article avec vérification
-# de faits environ 0,45 $. La planification, tous les deux mois, ajoute 0,11 $.
+# Un article sans recherche coûte environ 0,07 $ ; un article avec vérification
+# des faits, de 0,31 $ à 0,48 $ selon le nombre de faits que la recherche
+# rapporte — c'est ce poste-là, et lui seul, qui fait varier la facture du
+# simple au double. La planification, tous les deux mois, ajoute 0,11 $.
+#
+# Le plafond est de 0,50 $ par article (`PLAFOND_ARTICLE_USD` dans
+# `scripts/_lib/claude-api.mjs`). Il est CONSTATÉ et non appliqué : le relevé
+# le signale, aucun passage n'échoue pour l'avoir franchi — l'argent est
+# dépensé au moment où on s'en aperçoit.
+#
 # Le coût réel de chaque article est enregistré dans son propre fichier, sous
 # `meta.cout` : il n'y a pas à l'estimer, il se relit.
 

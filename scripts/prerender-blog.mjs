@@ -44,7 +44,7 @@ import {
 } from './_lib/article.mjs'
 import { baliseHtml } from './_lib/jsonLd.mjs'
 import { lireSecteur } from './_lib/planification.mjs'
-import { slugify } from '../api/_lib/articleTexte.js'
+import { communesAvecPage, presentationAgence } from '../api/_lib/articleTexte.js'
 
 const RACINE = path.resolve(import.meta.dirname, '..')
 const DIST = path.join(RACINE, 'dist')
@@ -162,15 +162,13 @@ ${items || '          <li class="text-ink/65">Aucun article pour le moment.</li>
  * statistique de marché : ces pages existent pour donner une destination aux
  * ancres « agence immobilière {ville} », pas pour meubler.
  */
-function agenceHtml(commune, articles, communes) {
+function agenceHtml(commune, articles, communeSiege) {
   const lies = articles.filter((a) => a.ville === commune.nom)
-  const siege = commune.distanceKm === 0
-  // Le nom tel qu'il s'écrit, et non la ligne postale « 57980 DIEBLING ».
-  const villeSiege = communes.find((c) => c.distanceKm === 0)?.nom ?? commune.nom
-
-  const presentation = siege
-    ? `${agency.name} est une agence immobilière indépendante. Son bureau se trouve à ${commune.nom}, ${agency.address.line1}.`
-    : `${agency.name} est une agence immobilière indépendante installée à ${villeSiege}, à ${String(commune.distanceKm).replace('.', ',')} km de ${commune.nom}. La commune fait partie de son secteur d’intervention.`
+  const presentation = presentationAgence(commune, {
+    nom: agency.name,
+    rue: agency.address.line1,
+    communeSiege,
+  })
 
   const horaires = agency.hours
     .map(
@@ -181,9 +179,9 @@ function agenceHtml(commune, articles, communes) {
     )
     .join('\n')
 
-  const liste =
-    lies.length > 0
-      ? `          <ul class="mt-6 space-y-6">
+  // La page n'existe QUE pour une commune traitée (voir `communesAvecPage`) :
+  // cette liste ne peut pas être vide, et il n'y a pas de repli à prévoir.
+  const liste = `          <ul class="mt-6 space-y-6">
 ${lies
   .map(
     (a) => `            <li class="border-t border-brass/20 pt-5">
@@ -195,7 +193,6 @@ ${lies
   )
   .join('\n')}
           </ul>`
-      : `          <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">Aucun article ne porte encore sur ${echappe(commune.nom)}. <a href="/blog" class="text-brass">Le blog</a> publie des analyses de prix et des guides sur les communes de la Moselle-Est.</p>`
 
   return `      <div class="mx-auto w-full max-w-[1320px] px-6 py-24">
         <p class="font-mono text-[0.62rem] uppercase tracking-micro text-stone/50">${echappe(agency.name)} · ${echappe(commune.nom)}</p>
@@ -219,7 +216,7 @@ ${horaires}
             <h2 class="font-display text-2xl text-stone">Estimation immobilière à ${echappe(commune.nom)}</h2>
             <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">L’estimation en ligne s’appuie sur les relevés de prix du secteur, appliqués à l’adresse, à la surface et à l’état du logement.</p>
             <p class="mt-6"><a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimation immobilière ${echappe(commune.nom)}</a></p>
-            <h2 class="mt-16 font-display text-2xl text-stone">${lies.length > 0 ? `Nos articles sur ${echappe(commune.nom)}` : 'Le marché du secteur'}</h2>
+            <h2 class="mt-16 font-display text-2xl text-stone">Nos articles sur ${echappe(commune.nom)}</h2>
 ${liste}
             <p class="mt-12 font-mono text-[0.68rem] uppercase tracking-micro text-stone/50"><a href="/vendre">Vendre</a> · <a href="/acheter">Acheter</a> · <a href="/contact">Contact</a></p>
           </div>
@@ -229,7 +226,12 @@ ${liste}
 
 async function main() {
   const articles = await lireArticles()
-  const communes = (await lireSecteur()).map((c) => ({ ...c, slug: slugify(c.nom) }))
+  // Une page d'agence par commune TRAITÉE, et non par commune desservie : la
+  // règle est dans `communesAvecPage`, partagée avec la page React.
+  const secteur = await lireSecteur()
+  const communes = communesAvecPage(secteur, articles)
+  // Le nom tel qu'il s'écrit, et non la ligne postale « 57980 DIEBLING ».
+  const communeSiege = secteur.find((c) => c.distanceKm === 0)?.nom ?? ''
 
   let coquille
   try {
@@ -322,12 +324,12 @@ async function main() {
         description,
         canonique: url,
         tete: openGraph({ titre, description, url, image: null, type: 'website' }),
-        corps: agenceHtml(commune, articles, communes),
+        corps: agenceHtml(commune, articles, communeSiege),
       }),
       'utf8',
     )
   }
-  console.log(`  ✓ /agence-immobiliere/…  (${communes.length} communes)`)
+  console.log(`  ✓ /agence-immobiliere/…  (${communes.map((c) => c.nom).join(', ')})`)
 
   // Sitemap.
   const entrees = [

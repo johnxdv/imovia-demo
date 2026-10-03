@@ -6,6 +6,7 @@ import { Section } from '../components/ui/Section'
 import { Button } from '../components/ui/Button'
 import { agency } from '../data/agency'
 import { communeParSlug, communeSiege } from '../data/secteur'
+import { presentationAgence } from '../../api/_lib/articleTexte'
 import { articles, dateLisible } from '../lib/articles'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import NotFound from './NotFound'
@@ -54,18 +55,17 @@ export default function AgenceCommune() {
   if (!commune) return <NotFound />
 
   const lies = articlesDeLaCommune(commune.nom)
-  const siege = commune.distanceKm === 0
 
   return (
     <>
       <PageHeader
         eyebrow={`${agency.name} · ${commune.nom}`}
         title={`Agence immobilière à ${commune.nom}`}
-        intro={
-          siege
-            ? `${agency.name} est une agence immobilière indépendante. Son bureau se trouve à ${commune.nom}, ${agency.address.line1}.`
-            : `${agency.name} est une agence immobilière indépendante installée à ${communeSiege}, à ${String(commune.distanceKm).replace('.', ',')} km de ${commune.nom}. La commune fait partie de son secteur d’intervention.`
-        }
+        intro={presentationAgence(commune, {
+          nom: agency.name,
+          rue: agency.address.line1,
+          communeSiege,
+        })}
       />
 
       <Section tone="ink" py="pb-24 pt-4 sm:pb-28">
@@ -144,33 +144,24 @@ export default function AgenceCommune() {
               </Button>
             </p>
 
-            <h2 className="mt-16 font-display text-2xl text-stone">
-              {lies.length > 0 ? `Nos articles sur ${commune.nom}` : 'Le marché du secteur'}
-            </h2>
-            {lies.length > 0 ? (
-              <ul className="mt-6 space-y-6">
-                {lies.map((a) => (
-                  <li key={a.slug} className="border-t border-brass/20 pt-5">
-                    <Link to={`/blog/${a.slug}`} className="group block">
-                      <p className="font-mono text-[0.65rem] uppercase tracking-micro text-stone/50">
-                        {dateLisible(a.datePublication)}
-                      </p>
-                      <p className="mt-1.5 font-display text-lg leading-snug text-stone transition-colors group-hover:text-brass">
-                        {a.titre}
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">
-                Aucun article ne porte encore sur {commune.nom}.{' '}
-                <Link to="/blog" className="text-brass hover:underline">
-                  Le blog
-                </Link>{' '}
-                publie des analyses de prix et des guides sur les communes de la Moselle-Est.
-              </p>
-            )}
+            {/* La page n'existe QUE pour une commune sur laquelle un article a
+                été publié (voir `communesAvecPage`) : cette liste ne peut pas
+                être vide, et il n'y a donc pas de repli à prévoir. */}
+            <h2 className="mt-16 font-display text-2xl text-stone">Nos articles sur {commune.nom}</h2>
+            <ul className="mt-6 space-y-6">
+              {lies.map((a) => (
+                <li key={a.slug} className="border-t border-brass/20 pt-5">
+                  <Link to={`/blog/${a.slug}`} className="group block">
+                    <p className="font-mono text-[0.65rem] uppercase tracking-micro text-stone/50">
+                      {dateLisible(a.datePublication)}
+                    </p>
+                    <p className="mt-1.5 font-display text-lg leading-snug text-stone transition-colors group-hover:text-brass">
+                      {a.titre}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
 
             <p className="mt-12 font-mono text-[0.68rem] uppercase tracking-micro text-stone/50">
               <Link to="/vendre" className="transition-colors hover:text-brass">

@@ -32,6 +32,26 @@ const TARIFS = {
 const PRIX_RECHERCHE_WEB = 10 / 1000
 
 /**
+ * Ce qu'un article a le droit de coûter, en dollars.
+ *
+ * ÉCRIT ICI PLUTÔT QUE TENU DE MÉMOIRE. Le plafond n'était jusqu'à présent
+ * qu'une phrase dans un commentaire de workflow, donc invérifiable : un passage
+ * qui dérivait ne le disait pas, et c'est en relisant trois relevés d'affilée
+ * qu'on s'en apercevait. `imprimeReleve` le compare désormais au coût réel et
+ * le signale à voix haute.
+ *
+ * IL NE FAIT ÉCHOUER AUCUN PASSAGE, et c'est délibéré : l'argent est dépensé au
+ * moment où on le constate, et refuser de publier un article déjà payé ne le
+ * rembourse pas. C'est un avertissement, pas une barrière.
+ *
+ * Relevé au 3 octobre 2026 : un article sans recherche coûte environ 0,07 $, un
+ * article avec vérification des faits de 0,31 $ à 0,48 $ selon le nombre de
+ * faits que la recherche rapporte — c'est ce poste-là, et lui seul, qui fait
+ * varier la facture du simple au double.
+ */
+export const PLAFOND_ARTICLE_USD = 0.5
+
+/**
  * Outil de recherche web, côté serveur Anthropic.
  *
  * `max_uses` est le seul garde-fou de coût direct du système : chaque

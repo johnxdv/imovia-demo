@@ -250,6 +250,61 @@ export function articlesLies(article, tous, combien = 3) {
 export const CIBLES_LIEN = ['estimation', 'agence']
 
 /**
+ * Les communes qui méritent une page d'agence : CELLES SUR LESQUELLES ON A
+ * ÉCRIT, et elles seules.
+ *
+ * POURQUOI PAS LES CENT ONZE COMMUNES DU SECTEUR
+ *
+ * Une page par commune desservie donnait cent onze pages dont, pour la plupart,
+ * seuls le nom et la distance changeaient. Un moteur lit cela pour ce que c'est
+ * — un gabarit répété — et la ressemblance déteint sur les pages qui, elles,
+ * ont quelque chose à dire. Le remède n'était pas d'y ajouter du texte inventé,
+ * puisque rien d'autre n'est vrai de ces communes-là.
+ *
+ * La règle retenue fait coïncider deux choses qui devaient l'être : une page
+ * existe exactement là où un article pointe. Les ancres « agence immobilière
+ * {ville} » posées en conclusion tombent donc toujours sur une page réelle, et
+ * cette page porte toujours au moins un article à lire. Le jour où le blog
+ * traite une commune de plus, sa page apparaît d'elle-même.
+ *
+ * La commune d'un article qui ne figurerait pas au fichier du secteur reçoit sa
+ * page quand même, sans distance : mieux vaut une page sans cette ligne qu'une
+ * ancre qui ne mène nulle part.
+ */
+export function communesAvecPage(communes, articles) {
+  const parNom = new Map((communes ?? []).map((c) => [c.nom, c]))
+  const villes = [...new Set((articles ?? []).map((a) => a?.ville).filter(Boolean))]
+
+  return villes
+    .map((nom) => parNom.get(nom) ?? { nom, codeInsee: null, distanceKm: null })
+    .map((c) => ({ ...c, slug: slugify(c.nom) }))
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+}
+
+/**
+ * La phrase de présentation d'une page d'agence — une seule rédaction, partagée.
+ *
+ * Elle est ici et non dans chacun des deux rendus parce qu'elle énonce des
+ * FAITS : où est le bureau, à quelle distance, et que la commune est desservie.
+ * Deux versions qui divergeraient d'un mot diraient deux choses différentes de
+ * la même agence selon que le lecteur exécute du JavaScript ou non.
+ */
+export function presentationAgence(commune, { nom, rue, communeSiege }) {
+  if (commune.distanceKm === 0) {
+    return `${nom} est une agence immobilière indépendante. Son bureau se trouve à ${commune.nom}, ${rue}.`
+  }
+
+  // Sans distance relevée — une commune hors du fichier du secteur — la phrase
+  // s'arrête avant : on ne va pas estimer un kilométrage pour faire joli.
+  const ou =
+    typeof commune.distanceKm === 'number'
+      ? `, à ${String(commune.distanceKm).replace('.', ',')} km de ${commune.nom}`
+      : ''
+
+  return `${nom} est une agence immobilière indépendante installée à ${communeSiege}${ou}. ${commune.nom} fait partie de son secteur d’intervention.`
+}
+
+/**
  * Où mène une ancre interne. UNE SEULE DÉFINITION, partagée par les deux rendus.
  *
  * La rédaction ne produit jamais d'adresse : elle nomme une CIBLE prise dans un

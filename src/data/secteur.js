@@ -10,7 +10,8 @@
 // dépôt, pas `src/`.
 
 import communes from '../../scripts/_data/communes-secteur.json'
-import { slugify } from '../../api/_lib/articleTexte'
+import { communesAvecPage, slugify } from '../../api/_lib/articleTexte'
+import { articles } from '../lib/articles'
 
 /**
  * Les communes desservies, chacune avec l'adresse de sa page d'agence.
@@ -28,8 +29,23 @@ export const communesSecteur = communes.map((c) => ({
   slug: slugify(c.nom),
 }))
 
-/** Une commune par le slug de son adresse, ou `undefined`. */
-export const communeParSlug = (slug) => communesSecteur.find((c) => c.slug === slug)
+/**
+ * Les communes qui ont une page — celles sur lesquelles un article a été publié.
+ *
+ * La règle vit dans `communesAvecPage`, partagée avec le prérendu : les deux
+ * listes doivent être la même, faute de quoi une page existerait pour le robot
+ * et pas pour le visiteur, ou l'inverse.
+ */
+export const communesAvecArticle = communesAvecPage(communesSecteur, articles)
+
+/**
+ * Une commune par le slug de son adresse, ou `undefined`.
+ *
+ * Cherche dans les communes QUI ONT UNE PAGE, et non dans tout le secteur : un
+ * slug de commune desservie mais sans article doit rendre un 404, pas un
+ * gabarit vide.
+ */
+export const communeParSlug = (slug) => communesAvecArticle.find((c) => c.slug === slug)
 
 /**
  * La commune du siège, correctement casée.
