@@ -18,9 +18,15 @@ import { PlanFrame } from '../components/ui/PlanFrame'
 import { PropertyCard } from '../components/ui/PropertyCard'
 import { ArrowLink } from '../components/ui/ArrowLink'
 import { Button } from '../components/ui/Button'
-import { photoUrl, photoSrcSet } from '../lib/format'
+import { photoUrl, photoSrcSet, localPhoto } from '../lib/format'
+import { team } from '../data/team'
 import { latestAvailable } from '../lib/properties'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
+
+// Photo d'ouverture de la section « À propos » — les bords de la Sarre à
+// Sarreguemines, fournie par l'agence et déclinée en quatre largeurs. Le
+// recadrage reste au `object-cover` : l'image n'est jamais étirée.
+const SARREGUEMINES = localPhoto('/photos/sarreguemines', [480, 768, 1100, 1304])
 
 const valeurs = [
   {
@@ -108,12 +114,12 @@ function About() {
           <Reveal delay={0.1}>
             <div className="group relative aspect-[4/3] overflow-hidden">
               <img
-                src={photoUrl('1512917774080-9991f1c4c750', { w: 1200 })}
-                srcSet={photoSrcSet('1512917774080-9991f1c4c750')}
+                src={SARREGUEMINES.src}
+                srcSet={SARREGUEMINES.srcSet}
                 sizes="(min-width:1024px) 45vw, 92vw"
-                alt="Demeure de caractère du secteur de l’agence"
+                alt="Les bords de la Sarre à Sarreguemines, au cœur du secteur de l’agence"
                 loading="lazy"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover object-center"
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/40 to-transparent" />
               <PlanFrame />
@@ -374,7 +380,7 @@ function DerniersBiens() {
               className="shrink-0 grow-0 px-3"
               style={{ flexBasis: `${100 / perView}%` }}
             >
-              <PropertyCard property={p} />
+              <PropertyCard property={p} simplifie />
             </div>
           ))}
         </div>
@@ -483,12 +489,12 @@ function ContactTeaser() {
   )
 }
 
-// Photos et noms réels non encore fournis : libellés de rôle uniquement + une
-// case « Vous ? » invitant à candidater.
+// Les deux conseillers de l'agence, suivis d'une case « Vous ? » invitant à
+// candidater. Rôles et portraits viennent de `data/team` : une seule source
+// pour l'aperçu de la page d'accueil et pour la page Équipe.
 const conseillers = [
-  { role: "Directeur d'agence" },
-  { role: 'Conseillère immobilier' },
-  { role: 'Vous ?', to: '/recrutement', invite: true },
+  ...team.map((m) => ({ key: m.id, nom: m.nom, role: m.role, photo: m.photo })),
+  { key: 'recrutement', role: 'Vous ?', to: '/recrutement', invite: true },
 ]
 
 function EquipeTeaser() {
@@ -497,12 +503,14 @@ function EquipeTeaser() {
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center">
         <div className="lg:col-span-5">
           <Reveal>
-            {/* Retour à la ligne forcé après la virgule sur grand écran ; sur
-                mobile, `inline` laisse le texte se replier naturellement plutôt
-                que de déborder. */}
-            <h2 className="text-display-md text-stone">
-              Une équipe engagée,{' '}
-              <span className="inline lg:block">à vos côtés.</span>
+            {/* Deux lignes imposées à toutes les largeurs. « Une équipe
+                engagée, » ne doit jamais se replier : le `whitespace-nowrap`
+                l'interdit, et la taille descend en dessous de `display-md` sur
+                les écrans trop étroits pour la contenir d'un trait — virgule
+                comprise. */}
+            <h2 className="font-display text-[length:clamp(1.3rem,7.6vw,2.75rem)] font-normal leading-[1.05] tracking-[-0.01em] text-stone sm:text-display-md">
+              <span className="block whitespace-nowrap">Une équipe engagée,</span>
+              <span className="block whitespace-nowrap">à vos côtés.</span>
             </h2>
           </Reveal>
           <Reveal delay={0.05}>
@@ -523,13 +531,24 @@ function EquipeTeaser() {
             {conseillers.map((m) => {
               const card = (
                 <div className="group relative flex aspect-[3/4] items-center justify-center overflow-hidden border border-white/10 bg-ink">
-                  <UserRound
-                    className={`h-14 w-14 transition-colors ${
-                      m.invite ? 'text-brass/60 group-hover:text-brass' : 'text-stone/25'
-                    }`}
-                    strokeWidth={1}
-                    aria-hidden="true"
-                  />
+                  {m.photo ? (
+                    <img
+                      src={m.photo.src}
+                      srcSet={m.photo.srcSet}
+                      sizes="(min-width:1024px) 19vw, 30vw"
+                      alt={m.nom}
+                      loading="lazy"
+                      className="h-full w-full object-cover object-top grayscale transition-all duration-500 ease-plan group-hover:grayscale-0"
+                    />
+                  ) : (
+                    <UserRound
+                      className={`h-14 w-14 transition-colors ${
+                        m.invite ? 'text-brass/60 group-hover:text-brass' : 'text-stone/25'
+                      }`}
+                      strokeWidth={1}
+                      aria-hidden="true"
+                    />
+                  )}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/70 to-transparent" />
                   <span className="absolute inset-x-3 bottom-3 font-mono text-[0.62rem] uppercase tracking-micro text-stone">
                     {m.role}
@@ -538,7 +557,7 @@ function EquipeTeaser() {
                 </div>
               )
               return (
-                <RevealChild key={m.role}>
+                <RevealChild key={m.key}>
                   {m.to ? (
                     <Link
                       to={m.to}

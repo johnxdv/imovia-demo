@@ -191,13 +191,18 @@ export function Hero() {
                 'radial-gradient(62% 48% at 50% 50%, rgba(16,20,28,0.55) 0%, rgba(16,20,28,0) 72%)',
             }}
           />
+          {/* Composition en deux lignes, césure imposée après « avec ». Les
+              deux lignes refusent de se replier (`whitespace-nowrap`) ; la
+              taille descend donc en dessous de `display-xl` sur les écrans
+              trop étroits pour la ligne la plus longue. */}
           <motion.h1
             initial={reduce ? false : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: EASE }}
-            className="relative max-w-4xl text-center text-display-xl text-stone"
+            className="relative max-w-4xl text-center font-display text-[length:clamp(1.4rem,7vw,6rem)] font-normal leading-[0.98] tracking-[-0.02em] text-stone"
           >
-            L'immobilier, avec l'exigence et la proximité.
+            <span className="block whitespace-nowrap">L'immobilier, avec</span>
+            <span className="block whitespace-nowrap">exigence et proximité.</span>
           </motion.h1>
         </motion.div>
 
@@ -211,7 +216,7 @@ export function Hero() {
             <div className="mb-8 flex flex-col items-start gap-6 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
               {reduce ? null : (
                 <p className="max-w-xl font-display text-display-md text-stone">
-                  L'immobilier, avec l'exigence et la proximité.
+                  L'immobilier, avec exigence et proximité.
                 </p>
               )}
               <EstimationCta />
@@ -220,14 +225,28 @@ export function Hero() {
           </div>
         </motion.div>
 
-        {/* Indicateur de scroll — très discret, uniquement sur la première frame */}
+        {/* Indicateur de scroll — discret, uniquement sur la première frame.
+            La flèche descend puis remonte en boucle lente : assez pour signaler
+            qu'il faut faire défiler, pas assez pour attirer l'œil loin du
+            titre. `useReducedMotion` coupe le mouvement quand le système le
+            demande — l'indicateur reste alors simplement posé là. */}
         <motion.div
           style={{ opacity: reduce ? 1 : cueOpacity }}
-          className="pointer-events-none absolute inset-x-0 bottom-6 flex flex-col items-center gap-1 text-stone/40"
+          className="pointer-events-none absolute inset-x-0 bottom-6 flex flex-col items-center gap-1 text-stone/70"
           aria-hidden="true"
         >
           <span className="font-mono text-[0.58rem] uppercase tracking-micro">Défiler</span>
-          <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
+          <motion.span
+            className="block"
+            animate={reduce ? undefined : { y: [0, 6, 0] }}
+            transition={
+              reduce
+                ? undefined
+                : { duration: 2.6, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.5 }
+            }
+          >
+            <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
+          </motion.span>
         </motion.div>
       </div>
     </section>

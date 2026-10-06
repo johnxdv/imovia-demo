@@ -33,8 +33,8 @@ export default function Equipe() {
               <article className="group">
                 <div className="relative aspect-[3/4] overflow-hidden bg-ink">
                   <img
-                    src={photoUrl(m.photo, { w: 700 })}
-                    srcSet={photoSrcSet(m.photo, [320, 480, 700])}
+                    src={m.photo.src}
+                    srcSet={m.photo.srcSet}
                     sizes="(min-width:1024px) 30vw, (min-width:640px) 45vw, 92vw"
                     alt={m.nom}
                     loading="lazy"

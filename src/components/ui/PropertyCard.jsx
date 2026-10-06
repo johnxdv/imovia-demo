@@ -3,9 +3,25 @@ import { MapPin } from 'lucide-react'
 import { PlanFrame } from './PlanFrame'
 import { Badge } from './Badge'
 import { FavoriteButton } from './FavoriteButton'
-import { formatPrice, formatSurface, photoUrl, photoSrcSet } from '../../lib/format'
+import {
+  formatPrice,
+  formatSurface,
+  photoUrl,
+  photoSrcSet,
+  titreAvecCommune,
+} from '../../lib/format'
 
-export function PropertyCard({ property }) {
+/**
+ * Carte de bien.
+ *
+ * `simplifie` est la variante du carrousel de la page d'accueil : la commune et
+ * la référence y disparaissent — la commune figure déjà dans l'intitulé — et le
+ * dégradé posé sur le bas de la photo est retiré, pour que le logo IMMOVIA
+ * incrusté dans les visuels du flux reste parfaitement lisible. La césure entre
+ * la photo et le bloc de description devient alors franche. Partout ailleurs
+ * (Acheter, Louer, Favoris), la carte reste inchangée.
+ */
+export function PropertyCard({ property, simplifie = false }) {
   const { reference, titre, typeBien, typeTransaction, prix, ville, surface, pieces, photos, statut } =
     property
   const sold = statut === 'vendu'
@@ -13,6 +29,7 @@ export function PropertyCard({ property }) {
   const cover = photos?.[0]
   const to = `/bien/${reference}`
   const transactionLabel = sold ? 'Vendu' : typeTransaction === 'location' ? 'À louer' : 'À vendre'
+  const intitule = simplifie ? titreAvecCommune(titre, ville) : titre
 
   return (
     <article className="group relative bg-ink transition-transform duration-500 ease-plan will-change-transform hover:-translate-y-1.5">
@@ -34,16 +51,20 @@ export function PropertyCard({ property }) {
               sold ? 'grayscale-[0.3]' : ''
             }`}
           />
-          {/* Voile Ink Navy pour unifier les visuels */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/25 to-transparent" />
-          {/* Données en overlay bas de carte (ville · surface) */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-stone opacity-95 transition-transform duration-500 ease-plan [@media(hover:hover)]:translate-y-1 [@media(hover:hover)]:group-hover:translate-y-0">
-            <span className="inline-flex items-center gap-1.5 font-mono text-xs">
-              <MapPin className="h-3.5 w-3.5 text-brass" strokeWidth={1.75} aria-hidden="true" />
-              {ville}
-            </span>
-            <span className="font-mono text-xs">{formatSurface(surface)}</span>
-          </div>
+          {simplifie ? null : (
+            <>
+              {/* Voile Ink Navy pour unifier les visuels */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/25 to-transparent" />
+              {/* Données en overlay bas de carte (ville · surface) */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-stone opacity-95 transition-transform duration-500 ease-plan [@media(hover:hover)]:translate-y-1 [@media(hover:hover)]:group-hover:translate-y-0">
+                <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                  <MapPin className="h-3.5 w-3.5 text-brass" strokeWidth={1.75} aria-hidden="true" />
+                  {ville}
+                </span>
+                <span className="font-mono text-xs">{formatSurface(surface)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Légende */}
@@ -52,9 +73,13 @@ export function PropertyCard({ property }) {
             <span className="font-mono text-[0.66rem] uppercase tracking-micro text-brass">
               {transactionLabel}
             </span>
-            <span className="font-mono text-[0.66rem] text-stone/45">{reference}</span>
+            {simplifie ? null : (
+              <span className="font-mono text-[0.66rem] text-stone/45">{reference}</span>
+            )}
           </div>
-          <h3 className="mt-2 font-display text-xl font-medium leading-snug text-stone">{titre}</h3>
+          <h3 className="mt-2 font-display text-xl font-medium leading-snug text-stone">
+            {intitule}
+          </h3>
           <div className="mt-3 flex items-baseline justify-between gap-3">
             <span className="font-mono text-base text-brass">{formatPrice(prix, typeTransaction)}</span>
             <span className="font-mono text-xs text-stone/55">
