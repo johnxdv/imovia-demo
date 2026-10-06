@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-10-06",
+      "slug": "vendre-a-un-acheteur-allemand-a-grosbliederstroff-ce-qui-change-vraime",
+      "titre": "Vendre à un acheteur allemand à Grosbliederstroff : ce qui change vraiment",
+      "sujet": "Vendre à un acheteur allemand à Grosbliederstroff : ce qui change vraiment",
+      "commune": "Grosbliederstroff",
+      "codeInsee": "57260",
+      "motCle": "vendre maison acheteur allemand Grosbliederstroff",
+      "angle": "Le segment des acquéreurs venus de Sarrebruck et de la Sarre : ce qu'ils recherchent, comment ils financent, les différences de pratique entre vente française et allemande.",
+      "genre": "décryptage frontalier",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 1,
+          "vente": 1,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-10-01",
       "slug": "ou-habiter-a-sarreguemines-le-tour-des-quartiers-pour-une-famille-qui",
       "titre": "Où habiter à Sarreguemines ? Le tour des quartiers pour une famille qui s'installe",
