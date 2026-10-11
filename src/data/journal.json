@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-10-11",
+      "slug": "vendre-sa-maison-a-saint-avold-les-etapes-les-delais-les-pieges-du-bat",
+      "titre": "Vendre sa maison à Saint-Avold : les étapes, les délais, les pièges du bâti local",
+      "sujet": "Vendre sa maison à Saint-Avold : les étapes, les délais, les pièges du bâti local",
+      "commune": "Saint-Avold",
+      "codeInsee": "57606",
+      "motCle": "vendre maison Saint-Avold",
+      "angle": "Le déroulé complet d'une vente naboirienne, du premier rendez-vous d'estimation à la signature, avec les points qui bloquent le plus souvent ici (sous-sol, chauffage, extensions non déclarées).",
+      "genre": "guide pratique de vente",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 1,
+          "vente": 1,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-10-06",
       "slug": "vendre-a-un-acheteur-allemand-a-grosbliederstroff-ce-qui-change-vraime",
       "titre": "Vendre à un acheteur allemand à Grosbliederstroff : ce qui change vraiment",
