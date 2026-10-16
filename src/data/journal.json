@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-10-16",
+      "slug": "acheter-une-ancienne-maison-de-mineur-a-freyming-merlebach-ce-qu-il-fa",
+      "titre": "Acheter une ancienne maison de mineur à Freyming-Merlebach : ce qu'il faut inspecter avant de signer",
+      "sujet": "Acheter une ancienne maison de mineur à Freyming-Merlebach : ce qu'il faut inspecter avant de signer",
+      "commune": "Freyming-Merlebach",
+      "codeInsee": "57240",
+      "motCle": "maison de mineur à vendre Freyming-Merlebach",
+      "angle": "Le bâti des cités minières du bassin houiller : structure, isolation, chauffage d'origine, jardins ouvriers, servitudes héritées des Houillères, et le coût réaliste d'une remise à niveau.",
+      "genre": "conseil d'achat et travaux",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 1,
+          "vente": 1,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-10-11",
       "slug": "vendre-sa-maison-a-saint-avold-les-etapes-les-delais-les-pieges-du-bat",
       "titre": "Vendre sa maison à Saint-Avold : les étapes, les délais, les pièges du bâti local",
