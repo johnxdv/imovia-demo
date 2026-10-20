@@ -16,6 +16,18 @@
 //   RESEND_FROM      Expéditeur, sur un domaine vérifié dans Resend.
 //                    Format « Nom <adresse> ».
 //   LEAD_TO_EMAIL    Destinataire des leads.
+//
+// JOURNAL. Chaque issue de la fonction écrit une ligne préfixée `[lead]` et
+// marquée d'un identifiant de requête, pour qu'on puisse suivre un appel d'un
+// bout à l'autre dans les journaux Vercel (Deployments → Functions → /api/lead,
+// ou `vercel logs`). C'est la seule fenêtre sur cette fonction : le navigateur,
+// lui, ignore délibérément la réponse (voir `src/lib/lead.js`).
+//
+// LA CLÉ N'EST JAMAIS ÉCRITE, ni en entier ni en fragment. Le journal n'en dit
+// que deux choses, l'une et l'autre inoffensives et toutes deux utiles : sa
+// longueur, et si elle a la forme attendue. Une clé recollée de travers dans
+// l'interface Vercel — espace avalé, retour à la ligne final, valeur tronquée —
+// se voit à la longueur sans qu'on ait eu besoin de la lire.
 
 import { Resend } from 'resend'
 
@@ -44,6 +56,29 @@ const LIMITES = {
 const HONEYPOT = 'societe'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Identifiant court, pour recoudre les lignes d'un même appel dans le journal. */
+const idRequete = () => Math.random().toString(36).slice(2, 8)
+
+/**
+ * Ce qu'on a le droit de dire d'une valeur secrète : si elle est là, combien
+ * elle pèse, et si elle ressemble à ce qu'on attend. Jamais son contenu.
+ *
+ * `brute !== brute.trim()` est le piège le plus courant de la saisie Vercel :
+ * une valeur qui traîne une espace ou un retour à la ligne est acceptée par le
+ * formulaire et rejetée par Resend.
+ */
+function empreinteCle(brute) {
+  if (!brute) return 'absente'
+  const propre = brute.trim()
+  return [
+    `présente (${propre.length} caractères`,
+    propre.startsWith('re_') ? 'forme attendue' : 'FORME INATTENDUE, « re_ » absent',
+    brute !== propre ? 'ESPACES PARASITES AUTOUR DE LA VALEUR' : null,
+  ]
+    .filter(Boolean)
+    .join(', ') + ')'
+}
 
 /** Chaîne nettoyée et ramenée à sa longueur maximale, ou `''`. */
 function texte(valeur, limite) {
@@ -177,7 +212,14 @@ function construireTexte(lead) {
 }
 
 export default async function handler(req, res) {
+  const rid = idRequete()
+  const journal = (...args) => console.log(`[lead ${rid}]`, ...args)
+  const alerte = (...args) => console.error(`[lead ${rid}]`, ...args)
+
+  journal('appel reçu —', req.method, '| origine :', req.headers?.origin ?? 'aucune')
+
   if (req.method !== 'POST') {
+    alerte('REFUSÉ : méthode', req.method, '— seul POST est accepté')
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ ok: false, error: 'Méthode non autorisée.' })
   }
@@ -193,11 +235,20 @@ export default async function handler(req, res) {
     }
   }
   if (!body || typeof body !== 'object') {
+    alerte(
+      'REFUSÉ : corps de requête illisible — type reçu :',
+      typeof req.body,
+      '| content-type :',
+      req.headers?.['content-type'] ?? 'absent',
+    )
     return res.status(400).json({ ok: false, error: 'Corps de requête invalide.' })
   }
 
+  journal('corps lu — champs :', Object.keys(body).join(', ') || '(aucun)')
+
   // Piège à robots : on acquiesce sans rien envoyer.
   if (texte(body[HONEYPOT], 200)) {
+    journal(`ÉCARTÉ : champ-piège « ${HONEYPOT} » rempli — robot présumé, aucun envoi`)
     return res.status(200).json({ ok: true })
   }
 
@@ -221,23 +272,40 @@ export default async function handler(req, res) {
   if (!lead.nom) errors.nom = 'Nom manquant.'
   if (lead.telephone.replace(/\D/g, '').length < 6) errors.telephone = 'Téléphone manquant.'
   if (Object.keys(errors).length) {
+    alerte('REFUSÉ : validation échouée —', Object.keys(errors).join(', '))
     return res.status(400).json({ ok: false, errors })
   }
+
+  journal('lead validé —', lead.telephone, '| bien :', lead.adresse || 'adresse absente')
 
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM
   const to = process.env.LEAD_TO_EMAIL
 
+  // Relevé systématique, succès comme échec : savoir laquelle des trois
+  // manque — ou qu'aucune ne manque — est le premier embranchement du
+  // diagnostic, et il ne coûte qu'une ligne.
+  journal(
+    'configuration — RESEND_API_KEY :',
+    empreinteCle(apiKey),
+    '| RESEND_FROM :',
+    from || 'ABSENTE',
+    '| LEAD_TO_EMAIL :',
+    to || 'ABSENTE',
+  )
+
   if (!apiKey || !from || !to) {
+    const manquantes = [!apiKey && 'RESEND_API_KEY', !from && 'RESEND_FROM', !to && 'LEAD_TO_EMAIL']
+      .filter(Boolean)
+      .join(', ')
     // Configuration incomplète : jamais détaillée au client, toujours au
     // journal — c'est la seule trace qui dira qu'un lead a été perdu.
-    console.error(
-      '[lead] Configuration incomplète :',
-      [!apiKey && 'RESEND_API_KEY', !from && 'RESEND_FROM', !to && 'LEAD_TO_EMAIL']
-        .filter(Boolean)
-        .join(', '),
-      '— lead non transmis pour',
+    alerte(
+      'ABANDON : variable(s) d’environnement manquante(s) —',
+      manquantes,
+      '— lead perdu pour',
       lead.telephone,
+      '| à déclarer dans Vercel → Settings → Environment Variables, puis redéployer',
     )
     return res.status(500).json({ ok: false, error: 'Envoi indisponible.' })
   }
@@ -247,6 +315,9 @@ export default async function handler(req, res) {
   // construction, clé ou non.
   const resend = new Resend(apiKey)
 
+  journal('envoi Resend demandé —', from, '→', to, lead.email ? `| replyTo ${lead.email}` : '')
+
+  const depart = Date.now()
   try {
     const { data, error } = await resend.emails.send({
       from,
@@ -261,13 +332,37 @@ export default async function handler(req, res) {
     })
 
     if (error) {
-      console.error('[lead] Échec Resend', error, '— lead perdu pour', lead.telephone)
+      // Resend répond en clair quand il refuse : domaine non vérifié, clé
+      // révoquée, destinataire hors liste en mode bac à sable. Le message est
+      // recopié tel quel — c'est lui qui désigne la cause.
+      alerte(
+        'REFUS RESEND après',
+        `${Date.now() - depart} ms —`,
+        'statut :',
+        error.statusCode ?? '(non communiqué)',
+        '| type :',
+        error.name ?? '(non communiqué)',
+        '| message :',
+        error.message ?? '(aucun)',
+        '— lead perdu pour',
+        lead.telephone,
+      )
       return res.status(502).json({ ok: false, error: 'Envoi indisponible.' })
     }
 
+    journal('SUCCÈS en', `${Date.now() - depart} ms —`, 'e-mail Resend', data?.id ?? '(sans id)')
     return res.status(200).json({ ok: true, id: data?.id ?? null })
   } catch (err) {
-    console.error('[lead] Erreur inattendue', err, '— lead perdu pour', lead.telephone)
+    // Rien n'a répondu : réseau sortant coupé, délai dépassé, exception du SDK.
+    alerte(
+      'EXCEPTION après',
+      `${Date.now() - depart} ms —`,
+      err?.name ?? 'Error',
+      ':',
+      err?.message ?? String(err),
+      '— lead perdu pour',
+      lead.telephone,
+    )
     return res.status(500).json({ ok: false, error: 'Envoi indisponible.' })
   }
 }
