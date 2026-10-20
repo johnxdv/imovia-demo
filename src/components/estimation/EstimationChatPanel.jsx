@@ -57,6 +57,18 @@ const QUESTIONS = [
 /** Nombre de questions de la séquence — reporté à l'écran résultat pour calculer sa fraction d'avancement. */
 export const QUESTION_COUNT = QUESTIONS.length
 
+/**
+ * Champ-piège anti-robots, remonté tel quel dans les réponses et contrôlé par
+ * `api/lead.js`. Un visiteur ne le voit pas, ne l'atteint pas au clavier et
+ * n'est pas informé de son existence par un lecteur d'écran ; un robot qui
+ * remplit tout ce qu'il trouve le garnit, et son envoi est silencieusement
+ * écarté côté serveur.
+ *
+ * Il est masqué par positionnement plutôt que par `display:none` ou `hidden` —
+ * les robots les plus frustes ignorent ce qui est explicitement caché.
+ */
+const PIEGE = 'societe'
+
 let messageSeq = 0
 const nextId = () => `msg-${(messageSeq += 1)}`
 
@@ -125,9 +137,10 @@ function TypingBubble() {
  * L'avancement se lit dans le rail d'étapes du parcours, porté par la page ;
  * ce panneau n'affiche donc plus le sien.
  *
- * Purement une interface pour l'instant — `onDone` remonte les coordonnées
- * saisies (state React le temps de la session), rien n'est envoyé ni
- * sauvegardé ici. Le vrai envoi (e-mail, CRM…) fera l'objet d'un lot séparé.
+ * `onDone` remonte les coordonnées saisies, accompagnées du champ-piège. Rien
+ * n'est envoyé depuis ce panneau : c'est l'écran résultat qui transmet le lead
+ * à l'agence, lui seul connaissant le bien et le montant qui vont avec (voir
+ * `EstimationResultStep`).
  *
  * `onProgress` remonte le nombre de questions déjà répondues (0 à
  * `QUESTION_COUNT`), pour piloter le déflouttage progressif du prix affiché
@@ -139,6 +152,7 @@ function TypingBubble() {
 export function EstimationChatPanel({ onDone, onProgress }) {
   const reduce = useReducedMotion()
   const [answers, setAnswers] = useState({ prenom: '', telephone: '', creneau: null })
+  const [piege, setPiege] = useState('')
   const [messages, setMessages] = useState(() => [
     { id: nextId(), role: 'system', text: QUESTIONS[0].prompt({}) },
   ])
@@ -214,7 +228,7 @@ export function EstimationChatPanel({ onDone, onProgress }) {
           text: `Merci ${nextAnswers.prenom} ! Votre demande a été enregistrée. Un expert vous contactera ${slot.phrase}. À très bientôt !`,
         },
       ])
-      schedule(() => onDone(nextAnswers), HANDOFF_DELAY_MS)
+      schedule(() => onDone({ ...nextAnswers, [PIEGE]: piege }), HANDOFF_DELAY_MS)
     }, NEXT_QUESTION_DELAY_MS)
   }
 
@@ -267,6 +281,16 @@ export function EstimationChatPanel({ onDone, onProgress }) {
               </div>
             ) : (
               <form onSubmit={submitText} noValidate>
+                <input
+                  type="text"
+                  name={PIEGE}
+                  value={piege}
+                  onChange={(e) => setPiege(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  className="absolute left-[-9999px] top-0 h-px w-px opacity-0"
+                />
                 <div className="champ-tunnel flex items-center gap-3 rounded-full py-1.5 pl-5 pr-1.5">
                   <input
                     ref={inputRef}

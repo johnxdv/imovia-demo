@@ -7,6 +7,9 @@ import { EstimationChatPanel, QUESTION_COUNT } from './EstimationChatPanel'
 import { EstimationResultConfirmation } from './EstimationResultConfirmation'
 import { EstimationAffinagePanel } from './EstimationAffinagePanel'
 import { affinerEstimation, OPTIONS_DEFAUT } from '../../lib/affinage'
+import { envoyerLead } from '../../lib/lead'
+import { typeLabel } from '../../lib/typeBien'
+import { CALLBACK_SLOTS } from '../../data/estimation'
 import { formatEuros } from '../../lib/format'
 import { EASE } from '../../lib/motion'
 
@@ -174,6 +177,30 @@ export function EstimationResultStep({
   }, [started, finished, affinage, onConversation])
 
   const handleChatDone = (collected) => {
+    // L'agence reçoit le lead avec le bien et le montant qui vont avec — la
+    // conversation, elle, ne connaît que le nom, le numéro et le créneau.
+    //
+    // Le montant transmis est celui calculé par le serveur : l'affinage n'ouvre
+    // qu'APRÈS cette bascule, et c'est bien ce prix-là que le vendeur vient de
+    // voir. Les bornes partent telles quelles, sans pourcentage recalculé ici —
+    // leur largeur dépend de la confiance de l'échantillon, que seul le moteur
+    // connaît.
+    //
+    // Appel sans `await` et sans gestion d'erreur : voir `envoyerLead`. Le prix
+    // se déflégère dans tous les cas, c'est la seule chose qui compte ici.
+    envoyerLead({
+      nom: collected.prenom,
+      telephone: collected.telephone,
+      creneau: CALLBACK_SLOTS.find((s) => s.id === collected.creneau)?.label ?? '',
+      societe: collected.societe ?? '',
+      adresse: address?.label ?? '',
+      typeBien: type ? typeLabel(type) : '',
+      surface,
+      prix: estimation?.price ?? null,
+      fourchetteBasse: estimation?.low ?? null,
+      fourchetteHaute: estimation?.high ?? null,
+    })
+
     setContact(collected)
     onDone?.(collected)
   }
