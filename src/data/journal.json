@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-10-21",
+      "slug": "vivre-a-puttelange-aux-lacs-le-cadre-de-vie-qui-attire-les-acheteurs-d",
+      "titre": "Vivre à Puttelange-aux-Lacs : le cadre de vie qui attire les acheteurs de Forbach et Sarreguemines",
+      "sujet": "Vivre à Puttelange-aux-Lacs : le cadre de vie qui attire les acheteurs de Forbach et Sarreguemines",
+      "commune": "Puttelange-aux-Lacs",
+      "codeInsee": "57556",
+      "motCle": "vivre à Puttelange-aux-Lacs",
+      "angle": "Portrait d'une petite ville d'étangs à dix minutes de l'agence : services, écoles, commerces, base de loisirs, et le type de biens qui s'y échangent.",
+      "genre": "portrait de commune",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 2,
+          "vente": 0,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-10-16",
       "slug": "acheter-une-ancienne-maison-de-mineur-a-freyming-merlebach-ce-qu-il-fa",
       "titre": "Acheter une ancienne maison de mineur à Freyming-Merlebach : ce qu'il faut inspecter avant de signer",
