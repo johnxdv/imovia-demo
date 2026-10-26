@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-10-26",
+      "slug": "livre-foncier-notaire-hypotheque-ce-que-le-droit-local-d-alsace-mosell",
+      "titre": "Livre foncier, notaire, hypothèque : ce que le droit local d'Alsace-Moselle change à votre vente",
+      "sujet": "Livre foncier, notaire, hypothèque : ce que le droit local d'Alsace-Moselle change à votre vente",
+      "commune": "Diebling",
+      "codeInsee": "57176",
+      "motCle": "livre foncier vente maison Moselle",
+      "angle": "Expliquer aux vendeurs et acheteurs de Moselle-Est les spécificités juridiques locales : livre foncier au lieu du fichier immobilier, publicité foncière, délais et frais associés.",
+      "genre": "guide juridique",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 1,
+          "vente": 1,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-10-21",
       "slug": "vivre-a-puttelange-aux-lacs-le-cadre-de-vie-qui-attire-les-acheteurs-d",
       "titre": "Vivre à Puttelange-aux-Lacs : le cadre de vie qui attire les acheteurs de Forbach et Sarreguemines",
