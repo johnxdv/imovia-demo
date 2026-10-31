@@ -42,25 +42,25 @@ export default function Recrutement() {
       <PageHeader
         eyebrow="Recrutement"
         title="Faire de l’immobilier autrement, avec nous."
-        intro="Nous recrutons des conseillers exigeants, à l’aise sur le terrain comme dans la relation. Si c’est vous, écrivez-nous."
+        intro="Rejoignez une agence immobilière où proximité, exigence et innovation donnent une autre dimension au métier."
       />
 
-      <Section tone="stone" py="pb-24 pt-4 sm:pb-28">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+      <Section tone="stone" py="pb-16 pt-4 sm:pb-20">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-14">
           {/* Pourquoi nous rejoindre */}
           <div className="lg:col-span-5">
             <Reveal>
               <h2 className="text-display-md text-ink">Pourquoi nous rejoindre</h2>
             </Reveal>
-            <ul className="mt-8 space-y-5">
+            <ul className="mt-6 space-y-4">
               {raisons.map((r) => (
-                <li key={r} className="flex items-start gap-3 border-t border-ink/15 pt-5">
+                <li key={r} className="flex items-start gap-3 border-t border-ink/15 pt-4">
                   <Check className="mt-0.5 h-5 w-5 shrink-0 text-bottle" strokeWidth={1.6} aria-hidden="true" />
                   <span className="text-base leading-relaxed text-ink/75">{r}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-8 text-sm text-ink/60">
+            <p className="mt-6 text-sm text-ink/60">
               Vous pouvez aussi écrire directement à{' '}
               <a href={`mailto:${agency.recrutementEmail}`} className="text-bottle underline underline-offset-2">
                 {agency.recrutementEmail}
@@ -72,7 +72,7 @@ export default function Recrutement() {
           {/* Candidature */}
           <div className="lg:col-span-7">
             {sent ? (
-              <div className="border border-ink/20 p-8 sm:p-12">
+              <div className="border border-ink/20 p-8 sm:p-10">
                 <Check className="h-8 w-8 text-bottle" strokeWidth={1.5} aria-hidden="true" />
                 <h2 className="mt-6 text-display-md text-ink">Votre client mail s’ouvre.</h2>
                 <p className="mt-4 max-w-md text-ink/70">
@@ -131,7 +131,7 @@ export default function Recrutement() {
                   </div>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-6">
                   <ConsentNotice id="recrutement-consent" />
                 </div>
 

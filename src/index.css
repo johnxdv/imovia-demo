@@ -498,6 +498,135 @@
   .surface-slider:focus-visible::-moz-range-thumb {
     box-shadow: 0 0 0 7px rgba(201, 161, 107, 0.45);
   }
+
+  /* ── Bouton « verre » ────────────────────────────────────────────────────
+     Repris du bouton d'estimation de proprio-access.fr, relevé sur place :
+     pilule à bord clair, fond translucide dégradé de haut en bas, flou
+     d'arrière-plan, double liseré intérieur et anneau extérieur détaché.
+
+     CE QUI A ÉTÉ ADAPTÉ À IMMOVIA :
+     — la flèche a été retirée, comme demandé, donc le `gap` aussi ;
+     — le balayage lumineux permanent de la référence n'est pas repris : c'est
+       une animation d'ambiance en boucle, et le reste du site ne s'autorise
+       que des mouvements déclenchés ;
+     — les teintes passent par les jetons du site (`stone`, `brass`) plutôt que
+       par la palette de la référence, dont le laiton (#b3863c) est voisin du
+       nôtre (#b08d57) sans lui être identique.
+
+     Le bouton vit sur le hero, donc sur fond sombre : les variables prennent
+     d'emblée la déclinaison claire. Le repli `--verre-repli` sert aux
+     navigateurs sans `backdrop-filter`, où un fond translucide poserait un
+     texte illisible sur la vidéo. */
+  .bouton-verre {
+    --verre-haut: rgb(255 255 255 / 0.16);
+    --verre-bas: rgb(255 255 255 / 0.06);
+    --verre-haut-survol: rgb(255 255 255 / 0.22);
+    --verre-bas-survol: rgb(255 255 255 / 0.1);
+    --verre-repli: rgb(16 20 28 / 0.55);
+    --verre-bord: rgb(255 255 255 / 0.45);
+    --verre-bord-survol: rgb(255 255 255 / 0.7);
+    --verre-anneau: rgb(255 255 255 / 0.28);
+    --verre-anneau-survol: rgb(255 255 255 / 0.55);
+    --verre-duree: 0.28s;
+
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.3rem;
+    padding-inline: 2.25rem;
+    border: 1px solid var(--verre-bord);
+    border-radius: 9999px;
+    background: var(--verre-repli);
+    color: theme('colors.stone');
+    font-family: theme('fontFamily.mono');
+    font-size: 0.76rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    backdrop-filter: blur(16px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.6),
+      inset 0 -1px 0 rgb(255 255 255 / 0.25),
+      0 10px 30px rgb(0 0 0 / 0.25);
+    transition:
+      background var(--verre-duree) theme('transitionTimingFunction.plan'),
+      border-color var(--verre-duree) theme('transitionTimingFunction.plan'),
+      box-shadow var(--verre-duree) theme('transitionTimingFunction.plan'),
+      translate var(--verre-duree) theme('transitionTimingFunction.plan');
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .bouton-verre {
+      background: linear-gradient(to bottom, var(--verre-haut), var(--verre-bas));
+    }
+  }
+
+  @media (min-width: 640px) {
+    .bouton-verre {
+      min-height: 3.6rem;
+      padding-inline: 2.75rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.22em;
+    }
+  }
+
+  /* Anneau extérieur détaché — il s'écarte au survol, et c'est tout le geste. */
+  .bouton-verre::before {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border: 1px solid var(--verre-anneau);
+    border-radius: 9999px;
+    pointer-events: none;
+    transition:
+      inset var(--verre-duree) theme('transitionTimingFunction.plan'),
+      border-color var(--verre-duree) theme('transitionTimingFunction.plan');
+  }
+
+  @media (hover: hover) {
+    .bouton-verre:hover {
+      background: linear-gradient(to bottom, var(--verre-haut-survol), var(--verre-bas-survol));
+      border-color: var(--verre-bord-survol);
+      translate: 0 -3px;
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.75),
+        inset 0 -1px 0 rgb(255 255 255 / 0.3),
+        0 16px 38px rgb(0 0 0 / 0.3);
+    }
+
+    .bouton-verre:hover::before {
+      inset: -8px;
+      border-color: var(--verre-anneau-survol);
+    }
+  }
+
+  .bouton-verre:focus-visible {
+    background: linear-gradient(to bottom, var(--verre-haut-survol), var(--verre-bas-survol));
+    border-color: var(--verre-bord-survol);
+    outline: 2px solid var(--verre-bord-survol);
+    outline-offset: 6px;
+    translate: 0 -3px;
+  }
+
+  .bouton-verre:focus-visible::before {
+    inset: -8px;
+    border-color: var(--verre-anneau-survol);
+  }
+
+  .bouton-verre:active {
+    translate: 0 -1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bouton-verre,
+    .bouton-verre::before {
+      transition: none;
+      translate: none;
+    }
+  }
 }
 
 @layer utilities {

@@ -13,6 +13,17 @@ const framePath = (n) => `/frames/hero-walkthrough/frame-${String(n).padStart(3,
 const SCRUB_END = 0.68 // fin du parcours (dernière frame)
 const CROSSFADE_END = 0.8 // fin du fondu parcours (canvas) → boucle (vidéo)
 
+// Apparition du panneau de recherche. Il chevauche volontairement la fin du
+// fondu vers la boucle vidéo : c'est ce chevauchement qui le fait arriver plus
+// tôt sans qu'on le voie surgir.
+const RECHERCHE_DEBUT = 0.74
+const RECHERCHE_FIN = 0.84
+
+// Seuil à partir duquel le panneau redevient cliquable — placé juste après le
+// milieu de sa montée, pour qu'on ne puisse pas cliquer sur ce qu'on distingue
+// à peine.
+const RECHERCHE_ACTIVE = 0.78
+
 export function Hero() {
   const reduce = useReducedMotion()
 
@@ -35,7 +46,14 @@ export function Hero() {
   const loopOpacity = useTransform(scrollYProgress, [SCRUB_END, CROSSFADE_END], [0, 1])
   // Accroche visible au repos, s'efface dès le scroll ; recherche révélée en Phase 2.
   const headlineOpacity = useTransform(scrollYProgress, [0, 0.06], [1, 0])
-  const searchOpacity = useTransform(scrollYProgress, [0.8, 0.92], [0, 1])
+  // LA RECHERCHE ARRIVE PLUS TÔT, ET S'INSTALLE PLUS VITE.
+  //
+  // Elle partait à 0,80 pour n'être pleinement colorée qu'à 0,92 : le visiteur
+  // atteignait le bas du parcours avant que le panneau n'ait fini de prendre
+  // ses couleurs. Le départ remonte de six centièmes, et la montée se resserre
+  // de douze à dix centièmes — assez pour que le panneau soit net plus tôt,
+  // trop peu pour qu'il apparaisse d'un coup.
+  const searchOpacity = useTransform(scrollYProgress, [RECHERCHE_DEBUT, RECHERCHE_FIN], [0, 1])
   // Indicateur de scroll : présent sur la première frame, s'efface dès le scroll.
   const cueOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
@@ -140,7 +158,7 @@ export function Hero() {
     const clamped = Math.min(Math.max(p / SCRUB_END, 0), 1)
     currentFrameRef.current = Math.round(clamped * (FRAME_COUNT - 1))
     drawCurrent()
-    const active = p > 0.82
+    const active = p > RECHERCHE_ACTIVE
     setSearchActive((prev) => (prev === active ? prev : active))
   })
 

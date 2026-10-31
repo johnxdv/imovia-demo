@@ -17,12 +17,17 @@ export function Section({
   id,
   divider = false,
   dividerLabel,
+  // Écart entre le trait de plan et le contenu qui le suit. Réglable parce que
+  // l'écart par défaut, pensé pour des sections à titre long, laisse un vide
+  // dans celles où le trait porte déjà l'intitulé — « Sélection », « Par où
+  // commencer » — et où il n'y a rien entre lui et les cartes.
+  dividerClassName = 'mb-12 sm:mb-16',
   container = true,
   py = 'py-20 sm:py-28',
 }) {
   const inner = (
     <>
-      {divider ? <PlanDivider className="mb-12 sm:mb-16" label={dividerLabel} /> : null}
+      {divider ? <PlanDivider className={dividerClassName} label={dividerLabel} /> : null}
       {children}
     </>
   )

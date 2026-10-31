@@ -18,7 +18,7 @@ import { PlanFrame } from '../components/ui/PlanFrame'
 import { PropertyCard } from '../components/ui/PropertyCard'
 import { ArrowLink } from '../components/ui/ArrowLink'
 import { Button } from '../components/ui/Button'
-import { photoUrl, photoSrcSet, localPhoto } from '../lib/format'
+import { photoUrl, localPhoto } from '../lib/format'
 import { team } from '../data/team'
 import { latestAvailable } from '../lib/properties'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
@@ -60,19 +60,16 @@ const orientations = [
     to: '/acheter',
     titre: 'Acheter',
     texte: 'Découvrez nos biens disponibles et trouvez celui qui correspond à votre projet.',
-    photo: '1600566753086-00f18fb6b3ea',
   },
   {
     to: '/louer',
     titre: 'Louer',
     texte: 'Découvrez nos biens à louer et trouvez votre prochain chez-vous.',
-    photo: '1502672260266-1c1ef2d93688',
   },
   {
     to: '/vendre',
     titre: 'Vendre',
     texte: 'De l’estimation à la signature, nous vous accompagnons à chaque étape.',
-    photo: '1600585152220-90363fe7e115',
   },
 ]
 
@@ -131,18 +128,38 @@ function About() {
   )
 }
 
+/**
+ * Les quatre valeurs.
+ *
+ * Plus de trait de plan au-dessus du titre, et le titre remonte contre le haut
+ * de l'encadré : la ligne dorée s'y ajoutait à un `py-20` déjà généreux, ce qui
+ * poussait « Nos valeurs » au tiers de la hauteur de sa propre section.
+ *
+ * Le pictogramme est passé AU-DESSUS du titre À CÔTÉ de lui, et c'est ce qui
+ * fait tout le gain de hauteur : les deux occupaient deux lignes et un `mt-5`
+ * d'écart, ils n'en occupent plus qu'une. Le filet supérieur reste — c'est lui
+ * qui sépare les quatre colonnes —, et l'alignement se fait sur la ligne de
+ * base du titre plutôt que sur le haut du bloc, pour que l'œil lise « symbole
+ * puis mot » et non deux objets superposés.
+ */
 function Valeurs() {
   return (
-    <Section tone="stone" divider>
+    <Section tone="stone" py="py-16 sm:py-20">
       <Reveal>
         <h2 className="max-w-3xl text-display-md text-ink">Nos valeurs</h2>
       </Reveal>
-      <RevealGroup className="mt-14 grid grid-cols-1 gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+      <RevealGroup className="mt-10 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2 sm:gap-y-10 lg:grid-cols-4">
         {valeurs.map(({ icon: Icon, titre, texte }) => (
           <RevealChild key={titre}>
-            <div className="border-t border-ink/15 pt-6">
-              <Icon className="h-7 w-7 text-bottle" strokeWidth={1.5} aria-hidden="true" />
-              <h3 className="mt-5 font-display text-xl text-ink">{titre}</h3>
+            <div className="border-t border-ink/15 pt-5">
+              <div className="flex items-center gap-3">
+                <Icon
+                  className="h-6 w-6 shrink-0 text-bottle"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+                <h3 className="font-display text-xl leading-none text-ink">{titre}</h3>
+              </div>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">{texte}</p>
             </div>
           </RevealChild>
@@ -152,39 +169,56 @@ function Valeurs() {
   )
 }
 
+/**
+ * Par où commencer — trois lignes, plus trois cartes à photo.
+ *
+ * Les photographies d'intérieurs étaient trois images de banque qui ne
+ * montraient aucun bien de l'agence et ne disaient rien de plus que le mot
+ * « Acheter ». Les retirer rend la rubrique à son propos — trois portes
+ * d'entrée — et lui fait gagner la moitié de sa hauteur.
+ *
+ * Chaque ligne est un lien plein format : toute la bande est cliquable, pas
+ * seulement le titre. Le filet supérieur tient lieu de séparateur, le dernier
+ * ferme la série. Au survol, la ligne se décale d'un cheveu et la flèche
+ * avance — le même geste que les cartes de biens, pour que les deux rubriques
+ * se répondent.
+ *
+ * Sur téléphone, le texte descriptif passe sous le titre plutôt qu'à côté :
+ * côte à côte, il tombait à trois mots par ligne.
+ */
 function Orientation() {
   return (
-    <Section tone="ink" divider dividerLabel="Par où commencer">
-      <RevealGroup className="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <Section
+      tone="ink"
+      divider
+      dividerLabel="Par où commencer"
+      dividerClassName="mb-7 sm:mb-9"
+      py="pt-14 pb-20 sm:pt-16 sm:pb-24"
+    >
+      <RevealGroup className="border-b border-stone/15">
         {orientations.map((o) => (
           <RevealChild key={o.to}>
             <Link
               to={o.to}
-              className="group relative block bg-ink focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brass"
+              className="group flex flex-col gap-2 border-t border-stone/15 py-5 transition-[padding] duration-300 ease-plan hover:pl-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brass sm:flex-row sm:items-baseline sm:gap-8 sm:py-7"
             >
-              <div className="relative aspect-[16/10] overflow-hidden">
-                <img
-                  src={photoUrl(o.photo, { w: 900 })}
-                  srcSet={photoSrcSet(o.photo)}
-                  sizes="(min-width:768px) 30vw, 92vw"
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 ease-plan group-hover:scale-[1.05]"
+              {/* Sur téléphone, la flèche se range au bout de la ligne du titre
+                  plutôt qu'en dessous du texte : seule sur sa ligne, elle
+                  ajoutait une rangée vide à chacun des trois blocs. */}
+              <div className="flex items-center justify-between gap-4 sm:w-44 sm:shrink-0 sm:justify-start">
+                <h3 className="font-display text-2xl text-stone">{o.titre}</h3>
+                <ArrowRight
+                  className="h-5 w-5 shrink-0 text-brass transition-transform duration-300 ease-plan group-hover:translate-x-1 sm:hidden"
+                  strokeWidth={1.6}
+                  aria-hidden="true"
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
-                <PlanFrame />
               </div>
-              <div className="px-1 pt-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-2xl text-stone">{o.titre}</h3>
-                  <ArrowRight
-                    className="h-5 w-5 text-brass transition-transform duration-300 ease-plan group-hover:translate-x-1"
-                    strokeWidth={1.6}
-                    aria-hidden="true"
-                  />
-                </div>
-                <p className="mt-2 max-w-xs text-sm leading-relaxed text-stone/70">{o.texte}</p>
-              </div>
+              <p className="flex-1 text-sm leading-relaxed text-stone/70">{o.texte}</p>
+              <ArrowRight
+                className="hidden h-5 w-5 shrink-0 self-center text-brass transition-transform duration-300 ease-plan group-hover:translate-x-1 sm:block"
+                strokeWidth={1.6}
+                aria-hidden="true"
+              />
             </Link>
           </RevealChild>
         ))}
@@ -326,21 +360,35 @@ function DerniersBiens() {
     else reculer()
   }
 
+  // Rondes et non carrées : elles ne bordent plus un bloc, elles flottent sur
+  // le ruban. Centrées verticalement sur la zone de défilement, au-dessus des
+  // cartes (`z-20`) mais sous les commandes de favori, qui restent à portée.
   const arrowClass =
-    'inline-flex h-11 w-11 items-center justify-center border border-ink/25 text-ink transition-colors hover:border-brass hover:text-brass disabled:pointer-events-none disabled:opacity-30 touch-manipulation'
+    'absolute top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full border border-ink/20 bg-stone text-ink shadow-[0_6px_18px_-6px_rgba(16,20,28,0.45)] transition-colors duration-300 ease-plan hover:border-brass hover:text-brass'
 
   // Le ruban porte la liste deux fois : la seconde copie fournit les cartes qui
   // entrent par la droite en fin de tour.
   const ruban = bouclable ? [...biens, ...biens] : biens
 
   return (
-    <Section tone="stone" divider dividerLabel="Sélection">
+    <Section
+      tone="stone"
+      divider
+      dividerLabel="Sélection"
+      dividerClassName="mb-7 sm:mb-9"
+      py="pt-14 pb-20 sm:pt-16 sm:pb-24"
+    >
       <Reveal>
         <h2 className="max-w-2xl text-display-md text-ink">Découvrez nos derniers biens.</h2>
       </Reveal>
 
-      <div
-        className="mt-14 -mx-3 overflow-hidden"
+      {/* Le ruban et ses deux flèches. La position relative est portée ICI, et
+          non par la fenêtre masquée : le `maskImage` qui estompe les deux bords
+          s'applique à tout ce que cette fenêtre contient, flèches comprises —
+          posées dedans, elles s'effaceraient exactement là où on les met. */}
+      <div className="relative mt-10">
+        <div
+        className="-mx-3 overflow-hidden"
         role="region"
         aria-roledescription="carrousel"
         aria-label="Nos derniers biens"
@@ -383,36 +431,42 @@ function DerniersBiens() {
               <PropertyCard property={p} simplifie />
             </div>
           ))}
+          </div>
         </div>
+
+        {/* Les deux flèches, à mi-hauteur du ruban. Fond plein Warm Stone — le
+            fond de la section — plutôt que translucide : posées sur une photo,
+            des commandes translucides deviennent illisibles sur la moitié des
+            visuels du flux. Elles débordent à peine sur les cartes de bord,
+            que le masque estompe déjà. */}
+        {bouclable ? (
+          <>
+            <button
+              type="button"
+              onClick={action(reculer)}
+              aria-label="Voir le bien précédent"
+              className={`${arrowClass} left-0 -translate-x-1 sm:-translate-x-1/2`}
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={action(avancer)}
+              aria-label="Voir le bien suivant"
+              className={`${arrowClass} right-0 translate-x-1 sm:translate-x-1/2`}
+            >
+              <ChevronRight className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+          </>
+        ) : null}
       </div>
 
-      {/* Commandes sous le carrousel, alignées à droite — accessibles
-          immédiatement après les cartes, sur ordinateur comme sur mobile. */}
+      {/* « Voir tous nos biens » seul en bas, contre le bord droit. */}
       <Reveal delay={0.05}>
-        <div className="mt-10 flex items-center justify-end gap-6">
+        <div className="mt-9 flex justify-end">
           <ArrowLink to="/acheter" className="!text-ink hover:!text-brass">
             Voir tous nos biens
           </ArrowLink>
-          {bouclable ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={action(reculer)}
-                aria-label="Voir le bien précédent"
-                className={arrowClass}
-              >
-                <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={action(avancer)}
-                aria-label="Voir le bien suivant"
-                className={arrowClass}
-              >
-                <ChevronRight className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
-              </button>
-            </div>
-          ) : null}
         </div>
       </Reveal>
     </Section>

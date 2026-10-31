@@ -11,7 +11,10 @@ export const agency = {
   phone: '03 72 29 43 76',
   phoneHref: 'tel:+33372294376',
   email: 'contact@immo-via.com',
-  recrutementEmail: 'recrutement@immo-via.com',
+  // Les candidatures arrivent sur l'adresse générale : la boîte dédiée n'est
+  // pas relevée. Le champ reste distinct pour qu'une adresse propre au
+  // recrutement puisse revenir sans toucher à la page.
+  recrutementEmail: 'contact@immo-via.com',
   address: {
     line1: '41A rue Principale',
     line2: '57980 DIEBLING',
