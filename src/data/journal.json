@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-11-01",
+      "slug": "investir-dans-un-locatif-a-forbach-quels-biens-se-louent-vraiment-et-a",
+      "titre": "Investir dans un locatif à Forbach : quels biens se louent vraiment et à qui",
+      "sujet": "Investir dans un locatif à Forbach : quels biens se louent vraiment et à qui",
+      "commune": "Forbach",
+      "codeInsee": "57227",
+      "motCle": "investissement locatif Forbach",
+      "angle": "Le profil réel des locataires forbachois (étudiants, travailleurs frontaliers, jeunes ménages) et les typologies qui se relouent vite, contre celles qui restent vides.",
+      "genre": "conseil d'investissement",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 2,
+          "vente": 0,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-10-26",
       "slug": "livre-foncier-notaire-hypotheque-ce-que-le-droit-local-d-alsace-mosell",
       "titre": "Livre foncier, notaire, hypothèque : ce que le droit local d'Alsace-Moselle change à votre vente",
