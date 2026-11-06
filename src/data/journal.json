@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-11-06",
+      "slug": "marche-immobilier-de-sarreguemines-ou-en-sont-les-prix-et-combien-de-t",
+      "titre": "Marché immobilier de Sarreguemines : où en sont les prix et combien de temps pour vendre",
+      "sujet": "Marché immobilier de Sarreguemines : où en sont les prix et combien de temps pour vendre",
+      "commune": "Sarreguemines",
+      "codeInsee": "57631",
+      "motCle": "prix m2 Sarreguemines",
+      "angle": "L'état du marché de la sous-préfecture : niveau des prix, écart maison/appartement, effet de la proximité allemande et de la ligne vers Sarrebruck.",
+      "genre": "analyse de marché",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 1,
+          "vente": 1,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-11-01",
       "slug": "investir-dans-un-locatif-a-forbach-quels-biens-se-louent-vraiment-et-a",
       "titre": "Investir dans un locatif à Forbach : quels biens se louent vraiment et à qui",

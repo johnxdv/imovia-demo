@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Prix au m² des maisons dans le bassin de Sarreguemines (relevé de septembre 2026)">
+  <rect width="1200" height="630" fill="#10141C" />
+  <text x="70" y="66" fill="#EDEAE3" font-family="Georgia, serif" font-size="32">Prix au m² des maisons dans le bassin de Sarreguemines</text>
+  <text x="70" y="106" fill="#EDEAE3" font-family="Georgia, serif" font-size="32">(relevé de septembre 2026)</text>
+  <text x="70" y="140" fill="#B08D57" font-family="ui-monospace, SFMono-Regular, monospace" font-size="19" letter-spacing="2.5">€/M²</text>
+  <line x1="70" y1="441" x2="1130" y2="441" stroke="#B08D57" stroke-width="1" />
+  <rect x="96.5" y="174.0" width="79.5" height="267.0" fill="#B08D57" />
+  <text x="136.3" y="214.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1780</text>
+  <text x="136.3" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 136.3 467.0)">Blies-Ébersing</text>
+  <rect x="229.0" y="189.0" width="79.5" height="252.0" fill="#B08D57" />
+  <text x="268.8" y="229.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1680</text>
+  <text x="268.8" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 268.8 467.0)">Blies-Guersviller</text>
+  <rect x="361.5" y="201.3" width="79.5" height="239.7" fill="#B08D57" />
+  <text x="401.3" y="241.3" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1598</text>
+  <text x="401.3" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 401.3 467.0)">Grosbliederstroff</text>
+  <rect x="494.0" y="216.2" width="79.5" height="224.8" fill="#B08D57" />
+  <text x="533.8" y="256.1" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1499</text>
+  <text x="533.8" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 533.8 467.0)">Rémelfing</text>
+  <rect x="626.5" y="219.0" width="79.5" height="222.0" fill="#B08D57" />
+  <text x="666.3" y="259.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1480</text>
+  <text x="666.3" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 666.3 467.0)">Sarreguemines</text>
+  <rect x="759.0" y="221.1" width="79.5" height="219.9" fill="#B08D57" />
+  <text x="798.8" y="261.1" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1466</text>
+  <text x="798.8" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 798.8 467.0)">Hambach</text>
+  <rect x="891.5" y="230.1" width="79.5" height="210.9" fill="#B08D57" />
+  <text x="931.3" y="270.1" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1406</text>
+  <text x="931.3" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 931.3 467.0)">Woustviller</text>
+  <rect x="1024.0" y="264.0" width="79.5" height="177.0" fill="#B08D57" />
+  <text x="1063.8" y="304.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="28" font-weight="500" text-anchor="middle">1180</text>
+  <text x="1063.8" y="467.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" text-anchor="end" transform="rotate(-45 1063.8 467.0)">Wiesviller</text>
+  <text x="1130" y="616" fill="#EDEAE3" fill-opacity="0.35" font-family="ui-monospace, SFMono-Regular, monospace" font-size="15" text-anchor="end">échelle à partir de zéro</text>
+</svg>
