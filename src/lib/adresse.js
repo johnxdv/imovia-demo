@@ -1,6 +1,26 @@
-// Client de l'API Adresse (Base Adresse Nationale), service public français :
-// gratuite, sans clé ni configuration. https://adresse.data.gouv.fr/api-doc/adresse
-import { searchMonacoAddresses } from './adresseMonaco.js'
+// Client du géocodeur de la Base Adresse Nationale.
+//
+// L'ADRESSE A CHANGÉ, ET L'ANCIENNE NE REDIRIGE PAS UTILEMENT
+//
+// `api-adresse.data.gouv.fr` a été décommissionné : la BAN est passée à l'IGN,
+// et l'ancien domaine répond désormais 302 vers `http://sorry.data.gouv.fr`,
+// lui-même en 503. Deux raisons pour qu'un navigateur n'en tire rien : la cible
+// est en clair alors que le site est en HTTPS — redirection bloquée comme
+// contenu mixte — et elle ne sert de toute façon aucune adresse. Le champ de
+// saisie affichait donc sa panne réseau à chaque frappe.
+//
+// Le service de remplacement est celui de la Géoplateforme. Mêmes paramètres,
+// même GeoJSON en sortie : le mappage ci-dessous est inchangé.
+//
+// POURQUOI UN SECOND GÉOCODEUR DERRIÈRE
+//
+// Parce que celui-ci tombe aussi. Au moment de cette correction, toutes les
+// routes de `data.geopf.fr/geocodage` rendaient 504 — `getCapabilities`
+// comprise, donc une panne du service et non un défaut de requête. Nominatim,
+// déjà employé pour la Principauté, prend le relais pour la France entière
+// quand l'IGN ne répond pas. Il rend de vraies coordonnées : le parcours
+// continue normalement, la carte se centre, l'estimation vaut la même chose.
+import { searchMonacoAddresses, searchOsmAddresses } from './adresseMonaco.js'
 import {
   isMonacoAddress,
   looksLikeMonacoQuery,
@@ -8,7 +28,69 @@ import {
   monacoSuggestion,
 } from './monaco.js'
 
-const ENDPOINT = 'https://api-adresse.data.gouv.fr/search/'
+const ENDPOINT = 'https://data.geopf.fr/geocodage/search/'
+
+/**
+ * Budget d'un appel au géocodeur.
+ *
+ * Quatre secondes : au-delà, une liste de suggestions n'a plus d'intérêt —
+ * l'utilisateur a fini de taper. La panne constatée répondait en 2,2 s, un
+ * délai plus court aurait donc tranché avant même de connaître le verdict.
+ */
+const TIMEOUT_MS = 4000
+
+/**
+ * Une seule reprise, et sans attente entre les deux.
+ *
+ * Elle couvre ce qu'elle peut couvrir : une coupure isolée, un 502 passager,
+ * un dépassement de la limite d'un appel par seconde que la Géoplateforme
+ * annonce dans ses en-têtes (`x-ratelimit-limit-second: 1`). Elle ne sert à
+ * rien contre une panne franche du service — c'est le rôle du second
+ * géocodeur, pas celui d'une reprise.
+ */
+const TENTATIVES = 2
+
+/**
+ * Un appel au géocodeur IGN, borné dans le temps.
+ *
+ * L'annulation demandée par l'appelant et l'expiration du budget sont
+ * fusionnées : la première doit remonter telle quelle — l'appelant la
+ * reconnaît et l'ignore — la seconde compte comme un échec ordinaire.
+ */
+async function appelIgn(query, limit, signal) {
+  const timeout = AbortSignal.timeout(TIMEOUT_MS)
+  const url = `${ENDPOINT}?q=${encodeURIComponent(query)}&limit=${limit}&autocomplete=1`
+
+  const response = await fetch(url, {
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  })
+
+  if (!response.ok) throw new Error(`Géocodage IGN — réponse ${response.status}`)
+  return response.json()
+}
+
+/**
+ * Le GeoJSON du géocodeur, ou `null` si le service est hors d'atteinte.
+ *
+ * Ne rejette que sur annulation par l'appelant : tout le reste est un échec à
+ * traiter, pas une exception à propager — c'est ce qui permet au second
+ * géocodeur de prendre la main sans que le champ affiche une panne.
+ */
+async function geoJsonIgn(query, limit, signal) {
+  for (let tentative = 1; tentative <= TENTATIVES; tentative += 1) {
+    try {
+      return await appelIgn(query, limit, signal)
+    } catch (error) {
+      if (signal?.aborted) throw error
+      if (tentative === TENTATIVES) {
+        console.warn(`[adresse] géocodeur IGN injoignable — ${error?.message ?? error}`)
+        return null
+      }
+    }
+  }
+
+  return null
+}
 
 /** Seuil de déclenchement : en deçà, l'API renvoie du bruit. */
 export const MIN_QUERY_LENGTH = 3
@@ -40,15 +122,16 @@ export const SEARCH_DEBOUNCE_MS = 300
  * remonte une `AbortError`, à ignorer côté appelant.
  */
 export async function searchAddresses(query, { limit = 5, signal } = {}) {
-  const response = await fetch(`${ENDPOINT}?q=${encodeURIComponent(query)}&limit=${limit}`, {
-    signal,
-  })
+  const data = await geoJsonIgn(query, limit, signal)
 
-  if (!response.ok) {
-    throw new Error(`API Adresse — réponse ${response.status}`)
+  // Géocodeur IGN hors service : Nominatim rend des propositions au même
+  // format, coordonnées comprises. Si lui non plus ne répond pas, la liste est
+  // vide et c'est l'appelant qui propose la saisie libre — jamais une erreur.
+  if (data === null) {
+    const secours = await searchOsmAddresses(query, { pays: 'fr', limit, signal })
+    if (secours.length > 0) return secours
+    throw new Error('Géocodage indisponible')
   }
-
-  const data = await response.json()
 
   const suggestions = (data?.features ?? [])
     .map((feature) => {

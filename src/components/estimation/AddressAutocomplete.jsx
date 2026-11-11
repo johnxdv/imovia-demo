@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { Loader2, MapPin, SearchX } from 'lucide-react'
+import { Loader2, MapPin, PencilLine, SearchX } from 'lucide-react'
 import { MIN_QUERY_LENGTH, SEARCH_DEBOUNCE_MS, searchAddresses } from '../../lib/adresse'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 
@@ -11,6 +11,13 @@ import { useDebouncedValue } from '../../lib/useDebouncedValue'
  * `onSelect` reçoit la suggestion choisie (`{ id, label }`), ou `null` dès que
  * l'utilisateur reprend la saisie — le choix précédent n'est alors plus valide.
  * Le composant ne décide rien de la suite du parcours.
+ *
+ * SORTIE DE SECOURS. Les deux géocodeurs peuvent être injoignables en même
+ * temps : la liste est alors vide, et sans issue le parcours s'arrête là. Le
+ * bloc d'erreur propose donc de poursuivre avec le texte saisi tel quel. La
+ * proposition rendue porte `manuelle: true` et aucune coordonnée — c'est à
+ * l'appelant d'en tirer les conséquences, l'estimation automatique en exigeant
+ * (voir `EstimationAddressStep`).
  */
 export function AddressAutocomplete({
   onSelect,
@@ -209,11 +216,35 @@ export function AddressAutocomplete({
         </p>
       ) : null}
 
-      {/* Panne réseau : message discret, la saisie reste possible. */}
+      {/* Panne des deux géocodeurs : la saisie reste possible, et surtout elle
+          mène quelque part — sans ce bouton, l'écran est un cul-de-sac. */}
       {status === 'error' ? (
-        <p role="status" className="mt-3 text-center text-base text-ink/55">
-          Recherche d’adresse momentanément indisponible. Réessayez dans un instant.
-        </p>
+        <div role="status" className="mt-4 text-center">
+          <p className="text-base leading-relaxed text-ink/60">
+            La recherche d’adresse ne répond pas pour le moment.
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              select({
+                id: 'manuelle',
+                label: trimmed,
+                postcode: null,
+                city: null,
+                lat: null,
+                lon: null,
+                monaco: false,
+                manuelle: true,
+              })
+            }
+            disabled={trimmed.length < MIN_QUERY_LENGTH}
+            className="bouton-tunnel mt-4 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <PencilLine className="h-4 w-4 text-white" strokeWidth={2} aria-hidden="true" />
+            <span className="text-[0.9rem] font-semibold">Continuer avec cette adresse</span>
+          </button>
+        </div>
       ) : null}
     </div>
   )

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Phone } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import { StepBackLink } from './StepBackLink'
+import { agency } from '../../data/agency'
 
 /**
  * Délai entre le choix dans la liste et le passage à la carte. Assez court pour
@@ -22,6 +24,20 @@ const HANDOFF_DELAY_MS = 260
  * demandée, `onConfirm` enchaîne sur l'étape carte. Une adresse sans
  * coordonnées ne peut pas être cartographiée — cas théorique avec la BAN, mais
  * l'écran reste alors sur la confirmation plutôt que d'ouvrir une carte vide.
+ *
+ * L'ADRESSE SAISIE À LA MAIN NE PEUT PAS ÊTRE ESTIMÉE EN LIGNE, ET C'EST DIT
+ *
+ * Quand les deux géocodeurs sont en panne, le champ laisse poursuivre avec le
+ * texte saisi (voir `AddressAutocomplete`). Cette adresse n'a aucune
+ * coordonnée, et tout l'aval en dépend : la carte s'y centre, le bâti s'y
+ * charge, et `api/estimation.js` refuse une requête sans `lat`/`lon` — la
+ * parcelle, la commune et les ventes voisines s'y lisent. Il n'y a donc pas
+ * d'estimation automatique à rendre, et en promettre une serait un mensonge de
+ * deux écrans.
+ *
+ * Ce que l'écran fait à la place : il garde l'adresse à l'affichage et oriente
+ * vers une estimation faite par l'agence. Le visiteur n'est pas renvoyé à un
+ * champ qui ne marche pas.
  *
  * L'écran n'a plus d'illustration en tête : la villa qui s'y traçait à l'encre
  * a été retirée avec les autres dessins du parcours, le décor étant désormais la
@@ -78,7 +94,31 @@ export function EstimationAddressStep({ onBack, onConfirm }) {
           </div>
         ) : null}
 
-        {address && !mappable ? (
+        {address?.manuelle ? (
+          <div role="status" className="panneau-interne mt-4 px-5 py-6 text-center sm:px-7">
+            <p className="text-[0.95rem] leading-relaxed text-ink/75">
+              Sans la recherche d’adresse, nous ne pouvons pas situer votre bien sur la carte —
+              et c’est de cet emplacement que vient l’estimation. Plutôt qu’un montant
+              approximatif, nous préférons le faire à la main.
+            </p>
+
+            <a
+              href={agency.phoneHref}
+              className="bouton-tunnel mt-6 flex w-full items-center justify-center gap-2.5 px-6 py-4"
+            >
+              <Phone className="h-4 w-4 text-white" strokeWidth={2} aria-hidden="true" />
+              <span className="text-[0.95rem] font-semibold">{agency.phone}</span>
+            </a>
+
+            <p className="mt-4 text-[0.82rem] leading-relaxed text-ink/60">
+              ou{' '}
+              <Link to="/contact" className="text-laiton-texte underline-offset-4 hover:underline">
+                demandez à être rappelé
+              </Link>
+              . La recherche d’adresse revient d’elle-même dès que le service public est rétabli.
+            </p>
+          </div>
+        ) : address && !mappable ? (
           <p role="status" className="mt-4 text-center text-base text-ink/60">
             Cette adresse n’est pas localisable sur la carte. Essayez une adresse voisine.
           </p>

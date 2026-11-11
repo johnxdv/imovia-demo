@@ -1,4 +1,10 @@
-// Fonction serverless Vercel — géocodage des adresses monégasques.
+// Fonction serverless Vercel — géocodage par Nominatim (OpenStreetMap).
+//
+// Née pour la Principauté, elle sert aussi de secours à la France depuis que
+// le géocodeur de la Géoplateforme s'est mis à répondre 504 (voir l'en-tête de
+// `src/lib/adresse.js`). Le pays visé arrive dans la requête ; le nom de la
+// route est resté celui de son premier usage, pour ne pas invalider l'adresse
+// appelée par les pages déjà servies.
 //
 // La Base Adresse Nationale s'arrête à la frontière : interrogée sur une rue
 // de la Principauté, elle ne renvoie rien, ou des voies françaises homonymes.
@@ -21,6 +27,13 @@ const USER_AGENT = 'ImmoviaEstimation/1.0 (+https://immo-via.com; contact@immo-v
 
 /** Nombre de propositions demandées — celui de la liste côté front. */
 const LIMIT = 5
+
+/**
+ * Les deux seuls pays acceptés, et la raison de cette liste fermée : `q` et le
+ * pays partent dans l'URL d'un service tiers. Un code recopié tel quel depuis
+ * la requête laisserait ajouter des paramètres à cette URL.
+ */
+const PAYS = new Set(['mc', 'fr'])
 
 /** Plafond imposé par Nominatim : une requête par seconde, jamais davantage. */
 const MIN_INTERVAL_MS = 1000
@@ -89,25 +102,34 @@ function throttled(task) {
 
 /**
  * Réponse Nominatim → proposition du même format que celles de la BAN
- * (voir `src/lib/adresse.js`). `monaco: true` est acquis : la recherche est
- * restreinte à la Principauté par `countrycodes=mc`.
+ * (voir `src/lib/adresse.js`).
+ *
+ * `monaco` suit le pays demandé et non le contenu de la réponse : c'est le
+ * `countrycodes` de la requête qui tranche, et lui seul. Une adresse française
+ * ne doit jamais ressortir d'ici marquée monégasque — elle ferait basculer le
+ * parcours sur le barème de la Principauté.
  */
-function toSuggestion(place) {
+function toSuggestion(place, pays) {
   const lat = Number(place?.lat)
   const lon = Number(place?.lon)
   const label = typeof place?.display_name === 'string' ? place.display_name.trim() : ''
   if (!label) return null
+
+  const monaco = pays === 'mc'
+  const adresse = place?.address ?? {}
 
   return {
     id: `osm-${place?.osm_type ?? 'x'}-${place?.osm_id ?? label}`,
     label,
     // Nominatim ne porte pas toujours le code postal ; il n'y en a qu'un dans
     // la Principauté, et le front s'en sert pour reconnaître le parcours.
-    postcode: place?.address?.postcode ?? '98000',
-    city: 'Monaco',
+    postcode: adresse.postcode ?? (monaco ? '98000' : null),
+    city: monaco
+      ? 'Monaco'
+      : adresse.city ?? adresse.town ?? adresse.village ?? adresse.municipality ?? null,
     lat: Number.isFinite(lat) ? lat : null,
     lon: Number.isFinite(lon) ? lon : null,
-    monaco: true,
+    monaco,
   }
 }
 
@@ -119,12 +141,16 @@ export default async function handler(req, res) {
 
   const body = req.body && typeof req.body === 'object' ? req.body : {}
   const query = typeof body.q === 'string' ? body.q.trim() : ''
+  const pays = PAYS.has(body.pays) ? body.pays : 'mc'
 
   if (query.length < 3) {
     return res.status(400).json({ ok: false, error: 'Saisie trop courte.' })
   }
 
-  const key = query.toLowerCase()
+  // La clé porte le pays : « Monaco » cherché en France et dans la Principauté
+  // ne rend pas les mêmes propositions, et la seconde réponse ne doit pas
+  // ressortir du cache à la place de la première.
+  const key = `${pays}:${query.toLowerCase()}`
   const cached = cacheGet(key)
   if (cached) return res.status(200).json({ ok: true, suggestions: cached })
 
@@ -134,7 +160,7 @@ export default async function handler(req, res) {
   try {
     const url =
       `${ENDPOINT}?q=${encodeURIComponent(query)}` +
-      `&countrycodes=mc&format=json&addressdetails=1&limit=${LIMIT}`
+      `&countrycodes=${pays}&format=json&addressdetails=1&limit=${LIMIT}`
 
     const response = await throttled(() =>
       fetch(url, {
@@ -155,7 +181,7 @@ export default async function handler(req, res) {
     // rien ne distingue à l'écran. On garde la première, la mieux classée.
     const vus = new Set()
     const suggestions = (Array.isArray(data) ? data : [])
-      .map(toSuggestion)
+      .map((place) => toSuggestion(place, pays))
       .filter((suggestion) => {
         if (!suggestion) return false
         const cle = suggestion.label.toLowerCase()
