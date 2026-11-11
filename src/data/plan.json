@@ -1,5 +1,5 @@
 {
-  "genereLe": "2026-09-29",
+  "genereLe": "2026-11-11",
   "sujets": [
     {
       "titre": "Prix immobilier à Forbach : ce qui sépare le Centre, Bellevue et le Wiesberg",
@@ -138,7 +138,8 @@
       "besoinDonneesPrix": false,
       "besoinRecherche": true,
       "id": "2026-09-29-10",
-      "publie": null
+      "publie": "stiring-wendel-la-commune-que-les-acheteurs-decouvrent-apres-forbach",
+      "publieLe": "2026-11-11"
     },
     {
       "titre": "Pourquoi le prix au m² à Farébersviller surprend tout le monde",
@@ -164,6 +165,162 @@
       "besoinDonneesPrix": false,
       "besoinRecherche": false,
       "id": "2026-09-29-12",
+      "publie": null
+    },
+    {
+      "titre": "Vendre sa maison à Forbach : préparer le dossier, fixer le prix, tenir le délai",
+      "motCle": "vendre maison Forbach",
+      "commune": "Forbach",
+      "codeInsee": "57227",
+      "angle": "Le parcours concret d'un vendeur forbachois, du choix du prix de départ aux particularités du bâti de la ville (maisons de ville mitoyennes, anciennes cités, pavillons des années 70) qui font décrocher ou aboutir une vente.",
+      "genre": "guide pratique",
+      "intention": "Un propriétaire de Forbach veut savoir comment s'y prendre pour vendre et en combien de temps.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": false,
+      "id": "2026-11-11-1",
+      "publie": null
+    },
+    {
+      "titre": "Stiring-Wendel, la commune qu'on achète pour travailler à Sarrebruck",
+      "motCle": "acheter maison Stiring-Wendel",
+      "commune": "Stiring-Wendel",
+      "codeInsee": "57660",
+      "angle": "Portrait d'une commune collée à la frontière, lue à travers le profil de ses acheteurs : frontaliers, familles qui visent les écoles allemandes, et ce que la proximité immédiate de Sarrebruck change au quotidien.",
+      "genre": "portrait de commune",
+      "intention": "Quelqu'un qui travaille côté allemand cherche où s'installer juste de l'autre côté de la frontière.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-2",
+      "publie": null
+    },
+    {
+      "titre": "Acheter à Saint-Avold : quel secteur choisir selon votre budget et vos trajets",
+      "motCle": "acheter maison Saint-Avold",
+      "commune": "Saint-Avold",
+      "codeInsee": "57606",
+      "angle": "Guider l'acheteur entre le centre ancien, les lotissements périphériques et les villages voisins (Valmont, Lachambre, Macheren) selon le lieu de travail — plateforme de Carling, zone industrielle, A4 vers Metz.",
+      "genre": "conseil d'achat",
+      "intention": "Un acheteur hésite entre les différents secteurs de Saint-Avold et son agglomération.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-3",
+      "publie": null
+    },
+    {
+      "titre": "Immobilier à Freyming-Merlebach : un marché encore abordable, mais très inégal",
+      "motCle": "prix immobilier Freyming-Merlebach",
+      "commune": "Freyming-Merlebach",
+      "codeInsee": "57240",
+      "angle": "Analyse du marché de la troisième ville du bassin : des prix parmi les plus bas du secteur, expliqués par le poids du bâti minier et comparés aux communes voisines de Cocheren, Béning et Hombourg-Haut.",
+      "genre": "analyse de marché",
+      "intention": "Comprendre à quel prix se vendent les maisons à Freyming-Merlebach et pourquoi c'est moins cher qu'ailleurs.",
+      "besoinDonneesPrix": true,
+      "besoinRecherche": false,
+      "id": "2026-11-11-4",
+      "publie": null
+    },
+    {
+      "titre": "Louer un appartement à Sarreguemines : ce que cherchent vraiment les locataires",
+      "motCle": "louer appartement Sarreguemines",
+      "commune": "Sarreguemines",
+      "codeInsee": "57631",
+      "angle": "Le marché locatif vu du côté du propriétaire bailleur : quels types de logements partent vite, quels publics (étudiants, soignants, jeunes actifs, frontaliers) et quels quartiers se louent le plus facilement.",
+      "genre": "conseil aux propriétaires bailleurs",
+      "intention": "Un propriétaire veut savoir s'il doit louer son bien à Sarreguemines et à quel public.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-5",
+      "publie": null
+    },
+    {
+      "titre": "Les villages à moins de 10 minutes de Diebling où l'on achète encore une maison avec terrain",
+      "motCle": "acheter maison village près de Diebling",
+      "commune": null,
+      "codeInsee": null,
+      "angle": "Tour d'horizon des petits villages du plateau (Tenteling, Metzing, Loupershouse, Guebenhouse, Hundling, Ippling, Farschviller) : ce qu'on y trouve, qui y achète, et pourquoi ces biens se vendent souvent sans jamais passer en vitrine.",
+      "genre": "panorama de villages",
+      "intention": "Une famille cherche une maison avec terrain à la campagne mais proche de Forbach et Sarreguemines.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-6",
+      "publie": null
+    },
+    {
+      "titre": "Behren-lès-Forbach : un marché que les acheteurs regardent de loin, à tort ou à raison",
+      "motCle": "acheter maison Behren-lès-Forbach",
+      "commune": "Behren-lès-Forbach",
+      "codeInsee": "57058",
+      "angle": "Décryptage sans langue de bois d'une commune à la réputation lourde : ce que la rénovation urbaine a changé, quels secteurs tiennent leur valeur, et à quelles conditions l'achat tient la route.",
+      "genre": "décryptage de quartier",
+      "intention": "Un acheteur ou un propriétaire se demande ce que vaut vraiment un bien à Behren-lès-Forbach.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-7",
+      "publie": null
+    },
+    {
+      "titre": "DPE F ou G : vendre une passoire thermique en Moselle-Est sans brader son bien",
+      "motCle": "vendre maison DPE F ou G Moselle",
+      "commune": null,
+      "codeInsee": null,
+      "angle": "Le cas très fréquent ici des maisons d'avant 1975 mal classées : ce que l'acheteur négocie, quels travaux changent la note, et quelles aides mobilisables dans le secteur rassurent un acquéreur.",
+      "genre": "guide pratique",
+      "intention": "Un vendeur découvre un mauvais DPE et cherche quoi faire avant de mettre en vente.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-8",
+      "publie": null
+    },
+    {
+      "titre": "Vivre à Petite-Rosselle : entre carreau Wendel, forêt et frontière",
+      "motCle": "vivre à Petite-Rosselle",
+      "commune": "Petite-Rosselle",
+      "codeInsee": "57537",
+      "angle": "Le cadre de vie d'une ancienne cité minière devenue commune verte et touristique : équipements, écoles, accès à Forbach et à l'Allemagne, et le type de biens qu'on y trouve.",
+      "genre": "portrait de commune",
+      "intention": "Quelqu'un envisage de s'installer à Petite-Rosselle et veut savoir à quoi ressemble la vie sur place.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-9",
+      "publie": null
+    },
+    {
+      "titre": "Pourquoi une maison se vend plus cher à Farébersviller qu'à Forbach",
+      "motCle": "prix maison Farébersviller",
+      "commune": "Farébersviller",
+      "codeInsee": "57207",
+      "angle": "Analyse de l'écart surprenant entre Farébersviller, Théding, Henriville, Nousseviller-Saint-Nabor et les villes-centres : effet du bâti pavillonnaire récent, des terrains et de la rareté de l'offre.",
+      "genre": "analyse de marché",
+      "intention": "Un vendeur ou un acheteur veut comprendre les niveaux de prix autour de Farébersviller.",
+      "besoinDonneesPrix": true,
+      "besoinRecherche": false,
+      "id": "2026-11-11-10",
+      "publie": null
+    },
+    {
+      "titre": "Sarralbe, Herbitzheim, Keskastel : le secteur où le budget maison va encore loin",
+      "motCle": "acheter maison Sarralbe",
+      "commune": "Sarralbe",
+      "codeInsee": "57628",
+      "angle": "Comparatif du sud-est du secteur, entre Moselle et Bas-Rhin : des prix nettement plus bas qu'autour de Forbach, ce que cela achète concrètement, et à qui ce choix convient selon les trajets quotidiens.",
+      "genre": "comparatif de communes",
+      "intention": "Un acheteur au budget limité cherche où trouver une maison abordable dans le secteur.",
+      "besoinDonneesPrix": true,
+      "besoinRecherche": false,
+      "id": "2026-11-11-11",
+      "publie": null
+    },
+    {
+      "titre": "Acheter à Hombourg-Haut : ville haute ancienne, cités minières, lotissements — trois bâtis, trois budgets travaux",
+      "motCle": "maison à vendre Hombourg-Haut",
+      "commune": "Hombourg-Haut",
+      "codeInsee": "57332",
+      "angle": "Lecture du parc immobilier très hétérogène de la commune, du bâti ancien de la collégiale aux cités de Hombourg-Bas : ce que chaque type de maison implique en rénovation, chauffage et revente.",
+      "genre": "décryptage du bâti ancien",
+      "intention": "Un acheteur veut savoir ce qu'il achète réellement à Hombourg-Haut et quels travaux prévoir.",
+      "besoinDonneesPrix": false,
+      "besoinRecherche": true,
+      "id": "2026-11-11-12",
       "publie": null
     }
   ]

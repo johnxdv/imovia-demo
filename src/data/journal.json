@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-11-11",
+      "slug": "stiring-wendel-la-commune-que-les-acheteurs-decouvrent-apres-forbach",
+      "titre": "Stiring-Wendel, la commune que les acheteurs découvrent après Forbach",
+      "sujet": "Stiring-Wendel, la commune que les acheteurs découvrent après Forbach",
+      "commune": "Stiring-Wendel",
+      "codeInsee": "57660",
+      "motCle": "vivre à Stiring-Wendel",
+      "angle": "Portrait d'une ville collée à la frontière : accès direct à Sarrebruck, écoles, héritage sidérurgique, et pourquoi son marché résiste mieux qu'on ne le croit.",
+      "genre": "portrait de commune",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 2,
+          "vente": 0,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-11-06",
       "slug": "marche-immobilier-de-sarreguemines-ou-en-sont-les-prix-et-combien-de-t",
       "titre": "Marché immobilier de Sarreguemines : où en sont les prix et combien de temps pour vendre",
