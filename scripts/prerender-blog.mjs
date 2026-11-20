@@ -44,7 +44,7 @@ import {
   tempsLecture,
   titreHtml,
 } from './_lib/article.mjs'
-import { baliseHtml } from './_lib/jsonLd.mjs'
+import { baliseCommune, baliseHtml, scriptLd } from './_lib/jsonLd.mjs'
 import { lireSecteur } from './_lib/planification.mjs'
 import { communesAvecPage, presentationAgence } from '../api/_lib/articleTexte.js'
 import { ecrit404, ecritLlms, ecritRobots } from './_lib/fichiers-racine.mjs'
@@ -378,7 +378,10 @@ async function main() {
         titre,
         description,
         canonique: url,
-        tete: openGraph({ titre, description, url, image: null, type: 'website' }),
+        tete: [
+          openGraph({ titre, description, url, image: null, type: 'website' }),
+          `    ${scriptLd(baliseCommune(commune, BASE)).split('\n').join('\n    ')}`,
+        ].join('\n'),
         corps: agenceHtml(commune, articles, communeSiege),
       }),
       'utf8',
@@ -402,13 +405,18 @@ async function main() {
       titre: page.titre,
       description: page.description,
       canonique: url,
-      tete: openGraph({
-        titre: page.titre,
-        description: page.description,
-        url,
-        image: null,
-        type: page.ogType,
-      }),
+      tete: [
+        openGraph({
+          titre: page.titre,
+          description: page.description,
+          url,
+          image: null,
+          type: page.ogType,
+        }),
+        page.balise ? `    ${scriptLd(page.balise).split('\n').join('\n    ')}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
       corps: page.corps,
     })
 

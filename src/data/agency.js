@@ -67,8 +67,18 @@ export const agency = {
   // reste lisible.
   mapBbox: '6.9305,49.1003,6.9545,49.1163',
   mapMarker: '49.1083,6.9425',
+  // Profils publics de l'agence. Ils alimentent le pied de page ET le `sameAs`
+  // du balisage schema.org — c'est par ce champ qu'un moteur relie le site aux
+  // comptes qui portent le même nom.
+  //
+  // FACEBOOK A ÉTÉ RETIRÉ. L'adresse inscrite ici était
+  // `facebook.com/cookie/consent`, la bannière de consentement du réseau :
+  // quelqu'un l'avait copiée depuis sa barre d'adresse sans s'être connecté.
+  // Elle ne menait à aucune page de l'agence, et la déclarer en `sameAs`
+  // revenait à affirmer à Google que l'agence « est aussi » cette page-là.
+  // Mieux vaut deux profils vrais que trois dont un faux. À remettre dès que
+  // l'adresse réelle est connue.
   social: [
-    { label: 'Facebook', href: 'https://www.facebook.com/cookie/consent' },
     { label: 'Instagram', href: 'https://www.instagram.com/immovia.fr' },
     { label: 'LinkedIn', href: 'https://www.linkedin.com/company/immovia1/' },
   ],

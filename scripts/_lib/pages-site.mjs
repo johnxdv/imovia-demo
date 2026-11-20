@@ -26,6 +26,7 @@
 import { echappe } from './article.mjs'
 import { META_PAGES } from '../../src/data/metaPages.js'
 import { prixLisible, resumeBien } from '../../src/lib/seoBien.js'
+import { baliseAccueil } from './jsonLd.mjs'
 
 /**
  * Bornes d'une méta-description, et la raison du contrôle plus bas.
@@ -136,6 +137,10 @@ export function pagesSite({ agency, articles, communes, biens }) {
       url: '/',
       ...META_PAGES['/'],
       ogType: 'website',
+      // L'entité agence et le site. L'audit le relevait comme critique :
+      // l'agence n'était décrite que dans le graphe des articles, donc
+      // invisible pour un moteur qui n'avait lu que la page d'accueil.
+      balise: baliseAccueil(),
       // Le H1 de `src/components/home/Hero.jsx`, à la lettre. Les deux
       // fragments y sont deux `span` insécables : la coupe est voulue.
       corps:
