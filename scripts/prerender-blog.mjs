@@ -30,6 +30,8 @@
 // reprises dans le rendu statique, pour que la bascule ne se voie pas.
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import path from 'node:path'
 
 import { agency } from '../src/data/agency.js'
@@ -45,28 +47,78 @@ import {
 import { baliseHtml } from './_lib/jsonLd.mjs'
 import { lireSecteur } from './_lib/planification.mjs'
 import { communesAvecPage, presentationAgence } from '../api/_lib/articleTexte.js'
+import { ecrit404, ecritLlms, ecritRobots } from './_lib/fichiers-racine.mjs'
+import biens from '../src/data/properties.json' with { type: 'json' }
 
 const RACINE = path.resolve(import.meta.dirname, '..')
 const DIST = path.join(RACINE, 'dist')
 const BASE = process.env.SITE_URL?.replace(/\/$/, '') || agency.siteUrl
 
-/** Routes fixes du site, pour le sitemap. */
+/**
+ * Routes fixes du site, avec le fichier d'où vient leur contenu.
+ *
+ * `source` sert à dater l'entrée du sitemap : la date du dernier commit qui a
+ * touché ce fichier est la seule date de modification réelle dont on dispose
+ * pour une page écrite en dur. À défaut — dépôt absent, historique tronqué —
+ * l'entrée part sans `lastmod` plutôt qu'avec la date du jour, qui annoncerait
+ * une révision qui n'a pas eu lieu.
+ *
+ * `priority` a disparu : Google l'ignore depuis des années, et il ne restait
+ * dans ce sitemap qu'une hiérarchie que personne ne lisait.
+ *
+ * DEUX ABSENCES VOULUES. `/seo` est l'administration éditoriale : l'inscrire
+ * ici la ferait découvrir en une journée. `/favoris` ne contient que ce que le
+ * visiteur y a mis, depuis son propre navigateur — pour un robot, c'est une
+ * page vide, et elle porte un `noindex`.
+ */
 const ROUTES_FIXES = [
-  { url: '/', priorite: '1.0' },
-  { url: '/estimer', priorite: '0.9' },
-  { url: '/acheter', priorite: '0.8' },
-  { url: '/louer', priorite: '0.8' },
-  { url: '/vendre', priorite: '0.8' },
-  { url: '/equipe', priorite: '0.6' },
-  { url: '/contact', priorite: '0.6' },
-  { url: '/recrutement', priorite: '0.4' },
-  { url: '/blog', priorite: '0.7' },
-  { url: '/mentions-legales', priorite: '0.2' },
-  { url: '/confidentialite', priorite: '0.2' },
-  { url: '/plan-du-site', priorite: '0.2' },
-  // `/seo` n'y figure pas, et c'est le seul intérêt d'une page sans lien :
-  // l'inscrire au sitemap la ferait découvrir en une journée.
+  { url: '/', source: 'src/pages/Home.jsx' },
+  { url: '/estimer', source: 'src/pages/Estimer.jsx' },
+  { url: '/acheter', source: 'src/pages/Acheter.jsx' },
+  { url: '/louer', source: 'src/pages/Louer.jsx' },
+  { url: '/vendre', source: 'src/pages/Vendre.jsx' },
+  { url: '/equipe', source: 'src/pages/Equipe.jsx' },
+  { url: '/contact', source: 'src/pages/Contact.jsx' },
+  { url: '/recrutement', source: 'src/pages/Recrutement.jsx' },
+  { url: '/espace-vendeur', source: 'src/pages/EspaceVendeur.jsx' },
+  { url: '/blog', source: null },
+  { url: '/mentions-legales', source: 'src/pages/MentionsLegales.jsx' },
+  { url: '/confidentialite', source: 'src/pages/Confidentialite.jsx' },
+  { url: '/plan-du-site', source: 'src/pages/PlanDuSite.jsx' },
 ]
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Date du dernier commit ayant touché un fichier, ou `null`.
+ *
+ * `null` est un résultat normal et non une panne : un clone superficiel — ce
+ * que fait Vercel — n'a qu'un commit, et un dépôt absent n'en a aucun. Dans
+ * les deux cas on préfère une entrée sans date à une date inventée.
+ */
+async function dateCommit(fichier) {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['log', '-1', '--format=%cI', '--', fichier],
+      { cwd: RACINE },
+    )
+    const date = stdout.trim().slice(0, 10)
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null
+  } catch {
+    return null
+  }
+}
+
+/** La plus récente de plusieurs dates, ou `null` si aucune n'est exploitable. */
+const plusRecente = (...dates) => {
+  const valides = dates.filter(Boolean).map((d) => String(d).slice(0, 10)).sort()
+  return valides.length > 0 ? valides[valides.length - 1] : null
+}
+
+/** Les biens que le site publie — les seuls à entrer au sitemap. */
+export const biensPublies = (tous) =>
+  (tous ?? []).filter((b) => b?.reference && b.statut === 'disponible')
 
 /**
  * Compose une page à partir de la coquille construite par Vite.
@@ -331,17 +383,49 @@ async function main() {
   }
   console.log(`  ✓ /agence-immobiliere/…  (${communes.map((c) => c.nom).join(', ')})`)
 
-  // Sitemap.
+  // ── Fichiers de racine ────────────────────────────────────────────────
+  await ecritRobots(DIST, BASE)
+  await ecritLlms(DIST, BASE, { agency, articles, communes })
+  await ecrit404(DIST, coquille, BASE, agency)
+  console.log('  ✓ /robots.txt · /llms.txt · /404.html')
+
+  // ── Sitemap ───────────────────────────────────────────────────────────
+  //
+  // Chaque entrée porte une date de modification RÉELLE ou pas de date du
+  // tout. Trois provenances, aucune inventée : le dernier commit qui a touché
+  // la page pour les routes écrites en dur, la date de révision de l'article
+  // pour le blog, la date de modification de la fiche pour les biens.
+  const publies = biensPublies(biens)
+
+  const datesArticles = articles.map((a) => a.dateModification ?? a.datePublication)
+
+  const entreesFixes = await Promise.all(
+    ROUTES_FIXES.map(async (r) => ({
+      url: `${BASE}${r.url}`,
+      // `/blog` n'a pas de source propre : la liste change quand un article
+      // paraît, sa date est donc celle du plus récent d'entre eux.
+      date: r.source ? await dateCommit(r.source) : plusRecente(...datesArticles),
+    })),
+  )
+
   const entrees = [
-    ...ROUTES_FIXES.map((r) => ({ url: `${BASE}${r.url}`, priorite: r.priorite, date: null })),
+    ...entreesFixes,
     ...articles.map((a) => ({
       url: `${BASE}/blog/${a.slug}`,
-      priorite: '0.7',
       date: a.dateModification ?? a.datePublication,
     })),
-    // Les pages d'agence passent en dernier et en priorité basse : ce sont des
-    // points d'atterrissage, pas le contenu du site.
-    ...communes.map((c) => ({ url: `${BASE}/agence-immobiliere/${c.slug}`, priorite: '0.5', date: null })),
+    // Une page d'agence n'a pas de contenu propre : elle liste les articles
+    // consacrés à la commune, donc elle date du plus récent d'entre eux.
+    ...communes.map((c) => ({
+      url: `${BASE}/agence-immobiliere/${c.slug}`,
+      date: plusRecente(
+        ...articles.filter((a) => a.ville === c.nom).map((a) => a.dateModification ?? a.datePublication),
+      ),
+    })),
+    ...publies.map((b) => ({
+      url: `${BASE}/bien/${b.reference}`,
+      date: (b.dateModification ?? b.datePublication ?? '').slice(0, 10) || null,
+    })),
   ]
 
   await writeFile(
@@ -349,12 +433,14 @@ async function main() {
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entrees
       .map(
         (e) =>
-          `  <url>\n    <loc>${echappe(e.url)}</loc>\n${e.date ? `    <lastmod>${echappe(e.date)}</lastmod>\n` : ''}    <priority>${e.priorite}</priority>\n  </url>`,
+          `  <url>\n    <loc>${echappe(e.url)}</loc>\n${e.date ? `    <lastmod>${echappe(e.date)}</lastmod>\n` : ''}  </url>`,
       )
       .join('\n')}\n</urlset>\n`,
     'utf8',
   )
-  console.log(`  ✓ /sitemap.xml  (${entrees.length} adresses)`)
+
+  const dates = entrees.filter((e) => e.date).length
+  console.log(`  ✓ /sitemap.xml  (${entrees.length} adresses, ${dates} datées, dont ${publies.length} biens)`)
 }
 
 main().catch((error) => {

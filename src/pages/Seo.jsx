@@ -5,6 +5,7 @@ import { Section } from '../components/ui/Section'
 import { Button } from '../components/ui/Button'
 import { PlanDivider } from '../components/ui/PlanDivider'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
+import { useNoIndex } from '../lib/useNoIndex'
 import { articles, dateLisible } from '../lib/articles'
 import plan from '../data/plan.json'
 import journal from '../data/journal.json'
@@ -59,6 +60,9 @@ function useJeton() {
 
 export default function Seo() {
   useDocumentTitle('Administration SEO')
+  // Doublé par l'en-tête `X-Robots-Tag` de `vercel.json`, qui couvre les robots
+  // n'exécutant pas le JavaScript.
+  useNoIndex()
 
   const [jeton, setJeton] = useJeton()
   const [etat, setEtat] = useState(null)

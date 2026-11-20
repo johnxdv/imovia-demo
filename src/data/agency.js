@@ -3,11 +3,19 @@
 export const agency = {
   name: 'IMMOVIA',
   baseline: 'Agence immobilière',
-  // Domaine canonique — sert aux URL absolues qu'un fichier servi hors du
-  // navigateur ne peut pas deviner : balisage schema.org, sitemap, balises
-  // Open Graph des articles prérendus. Reprise de l'en-tête déjà envoyé aux
-  // services publics par `api/monaco-adresses.js`.
-  siteUrl: 'https://immo-via.com',
+  // Domaine canonique — LA SEULE DÉFINITION DE L'HÔTE DANS TOUT LE PROJET.
+  //
+  // En découlent : les `rel=canonical` et `og:url` du prérendu, les `@id` du
+  // balisage schema.org, les adresses du sitemap et la ligne `Sitemap:` du
+  // robots.txt — celui-ci est écrit à la construction depuis cette valeur
+  // (`scripts/prerender-blog.mjs`) précisément pour qu'il n'y ait pas un
+  // second endroit où l'hôte puisse diverger.
+  //
+  // LE `www` N'EST PAS DÉCORATIF. L'apex `immo-via.com` répond 308 vers
+  // `www.immo-via.com` sur tout chemin. Tant que cette valeur portait l'apex,
+  // chaque canonique désignait une adresse qui redirige : vingt-deux pages
+  // annonçaient comme version de référence une URL qui n'en était pas une.
+  siteUrl: 'https://www.immo-via.com',
   phone: '03 72 29 43 76',
   phoneHref: 'tel:+33372294376',
   email: 'contact@immo-via.com',

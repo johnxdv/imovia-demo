@@ -1,6 +1,67 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/estimer", "destination": "/index.html" },
+    { "source": "/vendre", "destination": "/index.html" },
+    { "source": "/acheter", "destination": "/index.html" },
+    { "source": "/louer", "destination": "/index.html" },
+    { "source": "/equipe", "destination": "/index.html" },
+    { "source": "/contact", "destination": "/index.html" },
+    { "source": "/recrutement", "destination": "/index.html" },
+    { "source": "/espace-vendeur", "destination": "/index.html" },
+    { "source": "/favoris", "destination": "/index.html" },
+    { "source": "/mentions-legales", "destination": "/index.html" },
+    { "source": "/confidentialite", "destination": "/index.html" },
+    { "source": "/plan-du-site", "destination": "/index.html" },
+    { "source": "/seo", "destination": "/index.html" },
+    { "source": "/bien/:reference", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "Permissions-Policy",
+          "value": "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        }
+      ]
+    },
+    {
+      "source": "/seo",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/fonts/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/frames/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/photos/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/videos/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/blog/(.*).svg",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/favicon.svg",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    }
+  ],
   "functions": {
     "api/estimation.js": { "maxDuration": 60 }
   }

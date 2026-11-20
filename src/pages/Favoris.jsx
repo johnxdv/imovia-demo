@@ -6,9 +6,13 @@ import { Button } from '../components/ui/Button'
 import { useFavorites } from '../lib/favorites'
 import { getByReference } from '../lib/properties'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
+import { useNoIndex } from '../lib/useNoIndex'
 
 export default function Favoris() {
   useDocumentTitle('Mes favoris')
+  // Une sélection personnelle, lue dans le navigateur du visiteur : vide pour
+  // un robot (voir `useNoIndex`).
+  useNoIndex()
   const { favorites } = useFavorites()
   const biens = favorites.map(getByReference).filter(Boolean)
 
