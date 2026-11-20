@@ -217,7 +217,7 @@ ${liensHtml(
           // Le H1 de `EstimationIntro`, mot pour mot.
           h1: 'Estimez votre bien gratuitement',
           intro:
-            'L’estimation s’appuie sur l’adresse du bien, sa surface et son état, croisés avec les relevés de prix du secteur. Elle est immédiate et sans engagement.',
+            'Renseignez l’adresse de votre bien et obtenez une première valeur en quelques minutes. L’estimation est gratuite, immédiate et sans engagement.',
         }) +
         '\n' +
         sectionHtml(

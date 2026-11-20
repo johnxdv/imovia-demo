@@ -343,8 +343,7 @@ export default function Article() {
         <p className="mt-10 font-mono text-xs text-ink/65">
           <Link to="/estimer" className="transition-colors hover:text-brass-sombre">
             Estimation en ligne
-          </Link>{' '}
-          · Prix relevés sur le secteur, hors majoration commerciale.
+          </Link>
         </p>
       </article>
     </Section>

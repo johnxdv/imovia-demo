@@ -47,6 +47,7 @@ import {
 import { baliseCommune, baliseHtml, scriptLd } from './_lib/jsonLd.mjs'
 import { lireSecteur } from './_lib/planification.mjs'
 import { communesAvecPage, presentationAgence } from '../api/_lib/articleTexte.js'
+import { pageCommune } from '../src/data/communesPages.js'
 import { ecrit404, ecritLlms, ecritRobots } from './_lib/fichiers-racine.mjs'
 import { pagesSite, verifieDescriptions } from './_lib/pages-site.mjs'
 import {
@@ -264,6 +265,48 @@ ${items || '          <li class="text-ink/65">Aucun article pour le moment.</li>
  * statistique de marché : ces pages existent pour donner une destination aux
  * ancres « agence immobilière {ville} », pas pour meubler.
  */
+/**
+ * Bloc éditorial d'une page de commune — jumeau de celui de
+ * `src/pages/AgenceCommune.jsx`.
+ *
+ * Rend une chaîne vide pour les communes qui n'ont pas encore de contenu
+ * rédigé : la page garde alors sa forme courte, sans rien d'inventé pour
+ * combler le vide (voir `src/data/communesPages.js`).
+ *
+ * MÊMES CLASSES QUE LE COMPOSANT. `tailwind.config.js` ne balaie que
+ * `./index.html` et `./src/**` : une classe employée par ce seul fichier est
+ * purgée du CSS produit.
+ */
+function editorialHtml(page) {
+  if (!page) return ''
+
+  const sections = page.sections
+    .map(
+      (sec) => `            <h3 class="mt-10 font-display text-xl text-stone">${echappe(sec.titre)}</h3>
+${sec.corps.map((par) => `            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">${echappe(par)}</p>`).join('\n')}`,
+    )
+    .join('\n')
+
+  const sources = page.sources
+    .map(
+      (src) => `              <li class="mt-3">
+                <a href="${echappe(src.url)}" rel="nofollow noopener" target="_blank" class="font-mono text-xs text-brass">${echappe(src.libelle)}</a>
+                <span class="mt-1 block font-mono text-xs leading-relaxed text-stone/45">${echappe(src.detail)}</span>
+              </li>`,
+    )
+    .join('\n')
+
+  return `            <p class="text-[1.0625rem] leading-[1.75] text-stone/75">${echappe(page.accroche)}</p>
+${sections}
+            <section class="mt-12 border-t border-stone/15 pt-6">
+              <h3 class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">Sources</h3>
+              <ul class="mt-2">
+${sources}
+              </ul>
+            </section>
+`
+}
+
 function agenceHtml(commune, articles, communeSiege) {
   const lies = articles.filter((a) => a.ville === commune.nom)
   const presentation = presentationAgence(commune, {
@@ -315,6 +358,7 @@ ${horaires}
             <p class="mt-10 font-mono text-[0.68rem] leading-relaxed text-stone/50">Carte professionnelle ${echappe(agency.legal.carteProfessionnelle)}, délivrée par ${echappe(agency.legal.carteDelivreePar)}.</p>
           </div>
           <div class="lg:col-span-7">
+${editorialHtml(pageCommune(commune.slug))}
             <h2 class="font-display text-2xl text-stone">Estimation immobilière à ${echappe(commune.nom)}</h2>
             <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">Vous souhaitez connaître la valeur de votre bien à ${echappe(commune.nom)} ? L’estimation en ligne est gratuite et sans engagement.</p>
             <p class="mt-6"><a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimation immobilière ${echappe(commune.nom)}</a></p>

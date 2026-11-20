@@ -5,6 +5,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Section } from '../components/ui/Section'
 import { Button } from '../components/ui/Button'
 import { agency } from '../data/agency'
+import { pageCommune } from '../data/communesPages'
 import { communeParSlug, communeSiege } from '../data/secteur'
 import { presentationAgence } from '../../api/_lib/articleTexte'
 import { articles, dateLisible } from '../lib/articles'
@@ -55,6 +56,8 @@ export default function AgenceCommune() {
   if (!commune) return <NotFound />
 
   const lies = articlesDeLaCommune(commune.nom)
+  // `null` pour les communes dont le portrait n'est pas encore rédigé.
+  const portrait = pageCommune(commune.slug)
 
   return (
     <>
@@ -129,9 +132,53 @@ export default function AgenceCommune() {
             </p>
           </div>
 
-          {/* Estimation + articles de la commune */}
+          {/* Portrait de la commune, estimation, articles */}
           <div className="lg:col-span-7">
-            <h2 className="font-display text-2xl text-stone">
+            {/* Jumeau du bloc rendu par `editorialHtml()` dans le prérendu.
+                Absent pour les communes qui n'ont pas encore de texte : la
+                page garde alors sa forme courte plutôt que d'afficher du
+                remplissage (voir `src/data/communesPages.js`). */}
+            {portrait ? (
+              <>
+                <p className="text-[1.0625rem] leading-[1.75] text-stone/75">{portrait.accroche}</p>
+
+                {portrait.sections.map((sec) => (
+                  <div key={sec.titre}>
+                    <h3 className="mt-10 font-display text-xl text-stone">{sec.titre}</h3>
+                    {sec.corps.map((par, i) => (
+                      <p key={i} className="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">
+                        {par}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+
+                <section className="mt-12 border-t border-stone/15 pt-6">
+                  <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">
+                    Sources
+                  </h3>
+                  <ul className="mt-2">
+                    {portrait.sources.map((src) => (
+                      <li key={src.url} className="mt-3">
+                        <a
+                          href={src.url}
+                          rel="nofollow noopener"
+                          target="_blank"
+                          className="font-mono text-xs text-brass"
+                        >
+                          {src.libelle}
+                        </a>
+                        <span className="mt-1 block font-mono text-xs leading-relaxed text-stone/45">
+                          {src.detail}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </>
+            ) : null}
+
+            <h2 className="mt-16 font-display text-2xl text-stone">
               Estimation immobilière à {commune.nom}
             </h2>
             <p className="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">
