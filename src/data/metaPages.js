@@ -72,10 +72,10 @@ export const META_PAGES = {
     description:
       'Politique de confidentialité d’IMMOVIA : données collectées, finalités, bases légales, durées de conservation, destinataires et exercice de vos droits RGPD.',
   },
-  '/methodologie-des-prix': {
-    titre: 'Méthodologie des prix — IMMOVIA',
+  '/auteur/lucas-bella': {
+    titre: 'Lucas Bella — IMMOVIA',
     description:
-      'D’où viennent les prix au m² de nos estimations en Moselle-Est : sources du relevé, date, cascade de calcul, marge d’erreur mesurée et limites assumées.',
+      'Lucas Bella, directeur de l’agence IMMOVIA à Diebling, signe les articles de ce site : marché de la Moselle-Est, communes du secteur et conseils de vente.',
   },
   '/plan-du-site': {
     titre: 'Plan du site — IMMOVIA',

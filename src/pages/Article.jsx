@@ -6,6 +6,7 @@ import { ArrowLink } from '../components/ui/ArrowLink'
 import { Button } from '../components/ui/Button'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { articles, articleParSlug, dateLisible } from '../lib/articles'
+import { auteur } from '../data/auteur'
 import {
   articlesLies,
   decoupeLien,
@@ -154,6 +155,17 @@ export default function Article() {
           {meta.join(' · ')}
         </p>
 
+        {/* Signature — jumelle de celle du prérendu. Elle suit la ligne de
+            contexte plutôt que de s'y fondre : un nom d'auteur n'est pas une
+            métadonnée de plus, c'est ce qui engage quelqu'un sur ce qui est
+            écrit au-dessous. */}
+        <p className="mt-3 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/55">
+          Publié par{' '}
+          <Link to={auteur.url} className="text-brass-sombre">
+            {auteur.nom}
+          </Link>
+        </p>
+
         <h1 className="mt-6 font-display text-4xl leading-tight text-ink">{article.titre}</h1>
 
         <Illustration visuel={{ ...article.imageEnTete, type: 'photo' }} hero />
@@ -222,8 +234,8 @@ export default function Article() {
               Vous vous demandez ce que vaut votre bien{ou} ?
             </p>
             <p className="mt-3 text-base leading-relaxed text-ink/70">
-              Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article,
-              appliqués à l’adresse, à la surface et à l’état de votre logement.
+              Obtenez une estimation gratuite et sans engagement, à partir de l’adresse de
+              votre bien.
             </p>
             <p className="mt-6">
               <Button to="/estimer" variant="primary">
@@ -305,17 +317,6 @@ export default function Article() {
             </ul>
           </section>
         ) : null}
-
-        {/* Hors du bloc « Sources », qui n'existe que si l'article en cite :
-            quatre articles n'en ont pas, et ce sont les prix qu'ils avancent
-            qui ont le plus besoin d'être rattachés à leur provenance. */}
-        <p className="mt-8 font-mono text-xs leading-relaxed text-ink/55">
-          Les prix au m² cités viennent du relevé de l’agence&nbsp;:{' '}
-          <Link to="/methodologie-des-prix" className="text-brass-sombre">
-            méthodologie des prix
-          </Link>
-          .
-        </p>
 
         <div className="mt-16 flex flex-col items-start gap-6 border-t border-ink/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
           <ArrowLink to="/blog">Tous les articles</ArrowLink>

@@ -90,7 +90,7 @@ const ROUTES_FIXES = [
   { url: '/blog', source: null },
   { url: '/mentions-legales', source: 'src/pages/MentionsLegales.jsx' },
   { url: '/confidentialite', source: 'src/pages/Confidentialite.jsx' },
-  { url: '/methodologie-des-prix', source: 'src/data/methodologie.js' },
+  { url: '/auteur/lucas-bella', source: 'src/pages/Auteur.jsx' },
   { url: '/plan-du-site', source: 'src/pages/PlanDuSite.jsx' },
 ]
 
@@ -316,7 +316,7 @@ ${horaires}
           </div>
           <div class="lg:col-span-7">
             <h2 class="font-display text-2xl text-stone">Estimation immobilière à ${echappe(commune.nom)}</h2>
-            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">L’estimation en ligne s’appuie sur les relevés de prix du secteur, appliqués à l’adresse, à la surface et à l’état du logement. D’où viennent ces relevés et ce qu’ils valent : <a href="/methodologie-des-prix" class="text-brass">méthodologie des prix</a>.</p>
+            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">Vous souhaitez connaître la valeur de votre bien à ${echappe(commune.nom)} ? L’estimation en ligne est gratuite et sans engagement.</p>
             <p class="mt-6"><a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimation immobilière ${echappe(commune.nom)}</a></p>
             <h2 class="mt-16 font-display text-2xl text-stone">Nos articles sur ${echappe(commune.nom)}</h2>
 ${liste}

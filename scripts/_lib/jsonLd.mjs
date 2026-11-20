@@ -18,6 +18,7 @@
 // entretenir deux copies du même balisage pour un lecteur qui n'existe pas.
 
 import { agency } from '../../src/data/agency.js'
+import { auteur } from '../../src/data/auteur.js'
 
 const [latitude, longitude] = String(agency.mapMarker).split(',').map(Number)
 
@@ -195,7 +196,18 @@ export function baliseArticle(article, base = agency.siteUrl) {
         dateModified: article.dateModification ?? article.datePublication,
         inLanguage: 'fr-FR',
         image,
-        author: { '@type': 'Organization', name: agency.name, url: base },
+        // L'auteur est une personne, l'éditeur reste l'agence. La distinction
+        // n'est pas formelle : `author` dit qui signe et en répond, `publisher`
+        // qui édite. Les confondre, comme c'était le cas, revenait à publier
+        // des articles que personne ne signait.
+        author: {
+          '@type': 'Person',
+          '@id': `${base}${auteur.url}#personne`,
+          name: auteur.nom,
+          url: `${base}${auteur.url}`,
+          jobTitle: auteur.role,
+          worksFor: { '@id': `${base}/#agence` },
+        },
         publisher: { '@id': agence['@id'] },
         mainEntityOfPage: { '@type': 'WebPage', '@id': url },
         // Les moteurs génératifs s'appuient sur `about` pour situer un contenu

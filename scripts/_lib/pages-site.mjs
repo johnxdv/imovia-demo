@@ -27,7 +27,7 @@ import { echappe } from './article.mjs'
 import { META_PAGES } from '../../src/data/metaPages.js'
 import { prixLisible, resumeBien } from '../../src/lib/seoBien.js'
 import { baliseAccueil } from './jsonLd.mjs'
-import { methodologie } from '../../src/data/methodologie.js'
+import { auteur } from '../../src/data/auteur.js'
 
 /**
  * Bornes d'une méta-description, et la raison du contrôle plus bas.
@@ -393,18 +393,27 @@ ${agency.hours
     },
 
     {
-      url: '/methodologie-des-prix',
-      ...META_PAGES['/methodologie-des-prix'],
-      source: 'src/pages/MethodologiePrix.jsx',
-      ogType: 'article',
+      url: auteur.url,
+      ...META_PAGES[auteur.url],
+      source: 'src/pages/Auteur.jsx',
+      ogType: 'profile',
       corps:
         enTeteHtml({
-          eyebrow: 'Transparence',
-          h1: methodologie.title,
-          intro: methodologie.intro,
+          eyebrow: 'Auteur',
+          h1: auteur.nom,
+          intro: `${auteur.role} chez ${agency.name}. Il signe les articles publiés sur ce site.`,
         }) +
         '\n' +
-        sectionHtml('ink', sectionsHtml(methodologie.sections)),
+        sectionHtml(
+          'ink',
+          `          <p class="text-stone">${echappe(auteur.role)}</p>
+          <p class="mt-2"><a href="tel:${echappe(auteur.telephone.replace(/\s/g, ''))}" class="font-mono text-stone">${echappe(auteur.telephone)}</a></p>
+          <h2 class="mt-12 text-display-md text-stone">${articles.length} article${articles.length > 1 ? 's' : ''} publié${articles.length > 1 ? 's' : ''}</h2>
+${liensHtml(
+  articles.map((a) => [`/blog/${a.slug}`, a.titre, a.ville ?? null]),
+  'ink',
+)}`,
+        ),
     },
 
     {
@@ -434,9 +443,9 @@ ${liensHtml(
     ['/recrutement', 'Recrutement', null],
     ['/espace-vendeur', 'Espace vendeur', null],
     ['/blog', 'Articles', null],
+    [auteur.url, `Articles signés ${auteur.nom}`, null],
     ['/mentions-legales', 'Mentions légales', null],
     ['/confidentialite', 'Politique de confidentialité', null],
-    ['/methodologie-des-prix', 'Méthodologie des prix', null],
   ],
   'ink',
 )}

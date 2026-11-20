@@ -40,7 +40,7 @@ const Favoris = lazy(() => import('./pages/Favoris'))
 const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
 const Confidentialite = lazy(() => import('./pages/Confidentialite'))
 const PlanDuSite = lazy(() => import('./pages/PlanDuSite'))
-const MethodologiePrix = lazy(() => import('./pages/MethodologiePrix'))
+const Auteur = lazy(() => import('./pages/Auteur'))
 const Seo = lazy(() => import('./pages/Seo'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
@@ -67,9 +67,8 @@ export default function App() {
           <Route path="/mentions-legales" element={<MentionsLegales />} />
           <Route path="/confidentialite" element={<Confidentialite />} />
           <Route path="/plan-du-site" element={<PlanDuSite />} />
-          {/* D'où viennent les prix du site — liée depuis chaque article et
-              chaque page de commune (voir `src/data/methodologie.js`). */}
-          <Route path="/methodologie-des-prix" element={<MethodologiePrix />} />
+          {/* Destination de la signature posée sous chaque article. */}
+          <Route path="/auteur/lucas-bella" element={<Auteur />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<Article />} />
           {/* Une page par commune du secteur — la destination des ancres

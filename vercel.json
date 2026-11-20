@@ -54,6 +54,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/auteur/lucas-bella",
+      "destination": "/index.html"
+    },
+    {
       "source": "/seo",
       "destination": "/index.html"
     }
@@ -112,7 +116,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
+          "value": "public, max-age=2592000, stale-while-revalidate=604800"
         }
       ]
     },
@@ -121,7 +125,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
+          "value": "public, max-age=2592000, stale-while-revalidate=604800"
         }
       ]
     },
@@ -130,7 +134,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
+          "value": "public, max-age=2592000, stale-while-revalidate=604800"
         }
       ]
     },

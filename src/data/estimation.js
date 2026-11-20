@@ -33,11 +33,14 @@ export const ANALYSIS_STEPS = [
  * vérifiables — un chiffre inventé pendant une estimation décrédibiliserait
  * tout le parcours.
  */
+// La phrase sur la base DVF a été retirée : affichée pendant « Calcul de
+// l'estimation… », un fait général sur les ventes publiques se lit comme la
+// méthode du site. Or DVF ne couvre pas le secteur de l'agence, et la phrase
+// laissait donc entendre le contraire de ce qui se passe.
 export const DID_YOU_KNOW = [
   'Depuis 2025, les logements classés G au DPE ne peuvent plus être proposés à la location nue en France métropolitaine.',
   'Le diagnostic de performance énergétique est valable dix ans, mais il doit être refait après des travaux de rénovation importants.',
   'Deux biens identiques peuvent se négocier très différemment d’une rue à l’autre : l’emplacement reste le premier critère de valeur.',
-  'Les transactions immobilières sont publiques : la base DVF recense les ventes des cinq dernières années, adresse par adresse.',
   'Un bien correctement estimé dès la mise en vente se vend en moyenne bien plus vite qu’un bien surévalué puis rebaissé.',
 ]
 
