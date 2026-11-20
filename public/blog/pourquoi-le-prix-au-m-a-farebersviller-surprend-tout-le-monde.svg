@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Prix au m² des maisons relevés en septembre 2026 : Farébersviller et ses communes voisines">
+  <rect width="1200" height="630" fill="#10141C" />
+  <text x="70" y="66" fill="#EDEAE3" font-family="Georgia, serif" font-size="32">Prix au m² des maisons relevés en septembre 2026 :</text>
+  <text x="70" y="106" fill="#EDEAE3" font-family="Georgia, serif" font-size="32">Farébersviller et ses communes voisines</text>
+  <text x="70" y="140" fill="#B08D57" font-family="ui-monospace, SFMono-Regular, monospace" font-size="19" letter-spacing="2.5">€/M²</text>
+  <line x1="70" y1="423" x2="1130" y2="423" stroke="#B08D57" stroke-width="1" />
+  <rect x="87.7" y="174.0" width="53.0" height="249.0" fill="#B08D57" />
+  <text x="114.2" y="207.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">2144</text>
+  <text x="114.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 114.2 449.0)">Farébersviller</text>
+  <rect x="176.0" y="234.5" width="53.0" height="188.5" fill="#B08D57" />
+  <text x="202.5" y="267.5" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1623</text>
+  <text x="202.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 202.5 449.0)">Barst</text>
+  <rect x="264.3" y="240.0" width="53.0" height="183.0" fill="#B08D57" />
+  <text x="290.8" y="273.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1576</text>
+  <text x="290.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 290.8 449.0)">Théding</text>
+  <rect x="352.7" y="240.3" width="53.0" height="182.7" fill="#B08D57" />
+  <text x="379.2" y="273.3" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1573</text>
+  <text x="379.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 379.2 449.0)">Henriville</text>
+  <rect x="441.0" y="253.2" width="53.0" height="169.8" fill="#B08D57" />
+  <text x="467.5" y="286.2" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1462</text>
+  <text x="467.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 467.5 449.0)">Diebling</text>
+  <rect x="529.3" y="253.9" width="53.0" height="169.1" fill="#B08D57" />
+  <text x="555.8" y="286.9" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1456</text>
+  <text x="555.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 555.8 449.0)">Betting</text>
+  <rect x="617.7" y="254.1" width="53.0" height="168.9" fill="#B08D57" />
+  <text x="644.2" y="287.1" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1454</text>
+  <text x="644.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 644.2 449.0)">Cocheren</text>
+  <rect x="706.0" y="257.4" width="53.0" height="165.6" fill="#B08D57" />
+  <text x="732.5" y="290.4" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1426</text>
+  <text x="732.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 732.5 449.0)">Folkling</text>
+  <rect x="794.3" y="259.0" width="53.0" height="164.0" fill="#B08D57" />
+  <text x="820.8" y="292.0" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1412</text>
+  <text x="820.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 820.8 449.0)">Seingbouse</text>
+  <rect x="882.7" y="260.3" width="53.0" height="162.7" fill="#B08D57" />
+  <text x="909.2" y="293.3" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1401</text>
+  <text x="909.2" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 909.2 449.0)">Béning-lès-Saint-Avold</text>
+  <rect x="971.0" y="263.8" width="53.0" height="159.2" fill="#B08D57" />
+  <text x="997.5" y="296.8" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1371</text>
+  <text x="997.5" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 997.5 449.0)">Cappel</text>
+  <rect x="1059.3" y="267.4" width="53.0" height="155.6" fill="#B08D57" />
+  <text x="1085.8" y="300.4" fill="#10141C" font-family="ui-monospace, SFMono-Regular, monospace" font-size="21" font-weight="500" text-anchor="middle">1340</text>
+  <text x="1085.8" y="449.0" fill="#EDEAE3" fill-opacity="0.7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" text-anchor="end" transform="rotate(-45 1085.8 449.0)">Morsbach</text>
+  <text x="1130" y="616" fill="#EDEAE3" fill-opacity="0.35" font-family="ui-monospace, SFMono-Regular, monospace" font-size="15" text-anchor="end">échelle à partir de zéro</text>
+</svg>

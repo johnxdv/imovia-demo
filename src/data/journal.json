@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-11-16",
+      "slug": "pourquoi-le-prix-au-m-a-farebersviller-surprend-tout-le-monde",
+      "titre": "Pourquoi le prix au m² à Farébersviller surprend tout le monde",
+      "sujet": "Pourquoi le prix au m² à Farébersviller surprend tout le monde",
+      "commune": "Farébersviller",
+      "codeInsee": "57207",
+      "motCle": "prix maison Farébersviller",
+      "angle": "Expliquer un niveau de prix relevé nettement au-dessus des communes voisines : poids des lotissements récents, petites surfaces de terrain, rareté des ventes et effet de composition.",
+      "genre": "analyse de prix",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 2,
+          "vente": 0,
+          "estimation": 1
+        },
+        "corrections": 1
+      }
+    },
+    {
       "date": "2026-11-11",
       "slug": "stiring-wendel-la-commune-que-les-acheteurs-decouvrent-apres-forbach",
       "titre": "Stiring-Wendel, la commune que les acheteurs découvrent après Forbach",
