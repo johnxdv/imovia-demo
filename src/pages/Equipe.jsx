@@ -8,6 +8,7 @@ import { PlanFrame } from '../components/ui/PlanFrame'
 import { ContactConseillerModal } from '../components/team/ContactConseillerModal'
 import { team } from '../data/team'
 import { photoUrl, photoSrcSet } from '../lib/format'
+import { PhotoLocale } from '../components/ui/PhotoLocale'
 
 // Photo générique, volontairement floutée à l'excès — la carte Recrutement
 // n'identifie personne, elle invite à postuler.
@@ -30,12 +31,12 @@ export default function Equipe() {
             <RevealChild key={m.id}>
               <article className="group">
                 <div className="relative aspect-[3/4] overflow-hidden bg-ink">
-                  <img
-                    src={m.photo.src}
-                    srcSet={m.photo.srcSet}
+                  <PhotoLocale
+                    photo={m.photo}
                     sizes="(min-width:1024px) 30vw, (min-width:640px) 45vw, 92vw"
                     alt={m.nom}
-                    loading="lazy"
+                    width={700}
+                    height={933}
                     className="h-full w-full object-cover grayscale transition-all duration-500 ease-plan group-hover:grayscale-0"
                   />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
@@ -74,6 +75,8 @@ export default function Equipe() {
               <div className="relative aspect-[3/4] overflow-hidden bg-ink">
                 <img
                   src={photoUrl(RECRUTEMENT_PHOTO, { w: 700 })}
+                  width={700}
+                  height={933}
                   srcSet={photoSrcSet(RECRUTEMENT_PHOTO, [320, 480, 700])}
                   sizes="(min-width:1024px) 30vw, (min-width:640px) 45vw, 92vw"
                   alt=""

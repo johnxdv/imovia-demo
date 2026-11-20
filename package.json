@@ -14,7 +14,8 @@
     "sync:modelo": "node --env-file-if-exists=.env scripts/sync-modelo.mjs",
     "points:reference": "node scripts/points-reference.mjs",
     "blog:article": "node --env-file-if-exists=.env scripts/blog-article.mjs",
-    "blog:prerender": "node scripts/prerender-blog.mjs"
+    "blog:prerender": "node scripts/prerender-blog.mjs",
+    "og": "python3 scripts/og-images.py"
   },
   "dependencies": {
     "framer-motion": "^11.5.4",

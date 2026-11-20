@@ -29,7 +29,7 @@
 // suite, prérendu, puis la version applicative — d'où les classes du site
 // reprises dans le rendu statique, pour que la bascule ne se voie pas.
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
@@ -143,6 +143,52 @@ function composePage(coquille, { titre, description, canonique, tete, corps }) {
     )
     .replace('</head>', `${tete}\n  </head>`)
     .replace('<div id="root"></div>', `<div id="root">\n${corps}\n    </div>`)
+}
+
+/**
+ * Visuel Open Graph de marque, s'il a été produit.
+ *
+ * Les aperçus de partage pointaient sur `images.unsplash.com` : des photos de
+ * banque, servies par un tiers, sans rapport avec l'agence. Ceux-ci sont
+ * composés aux couleurs et à la typographie du site par `scripts/og-images.py`
+ * et versionnés dans `public/og/`.
+ *
+ * `null` quand le fichier n'existe pas — un article tout juste publié par le
+ * workflow, tant que `npm run og` n'a pas tourné. L'appelant retombe alors sur
+ * l'ancien visuel : un oubli dégrade l'aperçu, il ne le casse pas.
+ */
+async function visuelOg(nom) {
+  const chemin = path.join(RACINE, 'public', 'og', `${nom}.png`)
+  try {
+    await access(chemin)
+    return `/og/${nom}.png`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Précharge le morceau JavaScript de la page servie.
+ *
+ * Les pages sont désormais chargées à la demande (`src/App.jsx`). Sans ce
+ * préchargement, l'enchaînement serait : le navigateur peint le prérendu,
+ * React monte, découvre qu'il lui manque le morceau de la route, l'appelle, et
+ * le `Suspense` vide l'écran en attendant. Le préchargement met ce morceau en
+ * vol en même temps que le paquet principal : quand React le réclame, il est
+ * là. Les dépendances partagées du morceau sont préchargées avec lui.
+ *
+ * Rend une chaîne vide si le manifeste n'a rien pour cette route — le site
+ * fonctionne quand même, il clignote.
+ */
+function preloadRoute(manifeste, source) {
+  const entree = manifeste?.[source]
+  if (!entree) return ''
+
+  const fichiers = [entree.file, ...(entree.imports ?? []).map((i) => manifeste[i]?.file)]
+
+  return [...new Set(fichiers.filter(Boolean))]
+    .map((f) => `    <link rel="modulepreload" href="/${f}" />`)
+    .join('\n')
 }
 
 /** Balises de partage — un article partagé sans aperçu perd la moitié de ses clics. */
@@ -288,6 +334,15 @@ async function main() {
   // Le nom tel qu'il s'écrit, et non la ligne postale « 57980 DIEBLING ».
   const communeSiege = secteur.find((c) => c.distanceKm === 0)?.nom ?? ''
 
+  // Le manifeste est produit par `vite build` (voir `vite.config.js`). Son
+  // absence n'est pas bloquante : on perd le préchargement, pas les pages.
+  let manifeste = {}
+  try {
+    manifeste = JSON.parse(await readFile(path.join(DIST, '.vite', 'manifest.json'), 'utf8'))
+  } catch {
+    console.warn('prerender — manifeste Vite introuvable, préchargement des routes ignoré.')
+  }
+
   let coquille
   try {
     coquille = await readFile(path.join(DIST, 'index.html'), 'utf8')
@@ -320,6 +375,7 @@ async function main() {
       description: article.seo?.metaDescription ?? article.resume,
       canonique: url,
       tete: [
+        preloadRoute(manifeste, 'src/pages/Article.jsx'),
         openGraph({
           // Open Graph n'a pas la contrainte de longueur d'un résultat de
           // recherche : l'aperçu d'un partage affiche le titre en entier.
@@ -330,7 +386,10 @@ async function main() {
           // aperçu de partage lisible. `article.image` est l'ancien champ
           // unique, gardé en secours le temps que tous les articles soient
           // repris — un aperçu vide coûte la moitié des clics d'un partage.
-          image: article.imageEnTete?.src ?? article.image?.src,
+          image:
+            (await visuelOg(`blog-${article.slug}`)) ??
+            article.imageEnTete?.src ??
+            article.image?.src,
           publie: article.datePublication,
         }),
         `    ${baliseHtml(article, BASE).split('\n').join('\n    ')}`,
@@ -350,13 +409,16 @@ async function main() {
       titre: `Articles — ${agency.name}`,
       description: `Le marché immobilier de la Moselle-Est vu par ${agency.name} : prix au m², comparaisons de communes et de quartiers.`,
       canonique: `${BASE}/blog`,
-      tete: openGraph({
+      tete: [
+        preloadRoute(manifeste, 'src/pages/Blog.jsx'),
+        openGraph({
         titre: `Articles — ${agency.name}`,
         description: 'Le marché immobilier de la Moselle-Est, chiffres à l’appui.',
         url: `${BASE}/blog`,
         image: null,
         type: 'website',
-      }),
+        }),
+      ].join('\n'),
       corps: listeHtml(articles),
     }),
     'utf8',
@@ -379,7 +441,14 @@ async function main() {
         description,
         canonique: url,
         tete: [
-          openGraph({ titre, description, url, image: null, type: 'website' }),
+          preloadRoute(manifeste, 'src/pages/AgenceCommune.jsx'),
+          openGraph({
+            titre,
+            description,
+            url,
+            image: await visuelOg(`commune-${commune.slug}`),
+            type: 'website',
+          }),
           `    ${scriptLd(baliseCommune(commune, BASE)).split('\n').join('\n    ')}`,
         ].join('\n'),
         corps: agenceHtml(commune, articles, communeSiege),
@@ -406,6 +475,7 @@ async function main() {
       description: page.description,
       canonique: url,
       tete: [
+        preloadRoute(manifeste, page.source),
         openGraph({
           titre: page.titre,
           description: page.description,
@@ -445,6 +515,7 @@ async function main() {
         description: fiche.description,
         canonique: fiche.url,
         tete: [
+          preloadRoute(manifeste, 'src/pages/PropertyDetail.jsx'),
           openGraph({
             titre: fiche.titre,
             description: fiche.description,

@@ -81,6 +81,8 @@ function Illustration({ visuel, hero = false }) {
       <img
         src={visuel.src}
         alt={visuel.alt ?? ''}
+        width={visuel.width ?? 1200}
+        height={visuel.height ?? (visuel.type === 'graphique' ? 675 : 675)}
         className={visuel.type === 'graphique' ? 'w-full' : 'aspect-[16/9] w-full object-cover'}
         loading={hero ? 'eager' : 'lazy'}
         decoding={hero ? 'auto' : 'async'}
@@ -246,6 +248,8 @@ export default function Article() {
                     {autre.imageEnTete?.src ? (
                       <img
                         src={autre.imageEnTete.src}
+                        width={1200}
+                        height={750}
                         alt=""
                         className="aspect-[16/10] w-full object-cover"
                         loading="lazy"

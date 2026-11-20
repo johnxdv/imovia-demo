@@ -19,6 +19,7 @@ import { PropertyCard } from '../components/ui/PropertyCard'
 import { ArrowLink } from '../components/ui/ArrowLink'
 import { Button } from '../components/ui/Button'
 import { photoUrl, localPhoto } from '../lib/format'
+import { PhotoLocale } from '../components/ui/PhotoLocale'
 import { team } from '../data/team'
 import { latestAvailable } from '../lib/properties'
 
@@ -109,12 +110,12 @@ function About() {
         <div className="lg:col-span-6">
           <Reveal delay={0.1}>
             <div className="group relative aspect-[4/3] overflow-hidden">
-              <img
-                src={SARREGUEMINES.src}
-                srcSet={SARREGUEMINES.srcSet}
+              <PhotoLocale
+                photo={SARREGUEMINES}
                 sizes="(min-width:1024px) 45vw, 92vw"
                 alt="Les bords de la Sarre à Sarreguemines, au cœur du secteur de l’agence"
-                loading="lazy"
+                width={1304}
+                height={941}
                 className="h-full w-full object-cover object-center"
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/40 to-transparent" />
@@ -478,6 +479,8 @@ function VendreCTA() {
       <div className="absolute inset-0">
         <img
           src={photoUrl('1613490493576-7fde63acd811', { w: 1920, q: 70 })}
+          width={1920}
+          height={1080}
           alt=""
           loading="lazy"
           className="h-full w-full object-cover opacity-40"

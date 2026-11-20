@@ -170,6 +170,7 @@ ${liensHtml(
     {
       url: '/estimer',
       ...META_PAGES['/estimer'],
+      source: 'src/pages/Estimer.jsx',
       ogType: 'website',
       corps:
         enTeteHtml({
@@ -190,6 +191,7 @@ ${liensHtml(liensCommunes, 'ink')}`,
     {
       url: '/acheter',
       ...META_PAGES['/acheter'],
+      source: 'src/pages/Acheter.jsx',
       ogType: 'website',
       corps:
         enTeteHtml({
@@ -207,6 +209,7 @@ ${liensHtml(liensCommunes, 'ink')}`,
     {
       url: '/louer',
       ...META_PAGES['/louer'],
+      source: 'src/pages/Louer.jsx',
       ogType: 'website',
       corps:
         enTeteHtml({
@@ -224,6 +227,7 @@ ${liensHtml(liensCommunes, 'ink')}`,
     {
       url: '/vendre',
       ...META_PAGES['/vendre'],
+      source: 'src/pages/Vendre.jsx',
       ogType: 'website',
       corps:
         enTeteHtml({
@@ -253,6 +257,7 @@ ${liensHtml(
     {
       url: '/equipe',
       ...META_PAGES['/equipe'],
+      source: 'src/pages/Equipe.jsx',
       ogType: 'website',
       corps: enTeteHtml({
         eyebrow: 'L’équipe',
@@ -265,6 +270,7 @@ ${liensHtml(
     {
       url: '/contact',
       ...META_PAGES['/contact'],
+      source: 'src/pages/Contact.jsx',
       ogType: 'website',
       corps:
         enTeteHtml({
@@ -295,6 +301,7 @@ ${agency.hours
     {
       url: '/recrutement',
       ...META_PAGES['/recrutement'],
+      source: 'src/pages/Recrutement.jsx',
       ogType: 'website',
       corps: enTeteHtml({
         eyebrow: 'Recrutement',
@@ -307,6 +314,7 @@ ${agency.hours
     {
       url: '/espace-vendeur',
       ...META_PAGES['/espace-vendeur'],
+      source: 'src/pages/EspaceVendeur.jsx',
       ogType: 'website',
       corps: enTeteHtml({
         eyebrow: agency.name,
@@ -318,6 +326,7 @@ ${agency.hours
     {
       url: '/mentions-legales',
       ...META_PAGES['/mentions-legales'],
+      source: 'src/pages/MentionsLegales.jsx',
       ogType: 'website',
       corps: enTeteHtml({
         eyebrow: 'Informations légales',
@@ -330,6 +339,7 @@ ${agency.hours
     {
       url: '/confidentialite',
       ...META_PAGES['/confidentialite'],
+      source: 'src/pages/Confidentialite.jsx',
       ogType: 'website',
       corps: enTeteHtml({
         eyebrow: 'Informations légales',
@@ -342,6 +352,7 @@ ${agency.hours
     {
       url: '/plan-du-site',
       ...META_PAGES['/plan-du-site'],
+      source: 'src/pages/PlanDuSite.jsx',
       ogType: 'website',
       corps:
         enTeteHtml({

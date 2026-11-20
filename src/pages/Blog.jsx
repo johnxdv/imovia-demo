@@ -50,6 +50,8 @@ export default function Blog() {
                   {article.imageEnTete?.src ? (
                     <img
                       src={article.imageEnTete.src}
+                      width={1200}
+                      height={750}
                       alt=""
                       className="aspect-[16/10] w-full object-cover"
                       loading="lazy"

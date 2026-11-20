@@ -143,6 +143,8 @@ export default function PropertyDetail() {
               <img
                 key={active}
                 src={photoUrl(photos[active], { w: 1400 })}
+                width={1400}
+                height={1050}
                 srcSet={photoSrcSet(photos[active])}
                 sizes="(min-width:1024px) 58vw, 92vw"
                 alt={`${titre} — visuel ${active + 1}`}
@@ -172,6 +174,8 @@ export default function PropertyDetail() {
                   >
                     <img
                       src={photoUrl(p, { w: 300 })}
+                      width={300}
+                      height={225}
                       alt=""
                       loading="lazy"
                       className={`h-full w-full object-cover ${i === active ? '' : 'opacity-80'}`}

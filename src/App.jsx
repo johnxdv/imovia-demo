@@ -1,28 +1,47 @@
+import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Navbar } from './components/layout/Navbar'
 import { Footer } from './components/layout/Footer'
 import { ScrollToTop } from './components/layout/ScrollToTop'
 import { MetaRoute } from './components/layout/MetaRoute'
 
+/**
+ * Une page par morceau JavaScript, chargée à la demande.
+ *
+ * POURQUOI `Home` RESTE CHARGÉE D'EMBLÉE
+ *
+ * C'est la porte d'entrée du site et la page au plus gros visuel : la
+ * suspendre, même brièvement, se verrait là où cela coûte le plus cher. Les
+ * autres sont atteintes par un clic, pendant lequel leur morceau arrive.
+ *
+ * ET POURQUOI IL N'Y A PAS D'ÉCRAN D'ATTENTE
+ *
+ * Le repli de `Suspense` est `null`, délibérément. Un spinner serait un
+ * élément que le site n'a jamais montré, et il apparaîtrait pour quelques
+ * dizaines de millisecondes — le morceau de la page servie est préchargé par
+ * le `modulepreload` que le prérendu pose dans le HTML, il est donc déjà en
+ * vol quand React le réclame.
+ */
 import Home from './pages/Home'
-import Estimer from './pages/Estimer'
-import Vendre from './pages/Vendre'
-import Acheter from './pages/Acheter'
-import Louer from './pages/Louer'
-import PropertyDetail from './pages/PropertyDetail'
-import Blog from './pages/Blog'
-import Article from './pages/Article'
-import AgenceCommune from './pages/AgenceCommune'
-import Equipe from './pages/Equipe'
-import Contact from './pages/Contact'
-import Recrutement from './pages/Recrutement'
-import EspaceVendeur from './pages/EspaceVendeur'
-import Favoris from './pages/Favoris'
-import MentionsLegales from './pages/MentionsLegales'
-import Confidentialite from './pages/Confidentialite'
-import PlanDuSite from './pages/PlanDuSite'
-import Seo from './pages/Seo'
-import NotFound from './pages/NotFound'
+
+const Estimer = lazy(() => import('./pages/Estimer'))
+const Vendre = lazy(() => import('./pages/Vendre'))
+const Acheter = lazy(() => import('./pages/Acheter'))
+const Louer = lazy(() => import('./pages/Louer'))
+const PropertyDetail = lazy(() => import('./pages/PropertyDetail'))
+const Blog = lazy(() => import('./pages/Blog'))
+const Article = lazy(() => import('./pages/Article'))
+const AgenceCommune = lazy(() => import('./pages/AgenceCommune'))
+const Equipe = lazy(() => import('./pages/Equipe'))
+const Contact = lazy(() => import('./pages/Contact'))
+const Recrutement = lazy(() => import('./pages/Recrutement'))
+const EspaceVendeur = lazy(() => import('./pages/EspaceVendeur'))
+const Favoris = lazy(() => import('./pages/Favoris'))
+const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
+const Confidentialite = lazy(() => import('./pages/Confidentialite'))
+const PlanDuSite = lazy(() => import('./pages/PlanDuSite'))
+const Seo = lazy(() => import('./pages/Seo'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 export default function App() {
   return (
@@ -31,6 +50,7 @@ export default function App() {
       <MetaRoute />
       <Navbar />
       <main id="contenu" className="flex-1">
+        <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/estimer" element={<Estimer />} />
@@ -57,6 +77,7 @@ export default function App() {
           <Route path="/seo" element={<Seo />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </main>
       <Footer />
     </div>

@@ -4,8 +4,13 @@ import { EASE } from '../../lib/motion'
 import { ChevronDown } from 'lucide-react'
 import { SearchBar } from './SearchBar'
 import { EstimationCta } from './EstimationCta'
+import { useVideoAllegee } from '../../lib/useVideoAllegee'
 
 const LOOP_SRC = '/videos/hero-loop.mp4'
+// Première image de la boucle. Sert de poster à la vidéo — ce que le visiteur
+// voit avant qu'elle n'ait assez de données pour démarrer — et d'image de
+// remplacement entière là où la vidéo ne se charge pas (voir `useVideoAllegee`).
+const LOOP_POSTER = '/videos/hero-loop-poster.webp'
 const FRAME_COUNT = 240
 const framePath = (n) => `/frames/hero-walkthrough/frame-${String(n).padStart(3, '0')}.jpg`
 
@@ -35,6 +40,30 @@ export function Hero() {
   const currentFrameRef = useRef(0)
 
   const [searchActive, setSearchActive] = useState(reduce)
+  const chargeVideo = useVideoAllegee()
+
+  // LA SECTION NE FAIT 300 vh QU'APRÈS LE PREMIER AFFICHAGE.
+  //
+  // Elle les faisait d'emblée, et le navigateur devait donc calculer une page
+  // trois fois plus haute que l'écran — avec son canvas et sa vidéo — avant de
+  // pouvoir peindre quoi que ce soit. Rien de visible ne change : l'enfant est
+  // en `sticky` et occupe 100 vh dans les deux cas, seule la longueur à
+  // faire défiler arrive une image plus tard.
+  const [deroule, setDeroule] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setDeroule(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  // La hauteur de la section vient de changer : `useScroll` l'avait mesurée à
+  // 100 vh, c'est-à-dire une course de défilement nulle, et rendait donc une
+  // progression de 1 — le hero s'affichait d'emblée dans son état de fin,
+  // canvas éteint et boucle vidéo en pleine lumière. Un `resize` le force à
+  // reprendre ses mesures sur la section déroulée.
+  useEffect(() => {
+    if (!deroule) return
+    window.dispatchEvent(new Event('resize'))
+  }, [deroule])
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -106,6 +135,8 @@ export function Hero() {
 
   // Préchargement progressif des frames (par lots, jamais tout d'un bloc).
   useEffect(() => {
+    if (!deroule) return undefined
+
     const framesToLoad = reduce ? 1 : FRAME_COUNT
     const images = new Array(FRAME_COUNT)
     const loaded = new Uint8Array(FRAME_COUNT)
@@ -150,7 +181,7 @@ export function Hero() {
       window.removeEventListener('resize', onResize)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reduce])
+  }, [reduce, deroule])
 
   // Frame affichée = position de scroll → index de frame disponible.
   useMotionValueEvent(scrollYProgress, 'change', (p) => {
@@ -167,7 +198,7 @@ export function Hero() {
       id="hero"
       ref={sectionRef}
       className="relative bg-ink"
-      style={{ height: reduce ? '100vh' : '300vh' }}
+      style={{ height: reduce || !deroule ? '100vh' : '300vh' }}
     >
       <div className="sticky top-0 h-screen w-full overflow-hidden">
         {/* Phase 1 — séquence d'images rendue sur canvas (façade → chambre) */}
@@ -178,20 +209,43 @@ export function Hero() {
           aria-hidden="true"
         />
 
-        {/* Phase 2 — boucle d'ambiance, vidéo classique en lecture autonome */}
-        <motion.video
-          ref={loopRef}
-          style={{ opacity: reduce ? 0 : loopOpacity }}
-          className="absolute inset-0 h-full w-full object-cover"
-          src={LOOP_SRC}
-          autoPlay={!reduce}
-          loop
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
+        {/* Phase 2 — boucle d'ambiance, vidéo classique en lecture autonome.
+
+            `preload="metadata"` et non `auto` : en `auto`, le navigateur
+            tirait le fichier entier au chargement de l'accueil, pour un décor
+            que le visiteur ne voit qu'après avoir fait défiler les deux tiers
+            de la section.
+
+            Là où la vidéo ne se charge pas — petit écran, économie de données
+            — c'est le poster seul qui tient le fond, en image. Le rendu sur
+            ordinateur est inchangé. */}
+        {chargeVideo ? (
+          <motion.video
+            ref={loopRef}
+            style={{ opacity: reduce ? 0 : loopOpacity }}
+            className="absolute inset-0 h-full w-full object-cover"
+            src={LOOP_SRC}
+            poster={LOOP_POSTER}
+            autoPlay={!reduce}
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+        ) : (
+          <motion.img
+            style={{ opacity: reduce ? 0 : loopOpacity }}
+            className="absolute inset-0 h-full w-full object-cover"
+            src={LOOP_POSTER}
+            width={1600}
+            height={900}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+          />
+        )}
 
         {/* Voile Ink Navy — unifie le visuel et soutient la lisibilité */}
         <div className="pointer-events-none absolute inset-0 bg-ink/20" />

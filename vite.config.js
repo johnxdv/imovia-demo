@@ -63,6 +63,31 @@ function apiDevServer() {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), apiDevServer()],
+  build: {
+    // Le manifeste dit quel morceau JavaScript correspond à quelle page. Le
+    // prérendu s'en sert pour poser un `modulepreload` sur le morceau de la
+    // route servie : sans lui, React monterait, suspendrait sur un chargement
+    // qui n'a pas encore commencé, et le visiteur verrait le prérendu
+    // disparaître avant que la page n'arrive.
+    manifest: true,
+    rollupOptions: {
+      output: {
+        /**
+         * Les bibliothèques partagées dans leurs propres morceaux.
+         *
+         * Elles ne changent qu'aux montées de version, là où le code du site
+         * change à chaque déploiement : séparées, elles restent dans le cache
+         * du visiteur d'une mise en ligne à l'autre. Mélangées au reste, le
+         * moindre correctif de texte invalidait trois cents kilooctets de
+         * React et de framer-motion.
+         */
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          motion: ['framer-motion'],
+        },
+      },
+    },
+  },
   server: {
     host: true,
     // 5173 par défaut ; `PORT` permet de démarrer sur un port assigné quand
