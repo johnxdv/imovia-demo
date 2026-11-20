@@ -136,7 +136,12 @@ export default function AgenceCommune() {
             </h2>
             <p className="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">
               L’estimation en ligne s’appuie sur les relevés de prix du secteur, appliqués à
-              l’adresse, à la surface et à l’état du logement.
+              l’adresse, à la surface et à l’état du logement. D’où viennent ces relevés et ce
+              qu’ils valent&nbsp;:{' '}
+              <Link to="/methodologie-des-prix" className="text-brass">
+                méthodologie des prix
+              </Link>
+              .
             </p>
             <p className="mt-6">
               <Button to="/estimer" variant="primary">

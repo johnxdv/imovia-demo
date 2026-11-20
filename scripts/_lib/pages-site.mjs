@@ -27,6 +27,7 @@ import { echappe } from './article.mjs'
 import { META_PAGES } from '../../src/data/metaPages.js'
 import { prixLisible, resumeBien } from '../../src/lib/seoBien.js'
 import { baliseAccueil } from './jsonLd.mjs'
+import { methodologie } from '../../src/data/methodologie.js'
 
 /**
  * Bornes d'une méta-description, et la raison du contrôle plus bas.
@@ -93,6 +94,44 @@ ${biens
   })
   .join('\n')}
           </ul>`
+}
+
+/**
+ * Corps d'une page de texte — réplique de `src/components/ui/LegalPage.jsx`.
+ *
+ * Ces pages n'ont rien d'autre que leur texte : le prérendre, c'est la
+ * différence entre une page qui dit quelque chose à un moteur et une page qui
+ * n'a qu'un titre. Mêmes classes que le composant, sans quoi Tailwind les
+ * purge et le rendu statique sort sans mise en forme.
+ */
+function sectionsHtml(sections) {
+  return `          <div class="max-w-3xl">
+${sections
+  .map(
+    (s) => `            <div class="mt-12 first:mt-0">
+              <h2 class="font-display text-2xl text-stone">${echappe(s.titre)}</h2>
+              <div class="mt-4 space-y-4 text-base leading-relaxed text-stone/75">
+${s.corps
+  .map((bloc) =>
+    typeof bloc === 'string'
+      ? `                <p>${echappe(bloc)}</p>`
+      : `                <ul class="space-y-2 pl-1">
+${bloc.liste
+  .map(
+    (item) => `                  <li class="flex gap-3">
+                    <span aria-hidden="true" class="mt-[0.6em] h-px w-3 shrink-0 bg-brass"></span>
+                    <span class="flex-1">${echappe(item)}</span>
+                  </li>`,
+  )
+  .join('\n')}
+                </ul>`,
+  )
+  .join('\n')}
+              </div>
+            </div>`,
+  )
+  .join('\n')}
+          </div>`
 }
 
 /** Liste de liens internes simples, au ton de la page. */
@@ -328,6 +367,10 @@ ${agency.hours
       ...META_PAGES['/mentions-legales'],
       source: 'src/pages/MentionsLegales.jsx',
       ogType: 'website',
+      // Le corps des mentions légales vit dans le composant lui-même, pas
+      // dans un fichier de données : seul l'en-tête est prérendu ici. À
+      // reprendre le jour où ce contenu sera extrait, comme l'a été celui de
+      // la page méthodologie.
       corps: enTeteHtml({
         eyebrow: 'Informations légales',
         h1: 'Mentions légales',
@@ -347,6 +390,21 @@ ${agency.hours
         intro:
           'Comment ce site collecte, utilise et conserve vos données personnelles, et comment exercer vos droits.',
       }),
+    },
+
+    {
+      url: '/methodologie-des-prix',
+      ...META_PAGES['/methodologie-des-prix'],
+      source: 'src/pages/MethodologiePrix.jsx',
+      ogType: 'article',
+      corps:
+        enTeteHtml({
+          eyebrow: 'Transparence',
+          h1: methodologie.title,
+          intro: methodologie.intro,
+        }) +
+        '\n' +
+        sectionHtml('ink', sectionsHtml(methodologie.sections)),
     },
 
     {
@@ -378,6 +436,7 @@ ${liensHtml(
     ['/blog', 'Articles', null],
     ['/mentions-legales', 'Mentions légales', null],
     ['/confidentialite', 'Politique de confidentialité', null],
+    ['/methodologie-des-prix', 'Méthodologie des prix', null],
   ],
   'ink',
 )}

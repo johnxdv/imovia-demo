@@ -50,6 +50,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/methodologie-des-prix",
+      "destination": "/index.html"
+    },
+    {
       "source": "/seo",
       "destination": "/index.html"
     }

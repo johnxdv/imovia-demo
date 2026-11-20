@@ -306,6 +306,17 @@ export default function Article() {
           </section>
         ) : null}
 
+        {/* Hors du bloc « Sources », qui n'existe que si l'article en cite :
+            quatre articles n'en ont pas, et ce sont les prix qu'ils avancent
+            qui ont le plus besoin d'être rattachés à leur provenance. */}
+        <p className="mt-8 font-mono text-xs leading-relaxed text-ink/55">
+          Les prix au m² cités viennent du relevé de l’agence&nbsp;:{' '}
+          <Link to="/methodologie-des-prix" className="text-brass-sombre">
+            méthodologie des prix
+          </Link>
+          .
+        </p>
+
         <div className="mt-16 flex flex-col items-start gap-6 border-t border-ink/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
           <ArrowLink to="/blog">Tous les articles</ArrowLink>
         </div>

@@ -397,6 +397,7 @@ ${sources}
         </section>`
     : ''
 }
+        <p class="mt-8 font-mono text-xs leading-relaxed text-ink/55">Les prix au m² cités viennent du relevé de l’agence : <a href="/methodologie-des-prix" class="text-brass-sombre">méthodologie des prix</a>.</p>
         </article>
       </div>`
 }

@@ -72,6 +72,11 @@ export const META_PAGES = {
     description:
       'Politique de confidentialité d’IMMOVIA : données collectées, finalités, bases légales, durées de conservation, destinataires et exercice de vos droits RGPD.',
   },
+  '/methodologie-des-prix': {
+    titre: 'Méthodologie des prix — IMMOVIA',
+    description:
+      'D’où viennent les prix au m² de nos estimations en Moselle-Est : sources du relevé, date, cascade de calcul, marge d’erreur mesurée et limites assumées.',
+  },
   '/plan-du-site': {
     titre: 'Plan du site — IMMOVIA',
     description:
