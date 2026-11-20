@@ -42,6 +42,8 @@ export function PropertyCard({ property, simplifie = false }) {
         <div className="relative aspect-[4/3] overflow-hidden">
           <img
             src={photoUrl(cover, { w: 900 })}
+            width={900}
+            height={675}
             srcSet={photoSrcSet(cover)}
             sizes="(min-width:1024px) 30vw, (min-width:640px) 45vw, 92vw"
             alt={`${typeBien} à ${ville} — ${titre}`}

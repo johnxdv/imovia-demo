@@ -5,7 +5,6 @@ import { Section } from '../components/ui/Section'
 import { Reveal } from '../components/ui/Reveal'
 import { ConsentNotice } from '../components/ui/ConsentNotice'
 import { agency } from '../data/agency'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 const labelClass = 'mb-2 block font-mono text-[0.62rem] uppercase tracking-micro text-ink/50'
 const controlClass =
@@ -18,7 +17,6 @@ const raisons = [
 ]
 
 export default function Recrutement() {
-  useDocumentTitle('Recrutement')
   const [sent, setSent] = useState(false)
 
   const handleSubmit = (e) => {

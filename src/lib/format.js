@@ -89,9 +89,24 @@ export function photoSrcSet(photo, widths = [480, 768, 1200, 1800]) {
  */
 export function localPhoto(base, widths) {
   const ordered = [...widths].sort((a, b) => a - b)
+  const jeu = (ext) => ordered.map((w) => `${base}-${w}.${ext} ${w}w`).join(', ')
+  const grande = ordered[ordered.length - 1]
+
   return {
-    src: `${base}-${ordered[ordered.length - 1]}.jpg`,
-    srcSet: ordered.map((w) => `${base}-${w}.jpg ${w}w`).join(', '),
+    // Le JPEG reste le `src` : c'est le repli universel, et c'est lui que
+    // reçoit un navigateur qui ne comprend ni AVIF ni WebP.
+    src: `${base}-${grande}.jpg`,
+    srcSet: jeu('jpg'),
+    // Les deux formats modernes, du plus efficace au moins efficace. Un
+    // `<picture>` prend la première source qu'il sait décoder : l'ordre est
+    // donc la seule chose qui décide, et inverser ces deux lignes servirait du
+    // WebP à des navigateurs capables d'AVIF.
+    avifSrcSet: jeu('avif'),
+    webpSrcSet: jeu('webp'),
+    // Dimensions intrinsèques de la plus grande déclinaison. Elles donnent au
+    // navigateur le rapport de forme avant que l'image n'arrive : sans elles,
+    // la page se réagence au chargement et le décalage compte au CLS.
+    width: grande,
   }
 }
 

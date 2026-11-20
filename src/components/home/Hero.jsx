@@ -4,10 +4,20 @@ import { EASE } from '../../lib/motion'
 import { ChevronDown } from 'lucide-react'
 import { SearchBar } from './SearchBar'
 import { EstimationCta } from './EstimationCta'
+import { useVideoAllegee } from '../../lib/useVideoAllegee'
 
 const LOOP_SRC = '/videos/hero-loop.mp4'
+// Première image de la boucle. Sert de poster à la vidéo — ce que le visiteur
+// voit avant qu'elle n'ait assez de données pour démarrer — et d'image de
+// remplacement entière là où la vidéo ne se charge pas (voir `useVideoAllegee`).
+const LOOP_POSTER = '/videos/hero-loop-poster.webp'
 const FRAME_COUNT = 240
-const framePath = (n) => `/frames/hero-walkthrough/frame-${String(n).padStart(3, '0')}.jpg`
+// WebP, 1600 de large : la séquence pesait 35,2 Mo en JPEG 1920, elle en
+// pèse 10,8. Les 240 images sont toutes conservées — réduire leur nombre
+// aurait doublé le pas du défilement, et c'est la seule chose qui se serait
+// vue. La définition, elle, ne se voit pas : le canvas redessine à la taille
+// de la fenêtre, derrière un voile Ink et deux dégradés.
+const framePath = (n) => `/frames/hero-walkthrough/frame-${String(n).padStart(3, '0')}.webp`
 
 // Répartition du scroll sur la section.
 const SCRUB_END = 0.68 // fin du parcours (dernière frame)
@@ -35,6 +45,34 @@ export function Hero() {
   const currentFrameRef = useRef(0)
 
   const [searchActive, setSearchActive] = useState(reduce)
+  // Vaut pour la vidéo ET pour la séquence : sur petit écran et en économie
+  // de données, ni l'une ni l'autre ne se charge — 10,8 Mo d'images pour un
+  // décor, sur un forfait mobile, ne se justifient pas davantage qu'une
+  // vidéo. Le poster tient alors le fond à lui seul.
+  const chargeDecor = useVideoAllegee()
+
+  // LA SECTION NE FAIT 300 vh QU'APRÈS LE PREMIER AFFICHAGE.
+  //
+  // Elle les faisait d'emblée, et le navigateur devait donc calculer une page
+  // trois fois plus haute que l'écran — avec son canvas et sa vidéo — avant de
+  // pouvoir peindre quoi que ce soit. Rien de visible ne change : l'enfant est
+  // en `sticky` et occupe 100 vh dans les deux cas, seule la longueur à
+  // faire défiler arrive une image plus tard.
+  const [deroule, setDeroule] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setDeroule(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  // La hauteur de la section vient de changer : `useScroll` l'avait mesurée à
+  // 100 vh, c'est-à-dire une course de défilement nulle, et rendait donc une
+  // progression de 1 — le hero s'affichait d'emblée dans son état de fin,
+  // canvas éteint et boucle vidéo en pleine lumière. Un `resize` le force à
+  // reprendre ses mesures sur la section déroulée.
+  useEffect(() => {
+    if (!deroule) return
+    window.dispatchEvent(new Event('resize'))
+  }, [deroule])
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -106,6 +144,8 @@ export function Hero() {
 
   // Préchargement progressif des frames (par lots, jamais tout d'un bloc).
   useEffect(() => {
+    if (!deroule || !chargeDecor) return undefined
+
     const framesToLoad = reduce ? 1 : FRAME_COUNT
     const images = new Array(FRAME_COUNT)
     const loaded = new Uint8Array(FRAME_COUNT)
@@ -150,7 +190,7 @@ export function Hero() {
       window.removeEventListener('resize', onResize)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reduce])
+  }, [reduce, deroule, chargeDecor])
 
   // Frame affichée = position de scroll → index de frame disponible.
   useMotionValueEvent(scrollYProgress, 'change', (p) => {
@@ -167,34 +207,71 @@ export function Hero() {
       id="hero"
       ref={sectionRef}
       className="relative bg-ink"
-      style={{ height: reduce ? '100vh' : '300vh' }}
+      style={{ height: reduce || !deroule ? '100vh' : '300vh' }}
     >
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        {/* Phase 1 — séquence d'images rendue sur canvas (façade → chambre) */}
-        <motion.canvas
-          ref={canvasRef}
-          style={{ opacity: reduce ? 1 : canvasOpacity }}
-          className="absolute inset-0 h-full w-full"
-          aria-hidden="true"
-        />
+        {chargeDecor ? (
+          <>
+            {/* Phase 1 — séquence d'images rendue sur canvas (façade → chambre) */}
+            <motion.canvas
+              ref={canvasRef}
+              style={{ opacity: reduce ? 1 : canvasOpacity }}
+              className="absolute inset-0 h-full w-full"
+              aria-hidden="true"
+            />
 
-        {/* Phase 2 — boucle d'ambiance, vidéo classique en lecture autonome */}
-        <motion.video
-          ref={loopRef}
-          style={{ opacity: reduce ? 0 : loopOpacity }}
-          className="absolute inset-0 h-full w-full object-cover"
-          src={LOOP_SRC}
-          autoPlay={!reduce}
-          loop
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
+            {/* Phase 2 — boucle d'ambiance, vidéo classique en lecture autonome.
 
-        {/* Voile Ink Navy — unifie le visuel et soutient la lisibilité */}
-        <div className="pointer-events-none absolute inset-0 bg-ink/20" />
+                `preload="metadata"` et non `auto` : en `auto`, le navigateur
+                tirait le fichier entier au chargement de l'accueil, pour un
+                décor que le visiteur ne voit qu'après avoir fait défiler les
+                deux tiers de la section. */}
+            <motion.video
+              ref={loopRef}
+              style={{ opacity: reduce ? 0 : loopOpacity }}
+              className="absolute inset-0 h-full w-full object-cover"
+              src={LOOP_SRC}
+              poster={LOOP_POSTER}
+              autoPlay={!reduce}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+          </>
+        ) : (
+          /* Petit écran ou économie de données : ni la séquence, ni la vidéo.
+
+             Le poster tient le fond à lui seul, en pleine opacité et sans
+             dépendre du défilement — s'il suivait `loopOpacity` comme la
+             vidéo qu'il remplace, le hero s'ouvrirait sur du noir, puisque
+             cette valeur part de zéro et qu'il n'y a plus de canvas derrière
+             pour occuper la place. Le reste de la section ne change pas : le
+             titre s'efface et le panneau de recherche se révèle au même
+             rythme. */
+          <img
+            src={LOOP_POSTER}
+            width={1600}
+            height={900}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            fetchPriority="high"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+
+        {/* Voile Ink Navy — unifie le visuel et soutient la lisibilité.
+
+            Plus dense quand le fond est le poster seul : la séquence s'ouvre
+            sur une façade sombre, le poster sur une baie vitrée en plein jour,
+            et l'accroche blanche y devenait illisible. Le voile du parcours
+            complet, lui, ne bouge pas. */}
+        <div
+          className={`pointer-events-none absolute inset-0 ${chargeDecor ? 'bg-ink/20' : 'bg-ink/45'}`}
+        />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-ink/70 to-transparent" />
 
         {/* Accroche — centrée sur la première frame, disparaît dès le scroll */}

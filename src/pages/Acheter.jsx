@@ -1,10 +1,8 @@
 import { PageHeader } from '../components/ui/PageHeader'
 import { Section } from '../components/ui/Section'
 import { PropertyListing } from '../components/property/PropertyListing'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 export default function Acheter() {
-  useDocumentTitle('Acheter')
   return (
     <>
       <PageHeader

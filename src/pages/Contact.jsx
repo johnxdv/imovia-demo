@@ -6,14 +6,12 @@ import { Section } from '../components/ui/Section'
 import { PlanFrame } from '../components/ui/PlanFrame'
 import { ConsentNotice } from '../components/ui/ConsentNotice'
 import { agency } from '../data/agency'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 const labelClass = 'mb-2 block font-mono text-[0.62rem] uppercase tracking-micro text-stone/50'
 const controlClass =
   'w-full border border-brass/25 bg-transparent px-4 py-3 font-sans text-sm text-stone placeholder:text-stone/35 focus:border-brass focus:outline-none'
 
 export default function Contact() {
-  useDocumentTitle('Contact')
   const [searchParams] = useSearchParams()
   const bien = searchParams.get('bien')
   const [sent, setSent] = useState(false)

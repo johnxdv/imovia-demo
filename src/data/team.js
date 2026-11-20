@@ -3,7 +3,9 @@
 // bundle front. La fonction serverless (api/contact-conseiller.js) la résout
 // côté serveur à partir de l'identifiant `id`, via des variables
 // d'environnement Vercel.
-import { localPhoto } from '../lib/format'
+// Extension explicite : ce fichier remonte jusqu'au prérendu, qui tourne
+// sous Node, où un import sans extension ne résout pas.
+import { localPhoto } from '../lib/format.js'
 
 // Portraits fournis par l'agence, servis depuis `public/photos/equipe/` et
 // déclinés en trois largeurs (320 / 480 / 700) pour les cartes 3/4.

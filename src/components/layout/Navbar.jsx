@@ -7,6 +7,7 @@ import { agency } from '../../data/agency'
 import { useFavorites } from '../../lib/favorites'
 import { EASE } from '../../lib/motion'
 import logoUrl from '../../assets/logo.png'
+import logoWebp from '../../assets/logo.webp'
 
 function Wordmark({ onClick }) {
   return (
@@ -16,7 +17,19 @@ function Wordmark({ onClick }) {
       className="group relative z-10 inline-flex items-center"
       aria-label={`${agency.name} — accueil`}
     >
-      <img src={logoUrl} alt={agency.name} className="h-7 w-auto shrink-0" />
+      {/* 520×84 : l'original faisait 1882 de large pour un affichage à 28 px
+          de haut — cinq fois la définition utile, et 125 Ko. Le WebP passe
+          devant, le PNG reste le repli. */}
+      <picture>
+        <source type="image/webp" srcSet={logoWebp} />
+        <img
+          src={logoUrl}
+          alt={agency.name}
+          width={520}
+          height={84}
+          className="h-7 w-auto shrink-0"
+        />
+      </picture>
     </Link>
   )
 }

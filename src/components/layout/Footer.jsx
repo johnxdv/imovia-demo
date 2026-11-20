@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Phone, MapPin, Mail, Facebook, Instagram, Linkedin } from 'lucide-react'
+import { Phone, MapPin, Mail, Instagram, Linkedin } from 'lucide-react'
 import { agency } from '../../data/agency'
 import { latestAvailable } from '../../lib/properties'
 import { PlanDivider } from '../ui/PlanDivider'
@@ -28,7 +28,10 @@ const legalFooterLinks = [
   { to: '/plan-du-site', label: 'Plan du site' },
 ]
 
-const socialIcons = { Facebook, Instagram, LinkedIn: Linkedin }
+// Pas d'entrée Facebook : l'agence n'a pas de page. L'icône était importée et
+// câblée alors que plus aucun lien ne l'employait — la laisser revenait à
+// inviter à remettre une adresse qui n'existe pas.
+const socialIcons = { Instagram, LinkedIn: Linkedin }
 
 // Lien commun à toute la colonne, avec une zone tactile généreuse.
 const linkClass = 'inline-block py-1 -my-1 text-stone/80 transition-colors hover:text-brass'

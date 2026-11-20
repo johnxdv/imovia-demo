@@ -29,7 +29,9 @@
 // suite, prérendu, puis la version applicative — d'où les classes du site
 // reprises dans le rendu statique, pour que la bascule ne se voie pas.
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import path from 'node:path'
 
 import { agency } from '../src/data/agency.js'
@@ -42,31 +44,86 @@ import {
   tempsLecture,
   titreHtml,
 } from './_lib/article.mjs'
-import { baliseHtml } from './_lib/jsonLd.mjs'
+import { baliseCommune, baliseHtml, scriptLd } from './_lib/jsonLd.mjs'
 import { lireSecteur } from './_lib/planification.mjs'
 import { communesAvecPage, presentationAgence } from '../api/_lib/articleTexte.js'
+import { pageCommune } from '../src/data/communesPages.js'
+import { ecrit404, ecritLlms, ecritRobots } from './_lib/fichiers-racine.mjs'
+import { pagesSite, verifieDescriptions } from './_lib/pages-site.mjs'
+import {
+  biensPublies,
+  pagesBiens,
+  verifieDescriptionsBiens,
+} from './_lib/pages-biens.mjs'
+import biens from '../src/data/properties.json' with { type: 'json' }
 
 const RACINE = path.resolve(import.meta.dirname, '..')
 const DIST = path.join(RACINE, 'dist')
 const BASE = process.env.SITE_URL?.replace(/\/$/, '') || agency.siteUrl
 
-/** Routes fixes du site, pour le sitemap. */
+/**
+ * Routes fixes du site, avec le fichier d'où vient leur contenu.
+ *
+ * `source` sert à dater l'entrée du sitemap : la date du dernier commit qui a
+ * touché ce fichier est la seule date de modification réelle dont on dispose
+ * pour une page écrite en dur. À défaut — dépôt absent, historique tronqué —
+ * l'entrée part sans `lastmod` plutôt qu'avec la date du jour, qui annoncerait
+ * une révision qui n'a pas eu lieu.
+ *
+ * `priority` a disparu : Google l'ignore depuis des années, et il ne restait
+ * dans ce sitemap qu'une hiérarchie que personne ne lisait.
+ *
+ * DEUX ABSENCES VOULUES. `/seo` est l'administration éditoriale : l'inscrire
+ * ici la ferait découvrir en une journée. `/favoris` ne contient que ce que le
+ * visiteur y a mis, depuis son propre navigateur — pour un robot, c'est une
+ * page vide, et elle porte un `noindex`.
+ */
 const ROUTES_FIXES = [
-  { url: '/', priorite: '1.0' },
-  { url: '/estimer', priorite: '0.9' },
-  { url: '/acheter', priorite: '0.8' },
-  { url: '/louer', priorite: '0.8' },
-  { url: '/vendre', priorite: '0.8' },
-  { url: '/equipe', priorite: '0.6' },
-  { url: '/contact', priorite: '0.6' },
-  { url: '/recrutement', priorite: '0.4' },
-  { url: '/blog', priorite: '0.7' },
-  { url: '/mentions-legales', priorite: '0.2' },
-  { url: '/confidentialite', priorite: '0.2' },
-  { url: '/plan-du-site', priorite: '0.2' },
-  // `/seo` n'y figure pas, et c'est le seul intérêt d'une page sans lien :
-  // l'inscrire au sitemap la ferait découvrir en une journée.
+  { url: '/', source: 'src/pages/Home.jsx' },
+  { url: '/estimer', source: 'src/pages/Estimer.jsx' },
+  { url: '/acheter', source: 'src/pages/Acheter.jsx' },
+  { url: '/louer', source: 'src/pages/Louer.jsx' },
+  { url: '/vendre', source: 'src/pages/Vendre.jsx' },
+  { url: '/equipe', source: 'src/pages/Equipe.jsx' },
+  { url: '/contact', source: 'src/pages/Contact.jsx' },
+  { url: '/recrutement', source: 'src/pages/Recrutement.jsx' },
+  { url: '/espace-vendeur', source: 'src/pages/EspaceVendeur.jsx' },
+  { url: '/blog', source: null },
+  { url: '/mentions-legales', source: 'src/pages/MentionsLegales.jsx' },
+  { url: '/confidentialite', source: 'src/pages/Confidentialite.jsx' },
+  { url: '/auteur/lucas-bella', source: 'src/pages/Auteur.jsx' },
+  { url: '/plan-du-site', source: 'src/pages/PlanDuSite.jsx' },
 ]
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Date du dernier commit ayant touché un fichier, ou `null`.
+ *
+ * `null` est un résultat normal et non une panne : un clone superficiel — ce
+ * que fait Vercel — n'a qu'un commit, et un dépôt absent n'en a aucun. Dans
+ * les deux cas on préfère une entrée sans date à une date inventée.
+ */
+async function dateCommit(fichier) {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['log', '-1', '--format=%cI', '--', fichier],
+      { cwd: RACINE },
+    )
+    const date = stdout.trim().slice(0, 10)
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null
+  } catch {
+    return null
+  }
+}
+
+/** La plus récente de plusieurs dates, ou `null` si aucune n'est exploitable. */
+const plusRecente = (...dates) => {
+  const valides = dates.filter(Boolean).map((d) => String(d).slice(0, 10)).sort()
+  return valides.length > 0 ? valides[valides.length - 1] : null
+}
+
 
 /**
  * Compose une page à partir de la coquille construite par Vite.
@@ -88,6 +145,52 @@ function composePage(coquille, { titre, description, canonique, tete, corps }) {
     )
     .replace('</head>', `${tete}\n  </head>`)
     .replace('<div id="root"></div>', `<div id="root">\n${corps}\n    </div>`)
+}
+
+/**
+ * Visuel Open Graph de marque, s'il a été produit.
+ *
+ * Les aperçus de partage pointaient sur `images.unsplash.com` : des photos de
+ * banque, servies par un tiers, sans rapport avec l'agence. Ceux-ci sont
+ * composés aux couleurs et à la typographie du site par `scripts/og-images.py`
+ * et versionnés dans `public/og/`.
+ *
+ * `null` quand le fichier n'existe pas — un article tout juste publié par le
+ * workflow, tant que `npm run og` n'a pas tourné. L'appelant retombe alors sur
+ * l'ancien visuel : un oubli dégrade l'aperçu, il ne le casse pas.
+ */
+async function visuelOg(nom) {
+  const chemin = path.join(RACINE, 'public', 'og', `${nom}.png`)
+  try {
+    await access(chemin)
+    return `/og/${nom}.png`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Précharge le morceau JavaScript de la page servie.
+ *
+ * Les pages sont désormais chargées à la demande (`src/App.jsx`). Sans ce
+ * préchargement, l'enchaînement serait : le navigateur peint le prérendu,
+ * React monte, découvre qu'il lui manque le morceau de la route, l'appelle, et
+ * le `Suspense` vide l'écran en attendant. Le préchargement met ce morceau en
+ * vol en même temps que le paquet principal : quand React le réclame, il est
+ * là. Les dépendances partagées du morceau sont préchargées avec lui.
+ *
+ * Rend une chaîne vide si le manifeste n'a rien pour cette route — le site
+ * fonctionne quand même, il clignote.
+ */
+function preloadRoute(manifeste, source) {
+  const entree = manifeste?.[source]
+  if (!entree) return ''
+
+  const fichiers = [entree.file, ...(entree.imports ?? []).map((i) => manifeste[i]?.file)]
+
+  return [...new Set(fichiers.filter(Boolean))]
+    .map((f) => `    <link rel="modulepreload" href="/${f}" />`)
+    .join('\n')
 }
 
 /** Balises de partage — un article partagé sans aperçu perd la moitié de ses clics. */
@@ -162,6 +265,48 @@ ${items || '          <li class="text-ink/65">Aucun article pour le moment.</li>
  * statistique de marché : ces pages existent pour donner une destination aux
  * ancres « agence immobilière {ville} », pas pour meubler.
  */
+/**
+ * Bloc éditorial d'une page de commune — jumeau de celui de
+ * `src/pages/AgenceCommune.jsx`.
+ *
+ * Rend une chaîne vide pour les communes qui n'ont pas encore de contenu
+ * rédigé : la page garde alors sa forme courte, sans rien d'inventé pour
+ * combler le vide (voir `src/data/communesPages.js`).
+ *
+ * MÊMES CLASSES QUE LE COMPOSANT. `tailwind.config.js` ne balaie que
+ * `./index.html` et `./src/**` : une classe employée par ce seul fichier est
+ * purgée du CSS produit.
+ */
+function editorialHtml(page) {
+  if (!page) return ''
+
+  const sections = page.sections
+    .map(
+      (sec) => `            <h3 class="mt-10 font-display text-xl text-stone">${echappe(sec.titre)}</h3>
+${sec.corps.map((par) => `            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">${echappe(par)}</p>`).join('\n')}`,
+    )
+    .join('\n')
+
+  const sources = page.sources
+    .map(
+      (src) => `              <li class="mt-3">
+                <a href="${echappe(src.url)}" rel="nofollow noopener" target="_blank" class="font-mono text-xs text-brass">${echappe(src.libelle)}</a>
+                <span class="mt-1 block font-mono text-xs leading-relaxed text-stone/45">${echappe(src.detail)}</span>
+              </li>`,
+    )
+    .join('\n')
+
+  return `            <p class="text-[1.0625rem] leading-[1.75] text-stone/75">${echappe(page.accroche)}</p>
+${sections}
+            <section class="mt-12 border-t border-stone/15 pt-6">
+              <h3 class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass">Sources</h3>
+              <ul class="mt-2">
+${sources}
+              </ul>
+            </section>
+`
+}
+
 function agenceHtml(commune, articles, communeSiege) {
   const lies = articles.filter((a) => a.ville === commune.nom)
   const presentation = presentationAgence(commune, {
@@ -213,8 +358,9 @@ ${horaires}
             <p class="mt-10 font-mono text-[0.68rem] leading-relaxed text-stone/50">Carte professionnelle ${echappe(agency.legal.carteProfessionnelle)}, délivrée par ${echappe(agency.legal.carteDelivreePar)}.</p>
           </div>
           <div class="lg:col-span-7">
+${editorialHtml(pageCommune(commune.slug))}
             <h2 class="font-display text-2xl text-stone">Estimation immobilière à ${echappe(commune.nom)}</h2>
-            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">L’estimation en ligne s’appuie sur les relevés de prix du secteur, appliqués à l’adresse, à la surface et à l’état du logement.</p>
+            <p class="mt-4 text-[1.0625rem] leading-[1.75] text-stone/75">Vous souhaitez connaître la valeur de votre bien à ${echappe(commune.nom)} ? L’estimation en ligne est gratuite et sans engagement.</p>
             <p class="mt-6"><a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimation immobilière ${echappe(commune.nom)}</a></p>
             <h2 class="mt-16 font-display text-2xl text-stone">Nos articles sur ${echappe(commune.nom)}</h2>
 ${liste}
@@ -232,6 +378,15 @@ async function main() {
   const communes = communesAvecPage(secteur, articles)
   // Le nom tel qu'il s'écrit, et non la ligne postale « 57980 DIEBLING ».
   const communeSiege = secteur.find((c) => c.distanceKm === 0)?.nom ?? ''
+
+  // Le manifeste est produit par `vite build` (voir `vite.config.js`). Son
+  // absence n'est pas bloquante : on perd le préchargement, pas les pages.
+  let manifeste = {}
+  try {
+    manifeste = JSON.parse(await readFile(path.join(DIST, '.vite', 'manifest.json'), 'utf8'))
+  } catch {
+    console.warn('prerender — manifeste Vite introuvable, préchargement des routes ignoré.')
+  }
 
   let coquille
   try {
@@ -265,6 +420,7 @@ async function main() {
       description: article.seo?.metaDescription ?? article.resume,
       canonique: url,
       tete: [
+        preloadRoute(manifeste, 'src/pages/Article.jsx'),
         openGraph({
           // Open Graph n'a pas la contrainte de longueur d'un résultat de
           // recherche : l'aperçu d'un partage affiche le titre en entier.
@@ -275,7 +431,10 @@ async function main() {
           // aperçu de partage lisible. `article.image` est l'ancien champ
           // unique, gardé en secours le temps que tous les articles soient
           // repris — un aperçu vide coûte la moitié des clics d'un partage.
-          image: article.imageEnTete?.src ?? article.image?.src,
+          image:
+            (await visuelOg(`blog-${article.slug}`)) ??
+            article.imageEnTete?.src ??
+            article.image?.src,
           publie: article.datePublication,
         }),
         `    ${baliseHtml(article, BASE).split('\n').join('\n    ')}`,
@@ -295,13 +454,16 @@ async function main() {
       titre: `Articles — ${agency.name}`,
       description: `Le marché immobilier de la Moselle-Est vu par ${agency.name} : prix au m², comparaisons de communes et de quartiers.`,
       canonique: `${BASE}/blog`,
-      tete: openGraph({
+      tete: [
+        preloadRoute(manifeste, 'src/pages/Blog.jsx'),
+        openGraph({
         titre: `Articles — ${agency.name}`,
         description: 'Le marché immobilier de la Moselle-Est, chiffres à l’appui.',
         url: `${BASE}/blog`,
         image: null,
         type: 'website',
-      }),
+        }),
+      ].join('\n'),
       corps: listeHtml(articles),
     }),
     'utf8',
@@ -323,7 +485,17 @@ async function main() {
         titre,
         description,
         canonique: url,
-        tete: openGraph({ titre, description, url, image: null, type: 'website' }),
+        tete: [
+          preloadRoute(manifeste, 'src/pages/AgenceCommune.jsx'),
+          openGraph({
+            titre,
+            description,
+            url,
+            image: await visuelOg(`commune-${commune.slug}`),
+            type: 'website',
+          }),
+          `    ${scriptLd(baliseCommune(commune, BASE)).split('\n').join('\n    ')}`,
+        ].join('\n'),
         corps: agenceHtml(commune, articles, communeSiege),
       }),
       'utf8',
@@ -331,17 +503,153 @@ async function main() {
   }
   console.log(`  ✓ /agence-immobiliere/…  (${communes.map((c) => c.nom).join(', ')})`)
 
-  // Sitemap.
+  // ── Routes applicatives ───────────────────────────────────────────────
+  //
+  // Écrites AVANT les fichiers de racine, parce que la page d'accueil remplace
+  // `dist/index.html` — la coquille dont tout le reste est tiré, déjà lue plus
+  // haut. Les autres routes vont dans leur propre dossier, comme les articles.
+  const publiesSite = biensPublies(biens)
+  const pages = pagesSite({ agency, articles, communes, biens: publiesSite })
+  verifieDescriptions(pages)
+
+  for (const page of pages) {
+    const url = page.url === '/' ? `${BASE}/` : `${BASE}${page.url}`
+
+    const html = composePage(coquille, {
+      titre: page.titre,
+      description: page.description,
+      canonique: url,
+      tete: [
+        preloadRoute(manifeste, page.source),
+        openGraph({
+          titre: page.titre,
+          description: page.description,
+          url,
+          image: null,
+          type: page.ogType,
+        }),
+        page.balise ? `    ${scriptLd(page.balise).split('\n').join('\n    ')}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      corps: page.corps,
+    })
+
+    const fichier =
+      page.url === '/'
+        ? path.join(DIST, 'index.html')
+        : path.join(DIST, page.url.replace(/^\//, ''), 'index.html')
+
+    await mkdir(path.dirname(fichier), { recursive: true })
+    await writeFile(fichier, html, 'utf8')
+  }
+  console.log(`  ✓ routes applicatives  (${pages.map((p) => p.url).join(' ')})`)
+
+  // ── Fiches biens ──────────────────────────────────────────────────────
+  const fiches = pagesBiens({ biens: publiesSite, agency, base: BASE })
+  verifieDescriptionsBiens(fiches)
+
+  for (const fiche of fiches) {
+    const dossier = path.join(DIST, fiche.chemin)
+    await mkdir(dossier, { recursive: true })
+
+    await writeFile(
+      path.join(dossier, 'index.html'),
+      composePage(coquille, {
+        titre: fiche.titre,
+        description: fiche.description,
+        canonique: fiche.url,
+        tete: [
+          preloadRoute(manifeste, 'src/pages/PropertyDetail.jsx'),
+          openGraph({
+            titre: fiche.titre,
+            description: fiche.description,
+            url: fiche.url,
+            image: fiche.image,
+            type: 'website',
+          }),
+          `    ${fiche.balise.split('\n').join('\n    ')}`,
+        ].join('\n'),
+        corps: fiche.corps,
+      }),
+      'utf8',
+    )
+
+    // L'ancienne adresse longue — `/bien/LA1903-LUCASBELLA57510` — continue de
+    // mener au bien. Elle n'est plus réécrite vers l'application depuis que les
+    // références inconnues doivent rendre un vrai 404 : sans ce relais, un lien
+    // posé ailleurs tomberait sur la page d'erreur. La page ne contient que la
+    // redirection et le canonique de la forme courte, qui reste la seule
+    // indexable.
+    const longue = fiche.bien.referenceComplete
+    if (longue && longue !== fiche.bien.reference) {
+      const dossierLong = path.join(DIST, 'bien', longue)
+      await mkdir(dossierLong, { recursive: true })
+      await writeFile(
+        path.join(dossierLong, 'index.html'),
+        `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=${echappe(fiche.url)}" />
+    <link rel="canonical" href="${echappe(fiche.url)}" />
+    <meta name="robots" content="noindex, follow" />
+    <title>${echappe(fiche.titre)}</title>
+  </head>
+  <body>
+    <p><a href="${echappe(fiche.url)}">${echappe(fiche.bien.titre)}</a></p>
+  </body>
+</html>
+`,
+        'utf8',
+      )
+    }
+  }
+  console.log(`  ✓ /bien/…  (${fiches.length} fiches)`)
+
+  // ── Fichiers de racine ────────────────────────────────────────────────
+  await ecritRobots(DIST, BASE)
+  await ecritLlms(DIST, BASE, { agency, articles, communes })
+  await ecrit404(DIST, coquille, BASE, agency)
+  console.log('  ✓ /robots.txt · /llms.txt · /404.html')
+
+  // ── Sitemap ───────────────────────────────────────────────────────────
+  //
+  // Chaque entrée porte une date de modification RÉELLE ou pas de date du
+  // tout. Trois provenances, aucune inventée : le dernier commit qui a touché
+  // la page pour les routes écrites en dur, la date de révision de l'article
+  // pour le blog, la date de modification de la fiche pour les biens.
+  const publies = publiesSite
+
+  const datesArticles = articles.map((a) => a.dateModification ?? a.datePublication)
+
+  const entreesFixes = await Promise.all(
+    ROUTES_FIXES.map(async (r) => ({
+      url: `${BASE}${r.url}`,
+      // `/blog` n'a pas de source propre : la liste change quand un article
+      // paraît, sa date est donc celle du plus récent d'entre eux.
+      date: r.source ? await dateCommit(r.source) : plusRecente(...datesArticles),
+    })),
+  )
+
   const entrees = [
-    ...ROUTES_FIXES.map((r) => ({ url: `${BASE}${r.url}`, priorite: r.priorite, date: null })),
+    ...entreesFixes,
     ...articles.map((a) => ({
       url: `${BASE}/blog/${a.slug}`,
-      priorite: '0.7',
       date: a.dateModification ?? a.datePublication,
     })),
-    // Les pages d'agence passent en dernier et en priorité basse : ce sont des
-    // points d'atterrissage, pas le contenu du site.
-    ...communes.map((c) => ({ url: `${BASE}/agence-immobiliere/${c.slug}`, priorite: '0.5', date: null })),
+    // Une page d'agence n'a pas de contenu propre : elle liste les articles
+    // consacrés à la commune, donc elle date du plus récent d'entre eux.
+    ...communes.map((c) => ({
+      url: `${BASE}/agence-immobiliere/${c.slug}`,
+      date: plusRecente(
+        ...articles.filter((a) => a.ville === c.nom).map((a) => a.dateModification ?? a.datePublication),
+      ),
+    })),
+    ...publies.map((b) => ({
+      url: `${BASE}/bien/${b.reference}`,
+      date: (b.dateModification ?? b.datePublication ?? '').slice(0, 10) || null,
+    })),
   ]
 
   await writeFile(
@@ -349,12 +657,14 @@ async function main() {
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entrees
       .map(
         (e) =>
-          `  <url>\n    <loc>${echappe(e.url)}</loc>\n${e.date ? `    <lastmod>${echappe(e.date)}</lastmod>\n` : ''}    <priority>${e.priorite}</priority>\n  </url>`,
+          `  <url>\n    <loc>${echappe(e.url)}</loc>\n${e.date ? `    <lastmod>${echappe(e.date)}</lastmod>\n` : ''}  </url>`,
       )
       .join('\n')}\n</urlset>\n`,
     'utf8',
   )
-  console.log(`  ✓ /sitemap.xml  (${entrees.length} adresses)`)
+
+  const dates = entrees.filter((e) => e.date).length
+  console.log(`  ✓ /sitemap.xml  (${entrees.length} adresses, ${dates} datées, dont ${publies.length} biens)`)
 }
 
 main().catch((error) => {

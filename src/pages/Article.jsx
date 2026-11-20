@@ -6,6 +6,7 @@ import { ArrowLink } from '../components/ui/ArrowLink'
 import { Button } from '../components/ui/Button'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { articles, articleParSlug, dateLisible } from '../lib/articles'
+import { auteur } from '../data/auteur'
 import {
   articlesLies,
   decoupeLien,
@@ -81,6 +82,8 @@ function Illustration({ visuel, hero = false }) {
       <img
         src={visuel.src}
         alt={visuel.alt ?? ''}
+        width={visuel.width ?? 1200}
+        height={visuel.height ?? (visuel.type === 'graphique' ? 675 : 675)}
         className={visuel.type === 'graphique' ? 'w-full' : 'aspect-[16/9] w-full object-cover'}
         loading={hero ? 'eager' : 'lazy'}
         decoding={hero ? 'auto' : 'async'}
@@ -152,6 +155,17 @@ export default function Article() {
           {meta.join(' · ')}
         </p>
 
+        {/* Signature — jumelle de celle du prérendu. Elle suit la ligne de
+            contexte plutôt que de s'y fondre : un nom d'auteur n'est pas une
+            métadonnée de plus, c'est ce qui engage quelqu'un sur ce qui est
+            écrit au-dessous. */}
+        <p className="mt-3 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/55">
+          Publié par{' '}
+          <Link to={auteur.url} className="text-brass-sombre">
+            {auteur.nom}
+          </Link>
+        </p>
+
         <h1 className="mt-6 font-display text-4xl leading-tight text-ink">{article.titre}</h1>
 
         <Illustration visuel={{ ...article.imageEnTete, type: 'photo' }} hero />
@@ -220,8 +234,8 @@ export default function Article() {
               Vous vous demandez ce que vaut votre bien{ou} ?
             </p>
             <p className="mt-3 text-base leading-relaxed text-ink/70">
-              Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article,
-              appliqués à l’adresse, à la surface et à l’état de votre logement.
+              Obtenez une estimation gratuite et sans engagement, à partir de l’adresse de
+              votre bien.
             </p>
             <p className="mt-6">
               <Button to="/estimer" variant="primary">
@@ -246,6 +260,8 @@ export default function Article() {
                     {autre.imageEnTete?.src ? (
                       <img
                         src={autre.imageEnTete.src}
+                        width={1200}
+                        height={750}
                         alt=""
                         className="aspect-[16/10] w-full object-cover"
                         loading="lazy"
@@ -327,8 +343,7 @@ export default function Article() {
         <p className="mt-10 font-mono text-xs text-ink/65">
           <Link to="/estimer" className="transition-colors hover:text-brass-sombre">
             Estimation en ligne
-          </Link>{' '}
-          · Prix relevés sur le secteur, hors majoration commerciale.
+          </Link>
         </p>
       </article>
     </Section>

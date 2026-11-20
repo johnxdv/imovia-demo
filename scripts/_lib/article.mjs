@@ -26,6 +26,7 @@ import {
   titreCourt,
   visuelsParSection,
 } from '../../api/_lib/articleTexte.js'
+import { auteur } from '../../src/data/auteur.js'
 
 // `slugify` est défini dans `api/_lib/` et réexporté ici : la fonction
 // serverless d'administration et ce script fabriquent le même identifiant pour
@@ -323,7 +324,7 @@ ${s.enonces.map((e) => `                <li class="mt-1.5 font-mono text-xs lead
         </section>`
     : `        <section class="mt-16 border-t border-ink/10 pt-10">
           <p class="text-lg leading-relaxed text-ink/75">Vous vous demandez ce que vaut votre bien${echappe(ou)} ?</p>
-          <p class="mt-3 text-base leading-relaxed text-ink/70">Notre estimation en ligne s’appuie sur les mêmes relevés de prix que cet article, appliqués à l’adresse, à la surface et à l’état de votre logement.</p>
+          <p class="mt-3 text-base leading-relaxed text-ink/70">Obtenez une estimation gratuite et sans engagement, à partir de l’adresse de votre bien.</p>
           <p class="mt-6">
             <a href="/estimer" class="inline-flex items-center gap-2.5 border border-brass bg-brass px-6 py-3 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-ink">Estimez votre bien${echappe(ou)}</a>
           </p>
@@ -365,6 +366,11 @@ ${a.imageEnTete?.src ? `                <img src="${echappe(a.imageEnTete.src)}"
     .map((t) => echappe(t))
     .join(' · ')
 
+  // Signature. Elle suit la ligne de contexte plutôt que de s'y fondre : un
+  // nom d'auteur n'est pas une métadonnée de plus, c'est ce qui engage
+  // quelqu'un sur ce qui est écrit au-dessous.
+  const signature = `<p class="mt-3 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/55">Publié par <a href="${echappe(auteur.url)}" class="text-brass-sombre">${echappe(auteur.nom)}</a></p>`
+
   // Le fond blanc est porté ICI et pas par le `body`, qui reste en `bg-ink`
   // pour tout le site. Sans ce conteneur, la page prérendue afficherait du
   // texte sombre sur fond sombre pendant la fraction de seconde qui précède la
@@ -373,6 +379,7 @@ ${a.imageEnTete?.src ? `                <img src="${echappe(a.imageEnTete.src)}"
   return `      <div class="bg-white text-ink">
         <article class="mx-auto w-full max-w-3xl px-6 py-24">
         <p class="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brass-sombre">${meta}</p>
+${signature}
         <h1 class="mt-6 font-display text-4xl leading-tight text-ink">${echappe(article.titre)}</h1>
 ${figure(article.imageEnTete, { hero: true })}
         <p class="mt-10 text-xl leading-relaxed text-ink/80">${echappe(article.resume)}</p>
