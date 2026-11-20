@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { Navbar } from './components/layout/Navbar'
 import { Footer } from './components/layout/Footer'
 import { ScrollToTop } from './components/layout/ScrollToTop'
+import { MetaRoute } from './components/layout/MetaRoute'
 
 import Home from './pages/Home'
 import Estimer from './pages/Estimer'
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-ink">
       <ScrollToTop />
+      <MetaRoute />
       <Navbar />
       <main id="contenu" className="flex-1">
         <Routes>

@@ -2,14 +2,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Lock } from 'lucide-react'
 import { agency } from '../data/agency'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 const labelClass = 'mb-2 block font-mono text-[0.62rem] uppercase tracking-micro text-stone/50'
 const controlClass =
   'w-full border border-brass/25 bg-transparent px-4 py-3 font-sans text-sm text-stone placeholder:text-stone/35 focus:border-brass focus:outline-none'
 
 export default function EspaceVendeur() {
-  useDocumentTitle('Espace vendeur')
   const [note, setNote] = useState(false)
 
   return (

@@ -3,7 +3,6 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Section } from '../components/ui/Section'
 import { primaryNav, secondaryNav, legalNav } from '../lib/nav'
 import { availableFor, soldProperties } from '../lib/properties'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 function LinkColumn({ title, links }) {
   return (
@@ -23,7 +22,6 @@ function LinkColumn({ title, links }) {
 }
 
 export default function PlanDuSite() {
-  useDocumentTitle('Plan du site')
 
   const ventes = availableFor('vente').map((p) => ({ to: `/bien/${p.reference}`, label: p.titre }))
   const locations = availableFor('location').map((p) => ({ to: `/bien/${p.reference}`, label: p.titre }))

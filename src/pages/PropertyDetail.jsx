@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Maximize, LayoutGrid, BedDouble, MapPin, Phone } from 'lucide-react'
 import { getByReference } from '../lib/properties'
@@ -12,7 +12,7 @@ import { InfosComplementaires } from '../components/property/InfosComplementaire
 import { EnergyDiagnostic } from '../components/property/EnergyDiagnostic'
 import { MentionsFinancieres } from '../components/property/MentionsFinancieres'
 import { agency } from '../data/agency'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
+import { descriptionBien, titreBien } from '../lib/seoBien'
 
 function Stat({ icon: Icon, label, value }) {
   return (
@@ -36,7 +36,6 @@ function SectionTitle({ children }) {
 }
 
 function NotFound() {
-  useDocumentTitle('Bien introuvable')
   return (
     <div className="container-page flex min-h-[70vh] flex-col justify-center py-32 text-stone">
       <p className="eyebrow">Erreur 404</p>
@@ -58,7 +57,21 @@ export default function PropertyDetail() {
   const property = getByReference(reference)
   const [active, setActive] = useState(0)
 
-  useDocumentTitle(property ? property.titre : 'Bien introuvable')
+  // Le titre et la description du prérendu, reposés à l'identique : une
+  // navigation interne ne recharge pas le document, et Google exécute le
+  // JavaScript. Les deux viennent de `src/lib/seoBien.js` pour qu'ils ne
+  // puissent pas diverger (voir l'en-tête de ce module).
+  useEffect(() => {
+    if (!property) {
+      document.title = `Bien introuvable — ${agency.name}`
+      return
+    }
+
+    document.title = titreBien(property, agency.name)
+
+    const balise = document.querySelector('meta[name="description"]')
+    if (balise) balise.setAttribute('content', descriptionBien(property, agency))
+  }, [property])
 
   if (!property) return <NotFound />
 

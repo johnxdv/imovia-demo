@@ -48,6 +48,12 @@ import { baliseHtml } from './_lib/jsonLd.mjs'
 import { lireSecteur } from './_lib/planification.mjs'
 import { communesAvecPage, presentationAgence } from '../api/_lib/articleTexte.js'
 import { ecrit404, ecritLlms, ecritRobots } from './_lib/fichiers-racine.mjs'
+import { pagesSite, verifieDescriptions } from './_lib/pages-site.mjs'
+import {
+  biensPublies,
+  pagesBiens,
+  verifieDescriptionsBiens,
+} from './_lib/pages-biens.mjs'
 import biens from '../src/data/properties.json' with { type: 'json' }
 
 const RACINE = path.resolve(import.meta.dirname, '..')
@@ -116,9 +122,6 @@ const plusRecente = (...dates) => {
   return valides.length > 0 ? valides[valides.length - 1] : null
 }
 
-/** Les biens que le site publie — les seuls à entrer au sitemap. */
-export const biensPublies = (tous) =>
-  (tous ?? []).filter((b) => b?.reference && b.statut === 'disponible')
 
 /**
  * Compose une page à partir de la coquille construite par Vite.
@@ -383,6 +386,103 @@ async function main() {
   }
   console.log(`  ✓ /agence-immobiliere/…  (${communes.map((c) => c.nom).join(', ')})`)
 
+  // ── Routes applicatives ───────────────────────────────────────────────
+  //
+  // Écrites AVANT les fichiers de racine, parce que la page d'accueil remplace
+  // `dist/index.html` — la coquille dont tout le reste est tiré, déjà lue plus
+  // haut. Les autres routes vont dans leur propre dossier, comme les articles.
+  const publiesSite = biensPublies(biens)
+  const pages = pagesSite({ agency, articles, communes, biens: publiesSite })
+  verifieDescriptions(pages)
+
+  for (const page of pages) {
+    const url = page.url === '/' ? `${BASE}/` : `${BASE}${page.url}`
+
+    const html = composePage(coquille, {
+      titre: page.titre,
+      description: page.description,
+      canonique: url,
+      tete: openGraph({
+        titre: page.titre,
+        description: page.description,
+        url,
+        image: null,
+        type: page.ogType,
+      }),
+      corps: page.corps,
+    })
+
+    const fichier =
+      page.url === '/'
+        ? path.join(DIST, 'index.html')
+        : path.join(DIST, page.url.replace(/^\//, ''), 'index.html')
+
+    await mkdir(path.dirname(fichier), { recursive: true })
+    await writeFile(fichier, html, 'utf8')
+  }
+  console.log(`  ✓ routes applicatives  (${pages.map((p) => p.url).join(' ')})`)
+
+  // ── Fiches biens ──────────────────────────────────────────────────────
+  const fiches = pagesBiens({ biens: publiesSite, agency, base: BASE })
+  verifieDescriptionsBiens(fiches)
+
+  for (const fiche of fiches) {
+    const dossier = path.join(DIST, fiche.chemin)
+    await mkdir(dossier, { recursive: true })
+
+    await writeFile(
+      path.join(dossier, 'index.html'),
+      composePage(coquille, {
+        titre: fiche.titre,
+        description: fiche.description,
+        canonique: fiche.url,
+        tete: [
+          openGraph({
+            titre: fiche.titre,
+            description: fiche.description,
+            url: fiche.url,
+            image: fiche.image,
+            type: 'website',
+          }),
+          `    ${fiche.balise.split('\n').join('\n    ')}`,
+        ].join('\n'),
+        corps: fiche.corps,
+      }),
+      'utf8',
+    )
+
+    // L'ancienne adresse longue — `/bien/LA1903-LUCASBELLA57510` — continue de
+    // mener au bien. Elle n'est plus réécrite vers l'application depuis que les
+    // références inconnues doivent rendre un vrai 404 : sans ce relais, un lien
+    // posé ailleurs tomberait sur la page d'erreur. La page ne contient que la
+    // redirection et le canonique de la forme courte, qui reste la seule
+    // indexable.
+    const longue = fiche.bien.referenceComplete
+    if (longue && longue !== fiche.bien.reference) {
+      const dossierLong = path.join(DIST, 'bien', longue)
+      await mkdir(dossierLong, { recursive: true })
+      await writeFile(
+        path.join(dossierLong, 'index.html'),
+        `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=${echappe(fiche.url)}" />
+    <link rel="canonical" href="${echappe(fiche.url)}" />
+    <meta name="robots" content="noindex, follow" />
+    <title>${echappe(fiche.titre)}</title>
+  </head>
+  <body>
+    <p><a href="${echappe(fiche.url)}">${echappe(fiche.bien.titre)}</a></p>
+  </body>
+</html>
+`,
+        'utf8',
+      )
+    }
+  }
+  console.log(`  ✓ /bien/…  (${fiches.length} fiches)`)
+
   // ── Fichiers de racine ────────────────────────────────────────────────
   await ecritRobots(DIST, BASE)
   await ecritLlms(DIST, BASE, { agency, articles, communes })
@@ -395,7 +495,7 @@ async function main() {
   // tout. Trois provenances, aucune inventée : le dernier commit qui a touché
   // la page pour les routes écrites en dur, la date de révision de l'article
   // pour le blog, la date de modification de la fiche pour les biens.
-  const publies = biensPublies(biens)
+  const publies = publiesSite
 
   const datesArticles = articles.map((a) => a.dateModification ?? a.datePublication)
 

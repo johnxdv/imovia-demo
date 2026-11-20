@@ -20,7 +20,6 @@ import { EstimationResultStep } from '../components/estimation/EstimationResultS
 import { EstimationIndisponibleStep } from '../components/estimation/EstimationIndisponibleStep'
 import { requestEstimation } from '../lib/estimation'
 import { EASE } from '../lib/motion'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 /**
  * Étapes majeures du parcours, dans l'ordre — sert de base au rail d'étapes
@@ -153,7 +152,6 @@ function stadeChantier(step, avancement, affinage, conversation) {
  * parlent par `ChantierContext`, jamais l'inverse.
  */
 export default function Estimer() {
-  useDocumentTitle('Estimer')
   const navigate = useNavigate()
   const [step, setStep] = useState('intro')
   const [address, setAddress] = useState(null)

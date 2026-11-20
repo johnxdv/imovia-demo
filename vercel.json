@@ -13,8 +13,7 @@
     { "source": "/mentions-legales", "destination": "/index.html" },
     { "source": "/confidentialite", "destination": "/index.html" },
     { "source": "/plan-du-site", "destination": "/index.html" },
-    { "source": "/seo", "destination": "/index.html" },
-    { "source": "/bien/:reference", "destination": "/index.html" }
+    { "source": "/seo", "destination": "/index.html" }
   ],
   "headers": [
     {

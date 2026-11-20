@@ -2,7 +2,6 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Section } from '../components/ui/Section'
 import { Reveal, RevealGroup, RevealChild } from '../components/ui/Reveal'
 import { Button } from '../components/ui/Button'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 // Parcours vendeur — véritable séquence chronologique : la numérotation
 // 01→05 est ici justifiée.
@@ -34,7 +33,6 @@ function num(i) {
 }
 
 export default function Vendre() {
-  useDocumentTitle('Vendre')
   return (
     <>
       <PageHeader

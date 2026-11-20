@@ -21,7 +21,6 @@ import { Button } from '../components/ui/Button'
 import { photoUrl, localPhoto } from '../lib/format'
 import { team } from '../data/team'
 import { latestAvailable } from '../lib/properties'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 // Photo d'ouverture de la section « À propos » — les bords de la Sarre à
 // Sarreguemines, fournie par l'agence et déclinée en quatre largeurs. Le
@@ -663,7 +662,6 @@ function RecrutementTeaser() {
 }
 
 export default function Home() {
-  useDocumentTitle('')
   return (
     <>
       <Hero />

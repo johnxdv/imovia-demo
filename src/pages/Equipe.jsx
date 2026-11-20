@@ -8,14 +8,12 @@ import { PlanFrame } from '../components/ui/PlanFrame'
 import { ContactConseillerModal } from '../components/team/ContactConseillerModal'
 import { team } from '../data/team'
 import { photoUrl, photoSrcSet } from '../lib/format'
-import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 // Photo générique, volontairement floutée à l'excès — la carte Recrutement
 // n'identifie personne, elle invite à postuler.
 const RECRUTEMENT_PHOTO = '1607990281513-2c110a25bd8c'
 
 export default function Equipe() {
-  useDocumentTitle('Équipe')
   const [activeAdvisor, setActiveAdvisor] = useState(null)
 
   return (
