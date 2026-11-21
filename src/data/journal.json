@@ -1,6 +1,27 @@
 {
   "entrees": [
     {
+      "date": "2026-11-21",
+      "slug": "maison-de-famille-en-indivision-comment-la-vendre-quand-les-heritiers",
+      "titre": "Maison de famille en indivision : comment la vendre quand les héritiers ne sont pas d'accord",
+      "sujet": "Maison de famille en indivision : comment la vendre quand les héritiers ne sont pas d'accord",
+      "commune": "Diebling",
+      "codeInsee": "57176",
+      "motCle": "vendre maison succession indivision Moselle",
+      "angle": "Le parcours concret d'une vente après succession en Moselle-Est : attestation notariée, accord des indivisaires, estimation qui met tout le monde d'accord, cas des maisons vides depuis des années dans les villages.",
+      "genre": "guide pratique",
+      "seoCheck": {
+        "ok": true,
+        "manquants": [],
+        "occurrences": {
+          "agence": 1,
+          "vente": 1,
+          "estimation": 1
+        },
+        "corrections": 0
+      }
+    },
+    {
       "date": "2026-11-16",
       "slug": "pourquoi-le-prix-au-m-a-farebersviller-surprend-tout-le-monde",
       "titre": "Pourquoi le prix au m² à Farébersviller surprend tout le monde",
